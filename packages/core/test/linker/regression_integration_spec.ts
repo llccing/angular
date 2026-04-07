@@ -34,11 +34,11 @@ import {
   TemplateRef,
   ViewChildren,
   ViewContainerRef,
+  provideZoneChangeDetection,
 } from '../../src/core';
 import {fakeAsync, inject, TestBed, tick} from '../../testing';
-import {BrowserModule, By} from '@angular/platform-browser';
-import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
-import {expect} from '@angular/platform-browser/testing/src/matchers';
+import {BrowserModule, By, platformBrowser} from '@angular/platform-browser';
+import {expect} from '@angular/private/testing/matchers';
 
 describe('regressions', () => {
   beforeEach(() => {
@@ -337,12 +337,14 @@ describe('regressions', () => {
     const ctx = TestBed.configureTestingModule({declarations: [MyComp]}).createComponent(MyComp);
 
     ctx.componentInstance.show = true;
+    ctx.changeDetectorRef.markForCheck();
     ctx.detectChanges();
     expect(ctx.componentInstance.viewContainers.length).toBe(2);
     const vc = ctx.componentInstance.viewContainers.first;
     expect(vc).toBeDefined();
 
     ctx.componentInstance.show = false;
+    ctx.changeDetectorRef.markForCheck();
     ctx.detectChanges();
     expect(ctx.componentInstance.viewContainers.first).toBe(vc);
   });
@@ -481,11 +483,11 @@ describe('regressions using bootstrap', () => {
         imports: [BrowserModule],
         declarations: [ErrorComp, EventDir],
         bootstrap: [ErrorComp],
-        providers: [{provide: ErrorHandler, useValue: errorHandler}],
+        providers: [{provide: ErrorHandler, useValue: errorHandler}, provideZoneChangeDetection()],
       })
       class TestModule {}
 
-      platformBrowserDynamic()
+      platformBrowser()
         .bootstrapModule(TestModule)
         .then((ref) => {
           NgZone.assertNotInAngularZone();

@@ -6,15 +6,16 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {DtsMetadataReader} from '@angular/compiler-cli/src/ngtsc/metadata';
-import {TypeScriptReflectionHost} from '@angular/compiler-cli/src/ngtsc/reflection';
-import {confirmAsSerializable, Serializable} from '../helpers/serializable';
+import {
+  DtsMetadataReader,
+  TypeScriptReflectionHost,
+} from '@angular/compiler-cli/private/migrations';
+import {confirmAsSerializable} from '../helpers/serializable';
 import {TsurgeComplexMigration} from '../migration';
 import {ProgramInfo} from '../program_info';
 import {Replacement, TextUpdate} from '../replacement';
 import {findOutputDeclarationsAndReferences, OutputID} from './output_helpers';
 import {projectFile} from '../project_paths';
-import {MigrationStats} from '../base_migration';
 
 type AnalysisUnit = {[id: OutputID]: {seenProblematicUsage: boolean}};
 type GlobalMetadata = {[id: OutputID]: {canBeMigrated: boolean}};
@@ -120,7 +121,7 @@ export class OutputMigration extends TsurgeComplexMigration<AnalysisUnit, Global
     return {replacements};
   }
 
-  override async stats(globalMetadata: GlobalMetadata): Promise<MigrationStats> {
+  override async stats(globalMetadata: GlobalMetadata) {
     let allOutputs = 0;
     let migratedOutputs = 0;
 
@@ -131,11 +132,9 @@ export class OutputMigration extends TsurgeComplexMigration<AnalysisUnit, Global
       }
     }
 
-    return {
-      counters: {
-        allOutputs,
-        migratedOutputs,
-      },
-    };
+    return confirmAsSerializable({
+      allOutputs,
+      migratedOutputs,
+    });
   }
 }

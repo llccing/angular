@@ -6,14 +6,16 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {ImportManager, PartialEvaluator} from '@angular/compiler-cli/private/migrations';
-import {getAngularDecorators, QueryFunctionName} from '@angular/compiler-cli/src/ngtsc/annotations';
-import {TypeScriptReflectionHost} from '@angular/compiler-cli/src/ngtsc/reflection';
-import assert from 'assert';
+import {
+  ImportManager,
+  PartialEvaluator,
+  getAngularDecorators,
+  QueryFunctionName,
+  TypeScriptReflectionHost,
+} from '@angular/compiler-cli/private/migrations';
 import ts from 'typescript';
 import {
   confirmAsSerializable,
-  MigrationStats,
   ProgramInfo,
   projectFile,
   Replacement,
@@ -644,15 +646,13 @@ export class SignalQueriesMigration extends TsurgeComplexMigration<
       }
     }
 
-    return {
-      counters: {
-        queriesCount,
-        multiQueries,
-        incompatibleQueries,
-        ...fieldIncompatibleCounts,
-        ...classIncompatibleCounts,
-      },
-    };
+    return confirmAsSerializable({
+      queriesCount,
+      multiQueries,
+      incompatibleQueries,
+      ...fieldIncompatibleCounts,
+      ...classIncompatibleCounts,
+    });
   }
 }
 

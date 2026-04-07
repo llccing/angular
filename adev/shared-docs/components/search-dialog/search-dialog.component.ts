@@ -7,53 +7,53 @@
  */
 
 import {
-  ChangeDetectionStrategy,
-  Component,
-  ElementRef,
-  Injector,
-  OnDestroy,
   afterNextRender,
+  Component,
+  DestroyRef,
   effect,
+  ElementRef,
   inject,
+  Injector,
   output,
   viewChild,
   viewChildren,
 } from '@angular/core';
 
-import {WINDOW} from '../../providers/index';
-import {ClickOutside} from '../../directives/index';
-import {Search} from '../../services/index';
+import {ClickOutside, SearchItem} from '../../directives';
+import {WINDOW} from '../../providers';
+import {Search, SearchHistory} from '../../services';
 
-import {TextField} from '../text-field/text-field.component';
-import {FormsModule} from '@angular/forms';
 import {ActiveDescendantKeyManager} from '@angular/cdk/a11y';
-import {SearchItem} from '../../directives/search-item/search-item.directive';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
+import {form, FormField} from '@angular/forms/signals';
 import {Router, RouterLink} from '@angular/router';
 import {fromEvent} from 'rxjs';
+import {RelativeLink} from '../../pipes';
 import {AlgoliaIcon} from '../algolia-icon/algolia-icon.component';
-import {RelativeLink} from '../../pipes/relative-link.pipe';
+import {SearchHistoryComponent} from '../search-history/search-history.component';
+import {TextField} from '../text-field/text-field.component';
 
 @Component({
   selector: 'docs-search-dialog',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ClickOutside,
     TextField,
-    FormsModule,
+    FormField,
     SearchItem,
     AlgoliaIcon,
     RelativeLink,
     RouterLink,
+    SearchHistoryComponent,
   ],
   templateUrl: './search-dialog.component.html',
   styleUrls: ['./search-dialog.component.scss'],
 })
-export class SearchDialog implements OnDestroy {
-  onClose = output();
-  dialog = viewChild.required<ElementRef<HTMLDialogElement>>('searchDialog');
-  items = viewChildren(SearchItem);
+export class SearchDialog {
+  readonly onClose = output();
+  readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('searchDialog');
+  readonly items = viewChildren(SearchItem);
 
+  readonly history = inject(SearchHistory);
   private readonly search = inject(Search);
   private readonly relativeLink = new RelativeLink();
   private readonly router = inject(Router);
@@ -64,10 +64,16 @@ export class SearchDialog implements OnDestroy {
     this.injector,
   ).withWrap();
 
-  searchQuery = this.search.searchQuery;
-  searchResults = this.search.searchResults;
+  readonly resultsResource = this.search.resultsResource;
+  readonly searchResults = this.search.searchResults;
+
+  searchForm = form(this.search.searchQuery);
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.keyManager.destroy());
+
+    // Thinking about refactoring this to a single afterRenderEffect ?
+    // Answer: It won't have the same behavior
     effect(() => {
       this.items();
       afterNextRender(
@@ -102,17 +108,13 @@ export class SearchDialog implements OnDestroy {
       });
   }
 
-  ngOnDestroy(): void {
-    this.keyManager.destroy();
-  }
-
   closeSearchDialog() {
     this.dialog().nativeElement.close();
     this.onClose.emit();
   }
 
   private navigateToTheActiveItem(): void {
-    const activeItemLink: string | undefined = this.keyManager.activeItem?.item?.url;
+    const activeItemLink: string | undefined = this.keyManager.activeItem?.item()?.url;
 
     if (!activeItemLink) {
       return;

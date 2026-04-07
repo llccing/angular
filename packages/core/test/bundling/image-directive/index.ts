@@ -6,9 +6,15 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Component, importProvidersFrom} from '../../../src/core';
+import '@angular/compiler';
 import {bootstrapApplication, provideProtractorTestingSupport} from '@angular/platform-browser';
 import {RouterModule} from '@angular/router';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  importProvidersFrom,
+  provideZoneChangeDetection,
+} from '../../../src/core';
 
 import {BasicComponent} from './e2e/basic/basic';
 import {FillModeFailingComponent, FillModePassingComponent} from './e2e/fill-mode/fill-mode';
@@ -19,6 +25,7 @@ import {
 import {ImagePerfWarningsLazyComponent} from './e2e/image-perf-warnings-lazy/image-perf-warnings-lazy';
 import {ImagePerfWarningsOversizedComponent} from './e2e/image-perf-warnings-oversized/image-perf-warnings-oversized';
 import {SvgNoOversizedPerfWarningsComponent} from './e2e/image-perf-warnings-oversized/svg-no-perf-oversized-warnings';
+import {LcpCheckDuplicate} from './e2e/lcp-check-duplicate/lcp-check-duplicate';
 import {LcpCheckComponent} from './e2e/lcp-check/lcp-check';
 import {
   OversizedImageComponentFailing,
@@ -29,9 +36,9 @@ import {PlaygroundComponent} from './playground';
 
 @Component({
   selector: 'app-root',
-  standalone: true,
   imports: [RouterModule],
   template: '<router-outlet></router-outlet>',
+  changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class RootComponent {}
 
@@ -42,6 +49,7 @@ const ROUTES = [
   // Paths below are used for e2e testing:
   {path: 'e2e/basic', component: BasicComponent},
   {path: 'e2e/lcp-check', component: LcpCheckComponent},
+  {path: 'e2e/lcp-check-duplicate', component: LcpCheckDuplicate},
   {path: 'e2e/image-perf-warnings-lazy', component: ImagePerfWarningsLazyComponent},
   {path: 'e2e/image-perf-warnings-oversized', component: ImagePerfWarningsOversizedComponent},
   {path: 'e2e/svg-no-perf-oversized-warnings', component: SvgNoOversizedPerfWarningsComponent},
@@ -56,6 +64,7 @@ const ROUTES = [
 
 bootstrapApplication(RootComponent, {
   providers: [
+    provideZoneChangeDetection(),
     provideProtractorTestingSupport(), //
     importProvidersFrom(RouterModule.forRoot(ROUTES)),
   ],

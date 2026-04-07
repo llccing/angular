@@ -6,31 +6,48 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import type {
+import {
   ɵFrameworkAgnosticGlobalUtils as FrameworkAgnosticGlobalUtils,
   ɵHydratedNode as HydrationNode,
 } from '@angular/core';
-import {HydrationStatus} from 'protocol';
+import {HydrationStatus} from '../../../../protocol';
 
 import {ComponentTreeNode} from '../interfaces';
 import {ngDebugClient} from '../ng-debug-api/ng-debug-api';
 import {isCustomElement} from '../utils';
+import {
+  ControlFlowBlocksIterator,
+  createControlFlowTreeNode,
+  isControlFlowBlock,
+} from './control-flow';
 
-const extractViewTree = (
+interface TreeExtractionContext {
+  blocksIterator: ControlFlowBlocksIterator;
+  rootId: number;
+  getComponent?: FrameworkAgnosticGlobalUtils['getComponent'];
+  getDirectives?: FrameworkAgnosticGlobalUtils['getDirectives'];
+  getDirectiveMetadata?: FrameworkAgnosticGlobalUtils['getDirectiveMetadata'];
+}
+
+function extractViewTree(
   domNode: Node | Element,
   result: ComponentTreeNode[],
-  getComponent?: FrameworkAgnosticGlobalUtils['getComponent'],
-  getDirectives?: FrameworkAgnosticGlobalUtils['getDirectives'],
-  getDirectiveMetadata?: FrameworkAgnosticGlobalUtils['getDirectiveMetadata'],
-): ComponentTreeNode[] => {
+  ctx: TreeExtractionContext,
+  nodesToSkip = new Set<Node>(),
+): void {
   // Ignore DOM Node if it came from a different frame. Use instanceof Node to check this.
   if (!(domNode instanceof Node)) {
-    return result;
+    return;
   }
 
-  const directives = getDirectives?.(domNode) ?? [];
+  if (isControlFlowBlock(domNode, ctx.blocksIterator)) {
+    groupControlFlowBlocksChildren(ctx, result, nodesToSkip);
+    return;
+  }
+
+  const directives = ctx.getDirectives?.(domNode) ?? [];
   if (!directives.length && !(domNode instanceof Element)) {
-    return result;
+    return;
   }
   const componentTreeNode: ComponentTreeNode = {
     children: [],
@@ -43,43 +60,90 @@ const extractViewTree = (
     }),
     element: domNode.nodeName.toLowerCase(),
     nativeElement: domNode,
-    hydration: hydrationStatus(domNode as HydrationNode),
+    hydration: hydrationStatus(domNode),
+    controlFlowBlock: null,
   };
+
   if (!(domNode instanceof Element)) {
+    // In case we show the Comment nodes
     result.push(componentTreeNode);
-    return result;
+    return;
   }
-  const component = getComponent?.(domNode);
+
+  const isDehydratedElement = componentTreeNode.hydration?.status === 'dehydrated';
+  const component = ctx.getComponent?.(domNode);
   if (component) {
     componentTreeNode.component = {
       instance: component,
       isElement: isCustomElement(domNode),
-      name: getDirectiveMetadata?.(component)?.name ?? domNode.nodeName.toLowerCase(),
+      name: ctx.getDirectiveMetadata?.(component)?.name ?? domNode.nodeName.toLowerCase(),
     };
   }
-  if (component || componentTreeNode.directives.length) {
+
+  const isDisplayableNode = component || componentTreeNode.directives.length || isDehydratedElement;
+  if (isDisplayableNode) {
     result.push(componentTreeNode);
   }
-  if (componentTreeNode.component || componentTreeNode.directives.length) {
-    domNode.childNodes.forEach((node) =>
-      extractViewTree(
-        node,
-        componentTreeNode.children,
-        getComponent,
-        getDirectives,
-        getDirectiveMetadata,
-      ),
-    );
-  } else {
-    domNode.childNodes.forEach((node) =>
-      extractViewTree(node, result, getComponent, getDirectives, getDirectiveMetadata),
-    );
-  }
-  return result;
-};
 
-function hydrationStatus(node: HydrationNode): HydrationStatus {
-  switch (node.__ngDebugHydrationInfo__?.status) {
+  const childrenResult = isDisplayableNode ? componentTreeNode.children : result;
+
+  for (const node of domNode.childNodes) {
+    if (!nodesToSkip.has(node)) {
+      extractViewTree(node, childrenResult, ctx, nodesToSkip);
+    }
+  }
+}
+
+/**
+ * Groups nodes under a @defer block if the given node is the first child of one.
+ * @returns true if a defer block was created, false otherwise.
+ */
+function groupControlFlowBlocksChildren(
+  ctx: TreeExtractionContext,
+  result: ComponentTreeNode[],
+  nodesToSkip: Set<Node>,
+) {
+  const currentBlock = ctx.blocksIterator.currentBlock;
+  if (!currentBlock) {
+    throw new Error('There is no current block in the control flow block iterator.');
+  }
+
+  ctx.blocksIterator.advance();
+  // It's important to store the here index before the recursive call.
+  const iteratorCurrentIdx = ctx.blocksIterator.currentIndex;
+
+  const childrenTree: ComponentTreeNode[] = [];
+  // Extract children
+  for (const child of currentBlock.rootNodes) {
+    if (!nodesToSkip.has(child)) {
+      extractViewTree(child, childrenTree, ctx, nodesToSkip);
+    }
+  }
+
+  const blockTreeNode = createControlFlowTreeNode(
+    currentBlock,
+    childrenTree,
+    iteratorCurrentIdx,
+    ctx.rootId,
+  );
+
+  for (const child of currentBlock.rootNodes) {
+    nodesToSkip.add(child);
+  }
+  result.push(blockTreeNode);
+}
+
+function hydrationStatus(element: Node): HydrationStatus {
+  if (!(element instanceof Element)) {
+    return null;
+  }
+
+  if (!!element.getAttribute('ngh')) {
+    return {status: 'dehydrated'};
+  }
+
+  const hydrationInfo = (element as HydrationNode).__ngDebugHydrationInfo__;
+  switch (hydrationInfo?.status) {
     case 'hydrated':
       return {status: 'hydrated'};
     case 'skipped':
@@ -87,8 +151,8 @@ function hydrationStatus(node: HydrationNode): HydrationStatus {
     case 'mismatched':
       return {
         status: 'mismatched',
-        expectedNodeDetails: node.__ngDebugHydrationInfo__.expectedNodeDetails,
-        actualNodeDetails: node.__ngDebugHydrationInfo__.actualNodeDetails,
+        expectedNodeDetails: hydrationInfo.expectedNodeDetails,
+        actualNodeDetails: hydrationInfo.actualNodeDetails,
       };
     default:
       return null;
@@ -102,14 +166,20 @@ export class RTreeStrategy {
     );
   }
 
-  build(element: Element): ComponentTreeNode[] {
-    // We want to start from the root element so that we can find components which are attached to
-    // the application ref and which host elements have been inserted with DOM APIs.
-    while (element.parentElement) {
-      element = element.parentElement;
-    }
-
+  build(element: Element, rootId: number = 0): ComponentTreeNode[] {
     const ng = ngDebugClient();
-    return extractViewTree(element, [], ng.getComponent, ng.getDirectives, ng.getDirectiveMetadata);
+    const controlFlowBlocks = ng.ɵgetControlFlowBlocks?.(element) ?? [];
+    const ctx: TreeExtractionContext = {
+      blocksIterator: new ControlFlowBlocksIterator(controlFlowBlocks),
+      rootId,
+      getComponent: ng.getComponent,
+      getDirectives: ng.getDirectives,
+      getDirectiveMetadata: ng.getDirectiveMetadata,
+    };
+
+    const tree: ComponentTreeNode[] = [];
+    extractViewTree(element, tree, ctx);
+
+    return tree;
   }
 }

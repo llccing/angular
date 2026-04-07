@@ -49,34 +49,25 @@ export interface DirectiveDecorator {
    *
    * ### Declaring directives
    *
-   * In order to make a directive available to other components in your application, you should do
-   * one of the following:
-   *  - either mark the directive as [standalone](guide/components/importing),
-   *  - or declare it in an NgModule by adding it to the `declarations` and `exports` fields.
-   *
-   * ** Marking a directive as standalone **
-   *
-   * You can add the `standalone: true` flag to the Directive decorator metadata to declare it as
-   * [standalone](guide/components/importing):
+   * By default, directives are marked as standalone, which makes
+   * them available to other components in your application.
    *
    * ```ts
    * @Directive({
-   *   standalone: true,
    *   selector: 'my-directive',
    * })
-   * class MyDirective {}
    * ```
    *
-   * When marking a directive as standalone, please make sure that the directive is not already
-   * declared in an NgModule.
-   *
+   * Please make sure that directives marked as standalone are not already declared in an NgModule.
    *
    * ** Declaring a directive in an NgModule **
-   *
-   * Another approach is to declare a directive in an NgModule:
+   * If you want to declare a directive in an ngModule, add the `standalone: false` flag to the
+   * Directive decorator metadata and add the directive to the `declarations` and `exports`
+   * fields of your ngModule.
    *
    * ```ts
    * @Directive({
+   *   standalone: false,
    *   selector: 'my-directive',
    * })
    * class MyDirective {}
@@ -109,6 +100,12 @@ export interface DirectiveDecorator {
 /**
  * Directive decorator and metadata.
  *
+ * @see [Built-in directives](guide/directives)
+ * @see [Including inputs and outputs](guide/directives/directive-composition-api#including-inputs-and-outputs)
+ * @see [Assigning a reference to an Angular directive](guide/templates/variables#assigning-a-reference-to-an-angular-directive)
+ * @see [Referencing component children with queries](guide/components/queries)
+ * @see [Binding to the host element](guide/components/host-elements#binding-to-the-host-element)
+ * @see [Host directive semantics](guide/directives/directive-composition-api#host-directive-semantics)
  * @Annotation
  * @publicApi
  */
@@ -316,8 +313,9 @@ export interface Directive {
    *
    * For event handling:
    * - The key is the DOM event that the directive listens to.
-   * To listen to global events, add the target to the event name.
-   * The target can be `window`, `document` or `body`.
+   *  The global target names that can be used to prefix an event name are
+   * `document:`, `window:` and `body:`.
+   *
    * - The value is the statement to execute when the event occurs. If the
    * statement evaluates to `false`, then `preventDefault` is applied on the DOM
    * event. A handler method can refer to the `$event` local variable.
@@ -334,12 +332,7 @@ export interface Directive {
   jit?: true;
 
   /**
-   * Angular directives marked as `standalone` do not need to be declared in an NgModule. Such
-   * directives don't depend on any "intermediate context" of an NgModule (ex. configured
-   * providers).
-   *
-   * More information about standalone components, directives, and pipes can be found in [this
-   * guide](guide/components/importing).
+   * Set `standalone` to `false` if you want to import the directive into an NgModule.
    */
   standalone?: boolean;
 
@@ -411,6 +404,9 @@ export interface ComponentDecorator {
    * life-cycle hooks. For more information, see the
    * [Lifecycle Hooks](guide/components/lifecycle) guide.
    *
+   * HELPFUL: You may not use this interface to describe a class that is a component. Decorators do not affect the typing of the decorated classes.
+   * Use `Type<unknown>` instead of `Type<Component>`.
+   *
    * @usageNotes
    *
    * ### Setting component inputs
@@ -423,7 +419,7 @@ export interface ComponentDecorator {
    *
    * ### Setting component outputs
    *
-   * The following example shows two event emitters that emit on an interval. One
+   * The following example shows two output function that emit on an interval. One
    * emits an output every second, while the other emits every five seconds.
    *
    * {@example core/ts/metadata/directives.ts region='component-output-interval'}
@@ -537,6 +533,11 @@ export interface ComponentDecorator {
 /**
  * Supplies configuration metadata for an Angular component.
  *
+ * @see [Anatomy of a component](guide/components)
+ * @see [ChangeDetectionStrategy](guide/components/advanced-configuration#changedetectionstrategy)
+ * @see [Using the viewProviders array](guide/di/hierarchical-dependency-injection#using-the-viewproviders-array)
+ * @see [Style scoping](guide/components/styling#style-scoping)
+ *
  * @publicApi
  */
 export interface Component extends Directive {
@@ -547,7 +548,9 @@ export interface Component extends Directive {
    * which is responsible for propagating the component's bindings.
    * The strategy is one of:
    * - `ChangeDetectionStrategy#OnPush` sets the strategy to `CheckOnce` (on demand).
-   * - `ChangeDetectionStrategy#Default` sets the strategy to `CheckAlways`.
+   * - `ChangeDetectionStrategy#Eager` sets the strategy to `CheckAlways`.
+   *
+   * NOTE: OnPush is enabled by default.
    */
   changeDetection?: ChangeDetectionStrategy;
 
@@ -557,16 +560,6 @@ export interface Component extends Directive {
    *
    */
   viewProviders?: Provider[];
-
-  /**
-   * The module ID of the module that contains the component.
-   * The component must be able to resolve relative URLs for templates and styles.
-   * SystemJS exposes the `__moduleName` variable within each module.
-   * In CommonJS, this can  be set to `module.id`.
-   *
-   * @deprecated This option does not have any effect. Will be removed in Angular v17.
-   */
-  moduleId?: string;
 
   /**
    * The relative path or absolute URL of a template file for an Angular component.
@@ -604,6 +597,7 @@ export interface Component extends Directive {
    * [`state()`](api/animations/state) and `transition()` definitions.
    * See the [Animations guide](guide/animations) and animations API documentation.
    *
+   * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
    */
   animations?: any[];
 
@@ -625,13 +619,6 @@ export interface Component extends Directive {
   encapsulation?: ViewEncapsulation;
 
   /**
-   * Overrides the default interpolation start and end delimiters (`{{` and `}}`).
-   *
-   * @deprecated use Angular's default interpolation delimiters instead.
-   */
-  interpolation?: [string, string];
-
-  /**
    * True to preserve or false to remove potentially superfluous whitespace characters
    * from the compiled template. Whitespace characters are those matching the `\s`
    * character class in JavaScript regular expressions. Default is false, unless
@@ -640,12 +627,7 @@ export interface Component extends Directive {
   preserveWhitespaces?: boolean;
 
   /**
-   * Angular components marked as `standalone` do not need to be declared in an NgModule. Such
-   * components directly manage their own template dependencies (components, directives, and pipes
-   * used in a template) via the imports property.
-   *
-   * More information about standalone components, directives, and pipes can be found in [this
-   * guide](guide/components/importing).
+   * Set `standalone` to `false` if you want to import the directive into an NgModule.
    */
   standalone?: boolean;
 
@@ -656,9 +638,6 @@ export interface Component extends Directive {
    *
    * This property is only available for standalone components - specifying it for components
    * declared in an NgModule generates a compilation error.
-   *
-   * More information about standalone components, directives, and pipes can be found in [this
-   * guide](guide/components/importing).
    */
   imports?: (Type<any> | ReadonlyArray<any>)[];
 
@@ -679,9 +658,6 @@ export interface Component extends Directive {
    *
    * This property is only available for standalone components - specifying it for components
    * declared in an NgModule generates a compilation error.
-   *
-   * More information about standalone components, directives, and pipes can be found in [this
-   * guide](guide/components/importing).
    */
   schemas?: SchemaMetadata[];
 }
@@ -694,7 +670,7 @@ export interface Component extends Directive {
  */
 export const Component: ComponentDecorator = makeDecorator(
   'Component',
-  (c: Component = {}) => ({changeDetection: ChangeDetectionStrategy.Default, ...c}),
+  (c: Component = {}) => ({changeDetection: ChangeDetectionStrategy.Eager, ...c}),
   Directive,
   undefined,
   (type: Type<any>, meta: Component) => compileComponent(type, meta),
@@ -724,7 +700,7 @@ export interface PipeDecorator {
    * to a template. To make it a member of an NgModule,
    * list it in the `declarations` field of the `NgModule` metadata.
    *
-   * @see [Style Guide: Pipe Names](style-guide#02-09)
+   * @see [Pipes](/guide/templates/pipes)
    *
    */
   (obj: Pipe): TypeDecorator;
@@ -763,9 +739,6 @@ export interface Pipe {
   /**
    * Angular pipes marked as `standalone` do not need to be declared in an NgModule. Such
    * pipes don't depend on any "intermediate context" of an NgModule (ex. configured providers).
-   *
-   * More information about standalone components, directives, and pipes can be found in [this
-   * guide](guide/components/importing).
    */
   standalone?: boolean;
 }
@@ -814,7 +787,7 @@ export interface InputDecorator {
    * class BankAccount {
    *   // This property is bound using its original name.
    *   // Defining argument required as true inside the Input Decorator
-   *   // makes this property deceleration as mandatory
+   *   // makes this property declaration as mandatory
    *   @Input({ required: true }) bankName!: string;
    *   // Argument alias makes this property value is bound to a different property name
    *   // when this component is instantiated in a template.
@@ -950,6 +923,9 @@ export interface HostBindingDecorator {
    *
    * @usageNotes
    *
+   * NOTE:  **Always** prefer using the [`host` property](guide/components/host-elements#binding-to-the-host-element) over `@HostBinding`.
+   * This decorator exist exclusively for backwards compatibility.
+   *
    * The following example creates a directive that sets the `valid` and `invalid`
    * class, a style color, and an id on the DOM element that has an `ngModel` directive on it.
    *
@@ -1030,6 +1006,9 @@ export interface HostListenerDecorator {
    *
    * @usageNotes
    *
+   * NOTE:  **Always** prefer using the [`host` property](guide/components/host-elements#binding-to-the-host-element) over `@HostListener`.
+   * This decorator exist exclusively for backwards compatibility.
+   *
    * The following example declares a directive
    * that attaches a click listener to a button and counts clicks.
    *
@@ -1053,13 +1032,15 @@ export interface HostListenerDecorator {
    *
    * The following example registers another DOM event handler that listens for `Enter` key-press
    * events on the global `window`.
-   * ```ts
+   * ```angular-ts
    * import { HostListener, Component } from "@angular/core";
    *
    * @Component({
    *   selector: 'app',
-   *   template: `<h1>Hello, you have pressed enter {{counter}} number of times!</h1> Press enter
-   * key to increment the counter. <button (click)="resetCounter()">Reset Counter</button>`
+   *   template: `
+   *    <h1>Hello, you have pressed enter {{counter}} number of times!</h1>
+   *      Press enter  key to increment the counter.
+   *    <button (click)="resetCounter()">Reset Counter</button>`
    * })
    * class AppComponent {
    *   counter = 0;
@@ -1076,7 +1057,7 @@ export interface HostListenerDecorator {
    * can be found here:
    * https://www.w3.org/TR/DOM-Level-3-Events-key/#named-key-attribute-values
    *
-   * Note that keys can also be combined, e.g. `@HostListener('keydown.shift.a')`.
+   * NOTE: that keys can also be combined, e.g. `@HostListener('keydown.shift.a')`.
    *
    * The global target names that can be used to prefix an event name are
    * `document:`, `window:` and `body:`.

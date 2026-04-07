@@ -6,10 +6,8 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {animate, style, transition, trigger} from '@angular/animations';
-import {Platform} from '@angular/cdk/platform';
-import {Component, computed, inject, OnDestroy, OnInit, signal} from '@angular/core';
-import {Events, MessageBus} from 'protocol';
+import {Component, computed, inject, OnDestroy, signal} from '@angular/core';
+import {Events, MessageBus} from '../../../protocol';
 import {interval} from 'rxjs';
 
 import {FrameManager} from './application-services/frame_manager';
@@ -19,9 +17,11 @@ import {DevToolsTabsComponent} from './devtools-tabs/devtools-tabs.component';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {Frame} from './application-environment';
 import {BrowserStylesService} from './application-services/browser_styles_service';
-import {WINDOW_PROVIDER} from './application-providers/window_provider';
+import {MatIcon, MatIconRegistry} from '@angular/material/icon';
+import {SUPPORTED_APIS} from './application-providers/supported_apis';
+import {APP_DATA} from './application-providers/app_data';
 
-const DETECT_ANGULAR_ATTEMPTS = 10;
+const DETECT_ANGULAR_ATTEMPTS = 20;
 
 enum AngularStatus {
   /**
@@ -41,45 +41,32 @@ enum AngularStatus {
   EXISTS,
 }
 
-const LAST_SUPPORTED_VERSION = 9;
+export const LAST_SUPPORTED_VERSION = 12;
 
 @Component({
   selector: 'ng-devtools',
   templateUrl: './devtools.component.html',
   styleUrls: ['./devtools.component.scss'],
-  animations: [
-    trigger('enterAnimation', [
-      transition(':enter', [style({opacity: 0}), animate('200ms', style({opacity: 1}))]),
-      transition(':leave', [style({opacity: 1}), animate('200ms', style({opacity: 0}))]),
-    ]),
-  ],
-  imports: [DevToolsTabsComponent, MatTooltip, MatProgressSpinnerModule, MatTooltipModule],
-  providers: [WINDOW_PROVIDER, ThemeService],
+  imports: [DevToolsTabsComponent, MatIcon, MatTooltip, MatProgressSpinnerModule, MatTooltipModule],
 })
-export class DevToolsComponent implements OnInit, OnDestroy {
-  readonly AngularStatus = AngularStatus;
+export class DevToolsComponent implements OnDestroy {
+  protected readonly supportedApis = inject(SUPPORTED_APIS);
+  protected readonly appData = inject(APP_DATA);
+
   readonly angularStatus = signal(AngularStatus.UNKNOWN);
-  readonly angularVersion = signal<string | undefined>(undefined);
-  readonly angularIsInDevMode = signal(true);
-  readonly hydration = signal(false);
-  readonly ivy = signal<boolean | undefined>(undefined);
+
+  readonly AngularStatus = AngularStatus;
+  readonly LAST_SUPPORTED_VERSION = LAST_SUPPORTED_VERSION;
 
   readonly supportedVersion = computed(() => {
-    const version = this.angularVersion();
-    if (!version) {
-      return false;
-    }
-    const majorVersion = parseInt(version.toString().split('.')[0], 10);
-
+    const {majorVersion, ivy} = this.appData();
     // Check that major version is either greater or equal to the last supported version
     // or that the major version is 0 for the (0.0.0-PLACEHOLDER) dev build case.
-    return (majorVersion >= LAST_SUPPORTED_VERSION || majorVersion === 0) && this.ivy();
+    return (majorVersion >= LAST_SUPPORTED_VERSION || majorVersion === 0) && ivy;
   });
 
   private readonly _messageBus = inject<MessageBus<Events>>(MessageBus);
-  private readonly _themeService = inject(ThemeService);
   private readonly _frameManager = inject(FrameManager);
-  private readonly _browserStyles = inject(BrowserStylesService);
 
   private _interval$ = interval(500).subscribe((attempt) => {
     if (attempt === DETECT_ANGULAR_ATTEMPTS) {
@@ -88,22 +75,29 @@ export class DevToolsComponent implements OnInit, OnDestroy {
     this._messageBus.emit('queryNgAvailability');
   });
 
-  inspectFrame(frame: Frame) {
-    this._frameManager.inspectFrame(frame);
+  constructor() {
+    inject(ThemeService).initializeThemeWatcher();
+    inject(BrowserStylesService).initBrowserSpecificStyles();
+    inject(MatIconRegistry).setDefaultFontSetClass('material-symbols-outlined');
+
+    this._messageBus.once('ngAvailability', ({version, devMode, ivy, hydration, supportedApis}) => {
+      this.angularStatus.set(version ? AngularStatus.EXISTS : AngularStatus.DOES_NOT_EXIST);
+      this.appData.init({
+        version,
+        devMode,
+        ivy,
+        hydration,
+      });
+      this._interval$.unsubscribe();
+
+      if (supportedApis) {
+        this.supportedApis.init(supportedApis);
+      }
+    });
   }
 
-  ngOnInit(): void {
-    this._themeService.initializeThemeWatcher();
-    this._browserStyles.initBrowserSpecificStyles();
-
-    this._messageBus.once('ngAvailability', ({version, devMode, ivy, hydration}) => {
-      this.angularStatus.set(version ? AngularStatus.EXISTS : AngularStatus.DOES_NOT_EXIST);
-      this.angularVersion.set(version);
-      this.angularIsInDevMode.set(devMode);
-      this.ivy.set(ivy);
-      this._interval$.unsubscribe();
-      this.hydration.set(hydration);
-    });
+  inspectFrame(frame: Frame) {
+    this._frameManager.inspectFrame(frame);
   }
 
   ngOnDestroy(): void {

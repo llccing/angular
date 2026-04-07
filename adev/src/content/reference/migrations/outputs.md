@@ -17,15 +17,15 @@ ng generate @angular/core:output-migration
 
 1. `@Output()` class members are updated to their `output()` equivalent.
 2. Imports in the file of components or directives, at Typescript module level, are updated as well.
-3. Migrates the APIs functions like `event.next()`, which use is not recommended, to `event.emit()` and removes `event.complete()` calls.
+3. Migrates API calls like `event.next()`, whose use is not recommended, to `event.emit()` and removes `event.complete()` calls.
 
 **Before**
 
 ```typescript
-import {Component, Output} from '@angular/core';
+import {Component, Output, EventEmitter} from '@angular/core';
 
 @Component({
-  template: `<button (click)="someMethod('test')">emit</button>`
+  template: `<button (click)="someMethod('test')">emit</button>`,
 })
 export class MyComponent {
   @Output() someChange = new EventEmitter<string>();
@@ -42,7 +42,7 @@ export class MyComponent {
 import {Component, output} from '@angular/core';
 
 @Component({
-  template: `<button (click)="someMethod('test')">emit</button>`
+  template: `<button (click)="someMethod('test')">emit</button>`,
 })
 export class MyComponent {
   readonly someChange = output<string>();

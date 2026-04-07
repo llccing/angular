@@ -9,19 +9,21 @@
 import ts from 'typescript';
 import {
   confirmAsSerializable,
-  MigrationStats,
   ProgramInfo,
   projectFile,
   ProjectFile,
   ProjectFileID,
   Replacement,
   Serializable,
+  TextUpdate,
   TsurgeFunnelMigration,
 } from '../../utils/tsurge';
 
-import {DtsMetadataReader} from '@angular/compiler-cli/src/ngtsc/metadata';
-import {TypeScriptReflectionHost} from '@angular/compiler-cli/src/ngtsc/reflection';
-import {PartialEvaluator} from '@angular/compiler-cli/private/migrations';
+import {
+  DtsMetadataReader,
+  TypeScriptReflectionHost,
+  PartialEvaluator,
+} from '@angular/compiler-cli/private/migrations';
 import {
   getUniqueIdForProperty,
   isTargetOutputDeclaration,
@@ -216,6 +218,8 @@ export class OutputMigration extends TsurgeFunnelMigration<
         }
       }
 
+      addCommentForEmptyEmit(node, info, checker, reflector, dtsReader, outputFieldReplacements);
+
       // detect imports of test runners
       if (isTestRunnerImport(node)) {
         isTestFile = true;
@@ -381,7 +385,7 @@ export class OutputMigration extends TsurgeFunnelMigration<
     return confirmAsSerializable(combinedData);
   }
 
-  override async stats(globalMetadata: CompilationUnitData): Promise<MigrationStats> {
+  override async stats(globalMetadata: CompilationUnitData) {
     const detectedOutputs =
       new Set(Object.keys(globalMetadata.outputFields)).size +
       globalMetadata.problematicDeclarationCount;
@@ -392,13 +396,11 @@ export class OutputMigration extends TsurgeFunnelMigration<
     const successRate =
       detectedOutputs > 0 ? (detectedOutputs - problematicOutputs) / detectedOutputs : 1;
 
-    return {
-      counters: {
-        detectedOutputs,
-        problematicOutputs,
-        successRate,
-      },
-    };
+    return confirmAsSerializable({
+      detectedOutputs,
+      problematicOutputs,
+      successRate,
+    });
   }
 
   override async migrate(globalData: CompilationUnitData) {
@@ -448,4 +450,78 @@ function addOutputReplacement(
     };
   }
   existingReplacements.replacements.push(...replacements);
+}
+
+function addCommentForEmptyEmit(
+  node: ts.Node,
+  info: ProgramInfo,
+  checker: ts.TypeChecker,
+  reflector: TypeScriptReflectionHost,
+  dtsReader: DtsMetadataReader,
+  outputFieldReplacements: Record<ClassFieldUniqueKey, OutputMigrationData>,
+): void {
+  if (!isEmptyEmitCall(node)) return;
+
+  const propertyAccess = getPropertyAccess(node);
+  if (!propertyAccess) return;
+
+  const symbol = checker.getSymbolAtLocation(propertyAccess.name);
+  if (!symbol || !symbol.declarations?.length) return;
+
+  const propertyDeclaration = isTargetOutputDeclaration(
+    propertyAccess,
+    checker,
+    reflector,
+    dtsReader,
+  );
+  if (!propertyDeclaration) return;
+
+  const eventEmitterType = getEventEmitterArgumentType(propertyDeclaration);
+  if (!eventEmitterType) return;
+
+  const id = getUniqueIdForProperty(info, propertyDeclaration);
+  const file = projectFile(node.getSourceFile(), info);
+  const formatter = getFormatterText(node);
+  const todoReplacement: TextUpdate = new TextUpdate({
+    toInsert: `${formatter.indent}// TODO: The 'emit' function requires a mandatory ${eventEmitterType} argument\n`,
+    end: formatter.lineStartPos,
+    position: formatter.lineStartPos,
+  });
+
+  addOutputReplacement(outputFieldReplacements, id, file, new Replacement(file, todoReplacement));
+}
+
+function isEmptyEmitCall(node: ts.Node): node is ts.CallExpression {
+  return (
+    ts.isCallExpression(node) &&
+    ts.isPropertyAccessExpression(node.expression) &&
+    node.expression.name.text === 'emit' &&
+    node.arguments.length === 0
+  );
+}
+
+function getPropertyAccess(node: ts.CallExpression): ts.PropertyAccessExpression | null {
+  const propertyAccessExpression = (node.expression as ts.PropertyAccessExpression).expression;
+  return ts.isPropertyAccessExpression(propertyAccessExpression) ? propertyAccessExpression : null;
+}
+
+function getEventEmitterArgumentType(propertyDeclaration: ts.PropertyDeclaration): string | null {
+  const initializer = propertyDeclaration.initializer;
+  if (!initializer || !ts.isNewExpression(initializer)) return null;
+
+  const isEventEmitter =
+    ts.isIdentifier(initializer.expression) && initializer.expression.getText() === 'EventEmitter';
+
+  if (!isEventEmitter) return null;
+
+  const [typeArg] = initializer.typeArguments ?? [];
+  return typeArg ? typeArg.getText() : null;
+}
+
+function getFormatterText(node: ts.Node): {indent: string; lineStartPos: number} {
+  const sourceFile = node.getSourceFile();
+  const {line} = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+  const lineStartPos = sourceFile.getPositionOfLineAndCharacter(line, 0);
+  const indent = sourceFile.text.slice(lineStartPos, node.getStart());
+  return {indent, lineStartPos};
 }

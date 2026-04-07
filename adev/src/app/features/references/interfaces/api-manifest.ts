@@ -10,8 +10,13 @@ import {ApiItemType} from './api-item-type';
 
 export interface ApiManifestEntry {
   name: string;
+  aliases?: string[];
   type: ApiItemType;
-  isDeprecated?: boolean;
+  category: string | undefined;
+  deprecated: {version: string | undefined} | undefined;
+  developerPreview: {version: string | undefined} | undefined;
+  experimental: {version: string | undefined} | undefined;
+  stable: {version: string | undefined} | undefined;
 }
 
 export interface ApiManifestPackage {

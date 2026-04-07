@@ -11,6 +11,8 @@ import * as i18n from '../../../../../i18n/i18n_ast';
 import * as o from '../../../../../output/output_ast';
 import {ParseSourceSpan} from '../../../../../parse_util';
 import {
+  AnimationBindingKind,
+  AnimationKind,
   BindingKind,
   DeferOpModifierKind,
   I18nExpressionFor,
@@ -53,7 +55,9 @@ export type UpdateOp =
   | I18nApplyOp
   | RepeaterOp
   | DeferWhenOp
-  | StoreLetOp;
+  | AnimationBindingOp
+  | StoreLetOp
+  | ControlOp;
 
 /**
  * A logical operation to perform string interpolation on a text node.
@@ -150,9 +154,6 @@ export interface BindingOp extends Op<UpdateOp> {
 
   /**
    * Whether the binding is a TextAttribute (e.g. `some-attr="some-value"`).
-   *
-   * This needs to be tracked for compatibility with `TemplateDefinitionBuilder` which treats
-   * `style` and `class` TextAttributes differently from `[attr.style]` and `[attr.class]`.
    */
   isTextAttribute: boolean;
 
@@ -227,7 +228,7 @@ export interface PropertyOp extends Op<UpdateOp>, ConsumesVarsTrait, DependsOnSl
   /**
    * Whether this property is an animation trigger.
    */
-  isAnimationTrigger: boolean;
+  bindingKind: BindingKind;
 
   /**
    * The security context of the binding.
@@ -260,7 +261,7 @@ export function createPropertyOp(
   target: XrefId,
   name: string,
   expression: o.Expression | Interpolation,
-  isAnimationTrigger: boolean,
+  bindingKind: BindingKind,
   securityContext: SecurityContext | SecurityContext[],
   isStructuralTemplateAttribute: boolean,
   templateKind: TemplateKind | null,
@@ -273,7 +274,7 @@ export function createPropertyOp(
     target,
     name,
     expression,
-    isAnimationTrigger,
+    bindingKind,
     securityContext,
     sanitizer: null,
     isStructuralTemplateAttribute,
@@ -291,9 +292,7 @@ export function createPropertyOp(
  * A logical operation representing the property binding side of a two-way binding in the update IR.
  */
 export interface TwoWayPropertyOp
-  extends Op<UpdateOp>,
-    ConsumesVarsTrait,
-    DependsOnSlotContextOpTrait {
+  extends Op<UpdateOp>, ConsumesVarsTrait, DependsOnSlotContextOpTrait {
   kind: OpKind.TwoWayProperty;
 
   /**
@@ -574,9 +573,6 @@ export interface AttributeOp extends Op<UpdateOp> {
 
   /**
    * Whether the binding is a TextAttribute (e.g. `some-attr="some-value"`).
-   *
-   * This needs to be tracked for compatibility with `TemplateDefinitionBuilder` which treats
-   * `style` and `class` TextAttributes differently from `[attr.style]` and `[attr.class]`.
    */
   isTextAttribute: boolean;
 
@@ -664,9 +660,7 @@ export function createAdvanceOp(delta: number, sourceSpan: ParseSourceSpan): Adv
  * Logical operation representing a conditional expression in the update IR.
  */
 export interface ConditionalOp
-  extends Op<ConditionalOp>,
-    DependsOnSlotContextOpTrait,
-    ConsumesVarsTrait {
+  extends Op<ConditionalOp>, DependsOnSlotContextOpTrait, ConsumesVarsTrait {
   kind: OpKind.Conditional;
 
   /**
@@ -760,6 +754,76 @@ export function createRepeaterOp(
   };
 }
 
+/**
+ * A logical operation representing binding to an animation in the update IR.
+ */
+export interface AnimationBindingOp extends Op<UpdateOp> {
+  kind: OpKind.AnimationBinding;
+
+  /**
+   * The name of the extracted attribute.
+   */
+  name: string;
+
+  /**
+   * Reference to the element on which the property is bound.
+   */
+  target: XrefId;
+
+  /**
+   * Name of the bound property.
+   */
+  animationKind: AnimationKind;
+
+  /**
+   * Expression which is bound to the property.
+   */
+  expression: o.Expression | Interpolation;
+
+  i18nMessage: XrefId | null;
+
+  /**
+   * The security context of the binding.
+   */
+  securityContext: SecurityContext | SecurityContext[];
+
+  /**
+   * The sanitizer for this property.
+   */
+  sanitizer: o.Expression | null;
+
+  sourceSpan: ParseSourceSpan;
+
+  animationBindingKind: AnimationBindingKind;
+}
+
+/**
+ * Create an `AnimationBindingOp`.
+ */
+export function createAnimationBindingOp(
+  name: string,
+  target: XrefId,
+  animationKind: AnimationKind,
+  expression: o.Expression | Interpolation,
+  securityContext: SecurityContext | SecurityContext[],
+  sourceSpan: ParseSourceSpan,
+  animationBindingKind: AnimationBindingKind,
+): AnimationBindingOp {
+  return {
+    kind: OpKind.AnimationBinding,
+    name,
+    target,
+    animationKind,
+    expression,
+    i18nMessage: null,
+    securityContext,
+    sanitizer: null,
+    sourceSpan,
+    animationBindingKind,
+    ...NEW_OP,
+  };
+}
+
 export interface DeferWhenOp extends Op<UpdateOp>, DependsOnSlotContextOpTrait, ConsumesVarsTrait {
   kind: OpKind.DeferWhen;
 
@@ -806,9 +870,7 @@ export function createDeferWhenOp(
  * may want to split these into two different op types, deriving from the same base class.
  */
 export interface I18nExpressionOp
-  extends Op<UpdateOp>,
-    ConsumesVarsTrait,
-    DependsOnSlotContextOpTrait {
+  extends Op<UpdateOp>, ConsumesVarsTrait, DependsOnSlotContextOpTrait {
   kind: OpKind.I18nExpression;
 
   /**
@@ -986,6 +1048,25 @@ export function createStoreLetOp(
     sourceSpan,
     ...TRAIT_DEPENDS_ON_SLOT_CONTEXT,
     ...TRAIT_CONSUMES_VARS,
+    ...NEW_OP,
+  };
+}
+
+/**
+ * A specialized {@link PropertyOp} that may bind a form field to a control.
+ */
+export interface ControlOp extends Op<UpdateOp>, DependsOnSlotContextOpTrait {
+  kind: OpKind.Control;
+  sourceSpan: ParseSourceSpan;
+}
+
+/** Creates a {@link ControlOp}. */
+export function createControlOp(target: XrefId, sourceSpan: ParseSourceSpan): ControlOp {
+  return {
+    kind: OpKind.Control,
+    sourceSpan,
+    target,
+    ...TRAIT_DEPENDS_ON_SLOT_CONTEXT,
     ...NEW_OP,
   };
 }

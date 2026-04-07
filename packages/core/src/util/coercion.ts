@@ -12,9 +12,11 @@
  *
  *  @usageNotes
  *  ```ts
- *  @Input({ transform: booleanAttribute }) status!: boolean;
+ *  status = input({ transform: booleanAttribute });
  *  ```
  * @param value Value to be transformed.
+ *
+ * @see [Built-in transformations](guide/components/inputs#built-in-transformations)
  *
  * @publicApi
  */
@@ -30,10 +32,11 @@ export function booleanAttribute(value: unknown): boolean {
  *
  *  @usageNotes
  *  ```ts
- *  @Input({ transform: numberAttribute }) id!: number;
+ *  status = input({ transform: numberAttribute });
  *  ```
  *
  * @publicApi
+ * @see [Built-in transformations](guide/components/inputs#built-in-transformations)
  */
 export function numberAttribute(value: unknown, fallbackValue = NaN): number {
   // parseFloat(value) handles most of the cases we're interested in (it treats null, empty string,

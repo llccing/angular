@@ -6,48 +6,46 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {h, Fragment} from 'preact';
+import {Fragment, h} from 'preact';
 import {
   FunctionEntryRenderable,
   FunctionSignatureMetadataRenderable,
-} from '../entities/renderables';
+} from '../entities/renderables.mjs';
 import {
   API_REFERENCE_CONTAINER,
   REFERENCE_MEMBERS,
   REFERENCE_MEMBER_CARD,
   REFERENCE_MEMBER_CARD_BODY,
   REFERENCE_MEMBER_CARD_HEADER,
-} from '../styling/css-classes';
+} from '../styling/css-classes.mjs';
+import {printInitializerFunctionSignatureLine} from '../transforms/code-transforms.mjs';
+import {getFunctionMetadataRenderable} from '../transforms/function-transforms.mjs';
 import {ClassMethodInfo} from './class-method-info';
+import {CodeSymbol} from './code-symbols';
+import {DeprecationWarning} from './deprecation-warning';
 import {HeaderApi} from './header-api';
+import {HighlightTypeScript} from './highlight-ts';
 import {SectionApi} from './section-api';
 import {SectionDescription} from './section-description';
 import {SectionUsageNotes} from './section-usage-notes';
-import {HighlightTypeScript} from './highlight-ts';
-import {printInitializerFunctionSignatureLine} from '../transforms/code-transforms';
-import {getFunctionMetadataRenderable} from '../transforms/function-transforms';
-import {CodeSymbol} from './code-symbols';
 
 export const signatureCard = (
   name: string,
   signature: FunctionSignatureMetadataRenderable,
-  opts: {id: string},
-  printSignaturesAsHeader: boolean,
+  opts: {id: string; printSignaturesAsHeader: boolean; hideUsageNotes?: boolean},
 ) => {
   return (
     <div id={opts.id} class={REFERENCE_MEMBER_CARD}>
       <header class={REFERENCE_MEMBER_CARD_HEADER}>
-        {printSignaturesAsHeader ? (
-          <code>
-            <HighlightTypeScript
-              code={printInitializerFunctionSignatureLine(
-                name,
-                signature,
-                // Always omit types in signature headers, to keep them short.
-                true,
-              )}
-            />
-          </code>
+        {opts.printSignaturesAsHeader ? (
+          <HighlightTypeScript
+            code={printInitializerFunctionSignatureLine(
+              name,
+              signature,
+              // Always omit types in signature headers, to keep them short.
+              true,
+            )}
+          />
         ) : (
           <>
             <h3>{name}</h3>
@@ -58,7 +56,7 @@ export const signatureCard = (
         )}
       </header>
       <div class={REFERENCE_MEMBER_CARD_BODY}>
-        <ClassMethodInfo entry={signature} />
+        <ClassMethodInfo entry={signature} hideUsageNotes={opts.hideUsageNotes} />
       </div>
     </div>
   );
@@ -72,18 +70,17 @@ export function FunctionReference(entry: FunctionEntryRenderable) {
   return (
     <div className={API_REFERENCE_CONTAINER}>
       <HeaderApi entry={entry} />
+      <DeprecationWarning entry={entry} />
       <SectionApi entry={entry} />
       <div className={REFERENCE_MEMBERS}>
-        {entry.signatures.map((s, i) =>
-          signatureCard(
-            s.name,
-            getFunctionMetadataRenderable(s, entry.moduleName),
-            {
+        {entry.signatures.length > 1 &&
+          entry.signatures.map((s, i) =>
+            signatureCard(s.name, getFunctionMetadataRenderable(s, entry.moduleName, entry.repo), {
               id: `${s.name}_${i}`,
-            },
-            printSignaturesAsHeader,
-          ),
-        )}
+              printSignaturesAsHeader,
+              hideUsageNotes: true,
+            }),
+          )}
       </div>
 
       <SectionDescription entry={entry} />

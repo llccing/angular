@@ -10,7 +10,7 @@ import {RuntimeError, RuntimeErrorCode} from '../errors';
 import {Type} from '../interface/type';
 import {getComponentDef} from '../render3/def_getters';
 import {getFactoryDef} from '../render3/definition_factory';
-import {throwCyclicDependencyError, throwInvalidProviderError} from '../render3/errors_di';
+import {cyclicDependencyErrorWithDetails, throwInvalidProviderError} from '../render3/errors_di';
 import {stringifyForError} from '../render3/util/stringify_utils';
 import {deepForEach} from '../util/array_utils';
 import {EMPTY_ARRAY} from '../util/empty';
@@ -40,6 +40,8 @@ import {INJECTOR_DEF_TYPES} from './internal_tokens';
 /**
  * Wrap an array of `Provider`s into `EnvironmentProviders`, preventing them from being accidentally
  * referenced in `@Component` in a component injector.
+ *
+ * @publicApi
  */
 export function makeEnvironmentProviders(
   providers: (Provider | EnvironmentProviders)[],
@@ -109,8 +111,6 @@ type WalkProviderTreeVisitor = (
  * another environment injector (such as a route injector). They should not be used in component
  * providers.
  *
- * More information about standalone components can be found in [this
- * guide](guide/components/importing).
  *
  * @usageNotes
  * The results of the `importProvidersFrom` call can be used in the `bootstrapApplication` call:
@@ -268,8 +268,8 @@ export function walkProviderTree(
   // Check for circular dependencies.
   if (ngDevMode && parents.indexOf(defType) !== -1) {
     const defName = stringify(defType);
-    const path = parents.map(stringify);
-    throwCyclicDependencyError(defName, path);
+    const path = parents.map(stringify).concat(defName);
+    throw cyclicDependencyErrorWithDetails(defName, path);
   }
 
   // Check for multiple imports of the same module
@@ -401,7 +401,7 @@ function deepForEachProvider(
   }
 }
 
-export const USE_VALUE = getClosureSafeProperty<ValueProvider>({
+export const USE_VALUE: string = getClosureSafeProperty<ValueProvider>({
   provide: String,
   useValue: getClosureSafeProperty,
 });

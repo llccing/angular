@@ -8,10 +8,10 @@
 
 import {
   ApplicationRef,
+  ChangeDetectionStrategy,
   Component,
   ComponentRef,
   Directive,
-  EnvironmentInjector,
   Injector,
   Input,
   NgZone,
@@ -21,6 +21,7 @@ import {
   SimpleChanges,
   createComponent,
   inject,
+  provideZoneChangeDetection,
 } from '@angular/core';
 
 import {TestBed} from '@angular/core/testing';
@@ -32,12 +33,14 @@ import {
 } from '../src/component-factory-strategy';
 import {NgElementStrategyEvent} from '../src/element-strategy';
 
+import type {} from 'zone.js';
+
 describe('ComponentFactoryNgElementStrategy', () => {
   let strategy: ComponentNgElementStrategy;
   let injector: Injector;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({providers: [provideZoneChangeDetection()]});
     injector = TestBed.inject(Injector);
     const strategyFactory = new ComponentNgElementStrategyFactory(TestComponent, injector);
     strategy = strategyFactory.create(injector);
@@ -215,7 +218,6 @@ describe('ComponentFactoryNgElementStrategy', () => {
 
     it('should detect changes even when updated during CD', async () => {
       @Component({
-        standalone: true,
         template: ``,
       })
       class DriverCmp {
@@ -358,7 +360,6 @@ describe('ComponentFactoryNgElementStrategy', () => {
 });
 
 @Directive({
-  standalone: true,
   selector: '[cdTracker]',
 })
 export class CdTrackerDir {
@@ -371,13 +372,13 @@ export class CdTrackerDir {
 
 @Component({
   selector: 'fake-component',
-  standalone: true,
   imports: [CdTrackerDir],
   template: `
     <ng-container cdTracker></ng-container>
     <ng-content select="content-1"></ng-content>
     <ng-content select="content-2"></ng-content>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class TestComponent {
   @Output('templateOutput1') output1 = new Subject();

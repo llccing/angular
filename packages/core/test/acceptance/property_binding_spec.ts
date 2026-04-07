@@ -7,16 +7,32 @@
  */
 import {state, style, trigger} from '@angular/animations';
 import {CommonModule} from '@angular/common';
-import {Component, Directive, EventEmitter, Input, Output, ViewContainerRef} from '../../src/core';
-import {TestBed} from '../../testing';
 import {By, DomSanitizer, SafeUrl} from '@angular/platform-browser';
 import {NoopAnimationsModule} from '@angular/platform-browser/animations';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Directive,
+  EventEmitter,
+  Input,
+  Output,
+  provideZoneChangeDetection,
+  ViewContainerRef,
+} from '../../src/core';
+import {TestBed} from '../../testing';
 
 describe('property bindings', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideZoneChangeDetection()],
+    });
+  });
   it('should support bindings to properties', () => {
     @Component({
       template: `<span [id]="id"></span>`,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class Comp {
       id: string | undefined;
@@ -38,6 +54,8 @@ describe('property bindings', () => {
     @Component({
       template: `<a [title]="title"></a>`,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class Comp {
       title = 'Hello';
@@ -58,6 +76,8 @@ describe('property bindings', () => {
     @Component({
       template: `<a [title]="title"></a>`,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class Comp {
       title = 'Hello';
@@ -76,13 +96,13 @@ describe('property bindings', () => {
   it('should bind to properties whose names do not correspond to their attribute names', () => {
     @Component({
       template: '<label [for]="forValue"></label>',
-      standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class MyComp {
       forValue?: string;
     }
 
-    TestBed.configureTestingModule({declarations: [MyComp]});
     const fixture = TestBed.createComponent(MyComp);
     const labelNode = fixture.debugElement.query(By.css('label'));
 
@@ -104,7 +124,8 @@ describe('property bindings', () => {
       @Component({
         template: '',
         selector: 'my-comp',
-        standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyComp {
         @Input() for!: string;
@@ -112,13 +133,14 @@ describe('property bindings', () => {
 
       @Component({
         template: '<my-comp [for]="forValue"></my-comp>',
-        standalone: false,
+        imports: [MyComp],
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         forValue?: string;
       }
 
-      TestBed.configureTestingModule({declarations: [App, MyComp]});
       const fixture = TestBed.createComponent(App);
       const myCompNode = fixture.debugElement.query(By.directive(MyComp));
       fixture.componentInstance.forValue = 'hello';
@@ -133,12 +155,199 @@ describe('property bindings', () => {
     },
   );
 
+  it('should bind ARIA properties', () => {
+    @Component({
+      template: '<button [ariaLabel]="label" [ariaHasPopup]="hasPopup"></button>',
+
+      changeDetection: ChangeDetectionStrategy.Eager,
+    })
+    class MyComp {
+      label?: string;
+      hasPopup?: string;
+    }
+
+    const fixture = TestBed.createComponent(MyComp);
+    const button = fixture.debugElement.query(By.css('button')).nativeElement as HTMLButtonElement;
+
+    fixture.componentInstance.label = 'Open';
+    fixture.componentInstance.hasPopup = 'menu';
+    fixture.detectChanges();
+
+    expect(button.ariaLabel).toBe('Open');
+    expect(button.ariaHasPopup).toBe('menu');
+
+    fixture.componentInstance.label = 'Close';
+    fixture.detectChanges();
+
+    expect(button.ariaLabel).toBe('Close');
+  });
+
+  it('should bind interpolated ARIA attributes', () => {
+    @Component({
+      template: '<button aria-label="{{label}} menu"></button>',
+
+      changeDetection: ChangeDetectionStrategy.Eager,
+    })
+    class MyComp {
+      label?: string;
+    }
+
+    const fixture = TestBed.createComponent(MyComp);
+    const button = fixture.debugElement.query(By.css('button')).nativeElement;
+
+    fixture.componentInstance.label = 'Open';
+    fixture.detectChanges();
+
+    expect(button.getAttribute('aria-label')).toBe('Open menu');
+
+    fixture.componentInstance.label = 'Close';
+    fixture.detectChanges();
+
+    expect(button.getAttribute('aria-label')).toBe('Close menu');
+  });
+
+  describe('should bind to ARIA attribute names', () => {
+    it('on HTML elements', () => {
+      @Component({
+        template: '<button [aria-label]="label"></button>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
+      })
+      class MyComp {
+        label?: string;
+      }
+
+      const fixture = TestBed.createComponent(MyComp);
+      const button = fixture.debugElement.query(By.css('button')).nativeElement;
+
+      fixture.componentInstance.label = 'Open';
+      fixture.detectChanges();
+
+      expect(button.getAttribute('aria-label')).toBe('Open');
+
+      fixture.componentInstance.label = 'Close';
+      fixture.detectChanges();
+
+      expect(button.getAttribute('aria-label')).toBe('Close');
+    });
+
+    it('on component elements', () => {
+      @Component({
+        selector: 'button[fancy]',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
+      })
+      class FancyButton {}
+
+      @Component({
+        template: '<button fancy [aria-label]="label"></button>',
+        imports: [FancyButton],
+
+        changeDetection: ChangeDetectionStrategy.Eager,
+      })
+      class MyComp {
+        label?: string;
+      }
+
+      const fixture = TestBed.createComponent(MyComp);
+      const button = fixture.debugElement.query(By.css('button')).nativeElement;
+
+      fixture.componentInstance.label = 'Open';
+      fixture.detectChanges();
+
+      expect(button.getAttribute('aria-label')).toBe('Open');
+
+      fixture.componentInstance.label = 'Close';
+      fixture.detectChanges();
+
+      expect(button.getAttribute('aria-label')).toBe('Close');
+    });
+  });
+
+  it('should no bind to ARIA properties if they correspond to inputs', () => {
+    @Component({
+      template: '',
+      selector: 'my-comp',
+
+      changeDetection: ChangeDetectionStrategy.Eager,
+    })
+    class MyComp {
+      @Input() ariaLabel?: string;
+    }
+
+    @Component({
+      template: '<my-comp [ariaLabel]="label"></my-comp>',
+      imports: [MyComp],
+
+      changeDetection: ChangeDetectionStrategy.Eager,
+    })
+    class App {
+      label = 'a';
+    }
+
+    const fixture = TestBed.createComponent(App);
+    const myCompNode = fixture.debugElement.query(By.directive(MyComp));
+
+    fixture.componentInstance.label = 'a';
+    fixture.detectChanges();
+
+    expect(myCompNode.nativeElement.getAttribute('aria-label')).toBeFalsy();
+    expect(myCompNode.componentInstance.ariaLabel).toBe('a');
+
+    fixture.componentInstance.label = 'b';
+    fixture.detectChanges();
+
+    expect(myCompNode.nativeElement.getAttribute('aria-label')).toBeFalsy();
+    expect(myCompNode.componentInstance.ariaLabel).toBe('b');
+  });
+
+  it(
+    'should not bind to ARIA properties by their corresponding attribute names, if they ' +
+      'correspond to inputs',
+    () => {
+      @Component({
+        template: '',
+        selector: 'my-comp',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
+      })
+      class MyComp {
+        @Input({alias: 'aria-label'}) myAriaLabel?: string;
+      }
+
+      @Component({
+        template: '<my-comp [aria-label]="label"></my-comp>',
+        imports: [MyComp],
+
+        changeDetection: ChangeDetectionStrategy.Eager,
+      })
+      class App {
+        label = 'a';
+      }
+
+      const fixture = TestBed.createComponent(App);
+      const myCompNode = fixture.debugElement.query(By.directive(MyComp));
+
+      fixture.componentInstance.label = 'a';
+      fixture.detectChanges();
+
+      expect(myCompNode.nativeElement.getAttribute('aria-label')).toBeFalsy();
+      expect(myCompNode.componentInstance.myAriaLabel).toBe('a');
+
+      fixture.componentInstance.label = 'b';
+      fixture.detectChanges();
+
+      expect(myCompNode.nativeElement.getAttribute('aria-label')).toBeFalsy();
+      expect(myCompNode.componentInstance.myAriaLabel).toBe('b');
+    },
+  );
+
   it('should use the sanitizer in bound properties', () => {
     @Component({
-      template: `
-        <a [href]="url">
-      `,
+      template: ` <a [href]="url"> </a> `,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       url: string | SafeUrl = 'javascript:alert("haha, I am taking over your computer!!!");';
@@ -162,8 +371,10 @@ describe('property bindings', () => {
 
   it('should not stringify non-string values', () => {
     @Component({
-      template: `<input [required]="isRequired"/>`,
+      template: `<input [required]="isRequired" />`,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class Comp {
       isRequired = false;
@@ -178,8 +389,10 @@ describe('property bindings', () => {
 
   it('should support interpolation for properties', () => {
     @Component({
-      template: `<span id="{{'_' + id + '_'}}"></span>`,
+      template: `<span id="{{ '_' + id + '_' }}"></span>`,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class Comp {
       id: string | undefined;
@@ -236,6 +449,8 @@ describe('property bindings', () => {
       @Component({
         template: `<button myButton otherDir [id]="id" [disabled]="isDisabled">Click me</button>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         id = 0;
@@ -272,6 +487,8 @@ describe('property bindings', () => {
       @Component({
         template: `<button myButton [id]="id" [disabled]="isDisabled">Click me</button>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         isDisabled = true;
@@ -302,6 +519,8 @@ describe('property bindings', () => {
         selector: 'comp',
         template: '',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Comp {
         @Input() id: number | undefined;
@@ -310,6 +529,8 @@ describe('property bindings', () => {
       @Component({
         template: `<comp [id]="id"></comp>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         id = 1;
@@ -334,6 +555,8 @@ describe('property bindings', () => {
       @Component({
         template: `<button myButton otherDisabledDir [disabled]="isDisabled">Click me</button>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         isDisabled = true;
@@ -364,6 +587,8 @@ describe('property bindings', () => {
       @Component({
         template: `<button otherDir [id]="id" (click)="onClick()">Click me</button>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         id = 1;
@@ -396,6 +621,8 @@ describe('property bindings', () => {
           <button *ngIf="!condition" otherDir [id]="id3">Click me too (3)</button>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         condition = true;
@@ -432,6 +659,36 @@ describe('property bindings', () => {
       expect(idDir.idNumber).toBe('four');
       expect(otherDir.id).toBe(3);
     });
+
+    it('should support input bindings named "field"', () => {
+      // Angular has specialized support for binding to form controls (e.g. `[field]="field"`).
+      // This test ensures that `[field]` property bindings can still target other inputs bearing
+      // the same name.
+
+      @Directive({selector: '[field]'})
+      class Field {
+        @Input() field = 'Default control value';
+      }
+
+      @Component({
+        template: ` <div [field]="value"></div> `,
+        imports: [Field],
+
+        changeDetection: ChangeDetectionStrategy.Eager,
+      })
+      class App {
+        value?: string;
+      }
+
+      const fixture = TestBed.createComponent(App);
+      const control = fixture.debugElement.query(By.directive(Field)).injector.get(Field);
+      expect(control.field).toBe('Default control value');
+
+      fixture.componentInstance.value = 'Bound control value';
+      fixture.detectChanges();
+
+      expect(control.field).toBe('Bound control value');
+    });
   });
 
   describe('attributes and input properties', () => {
@@ -458,6 +715,8 @@ describe('property bindings', () => {
       @Component({
         template: `<div role="button" myDir></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -476,6 +735,8 @@ describe('property bindings', () => {
       @Component({
         template: `<div role="button" [role]="role" myDir></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         role = 'listbox';
@@ -499,6 +760,8 @@ describe('property bindings', () => {
       @Component({
         template: `<div role="button" myDir myDirB></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -518,6 +781,8 @@ describe('property bindings', () => {
       @Component({
         template: `<div role="button" dir="rtl" myDir></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -537,6 +802,8 @@ describe('property bindings', () => {
       @Component({
         template: `<div role="button" (change)="onChange()" myDir></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         counter = 0;
@@ -563,6 +830,8 @@ describe('property bindings', () => {
           <div role="listbox" myDirB></div>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -595,6 +864,8 @@ describe('property bindings', () => {
           <div role="menu" *ngIf="!condition"></div>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         condition = true;
@@ -626,19 +897,23 @@ describe('property bindings', () => {
     });
 
     it('should process attributes properly inside a for loop', () => {
+      // prettier-ignore
       @Component({
         selector: 'comp',
         template: `<div role="button" myDir #dir="myDir"></div>role: {{dir.role}}`,
         standalone: false,
-      })
+      
+        changeDetection: ChangeDetectionStrategy.Eager,})
       class Comp {}
 
+      // prettier-ignore
       @Component({
         template: `
           <comp *ngFor="let i of [0, 1]"></comp>
         `,
         standalone: false,
-      })
+      
+        changeDetection: ChangeDetectionStrategy.Eager,})
       class App {}
 
       TestBed.configureTestingModule({declarations: [App, MyDir, Comp], imports: [CommonModule]});
@@ -673,6 +948,8 @@ describe('property bindings', () => {
       animations: [trigger('trigger', [state('void', style({opacity: 0}))])],
       host: {'[@trigger]': '"void"'},
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class MyComp {}
 
@@ -687,6 +964,8 @@ describe('property bindings', () => {
     @Component({
       template: '<my-comp my-dir></my-comp>',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {}
 
@@ -705,6 +984,8 @@ describe('property bindings', () => {
     @Component({
       template: `<span [id]="'{{ id }}'"></span>`,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class Comp {}
 
@@ -718,6 +999,8 @@ describe('property bindings', () => {
     @Component({
       template: `<span [id]="'{{ \\' }}'"></span>`,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class Comp {}
 

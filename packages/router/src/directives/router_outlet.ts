@@ -17,24 +17,25 @@ import {
   InjectionToken,
   Injector,
   Input,
+  input,
   OnDestroy,
   OnInit,
   Output,
   reflectComponentType,
-  SimpleChanges,
-  ViewContainerRef,
   ɵRuntimeError as RuntimeError,
   Signal,
-  input,
+  SimpleChanges,
+  ViewContainerRef,
 } from '@angular/core';
-import {combineLatest, of, Subscription} from 'rxjs';
+import {combineLatest, Observable, of, Subscription} from 'rxjs';
 import {switchMap} from 'rxjs/operators';
 
 import {RuntimeErrorCode} from '../errors';
 import {Data} from '../models';
 import {ChildrenOutletContexts} from '../router_outlet_context';
 import {ActivatedRoute} from '../router_state';
-import {PRIMARY_OUTLET} from '../shared';
+import {Params, PRIMARY_OUTLET} from '../shared';
+import {ComponentInputBindingOptions} from '../router_config';
 
 /**
  * An `InjectionToken` provided by the `RouterOutlet` and can be set using the `routerOutletData`
@@ -55,9 +56,10 @@ import {PRIMARY_OUTLET} from '../shared';
  * ```
  *
  * @publicApi
+ * @see [Page routerOutletData](guide/routing/show-routes-with-outlets#passing-contextual-data-to-routed-components)
  */
 export const ROUTER_OUTLET_DATA = new InjectionToken<Signal<unknown | undefined>>(
-  ngDevMode ? 'RouterOutlet data' : '',
+  typeof ngDevMode !== 'undefined' && ngDevMode ? 'RouterOutlet data' : '',
 );
 
 /**
@@ -198,6 +200,7 @@ export interface RouterOutletContract {
  *
  * @see {@link RouterLink}
  * @see {@link Route}
+ * @see [Show routes with outlets](guide/routing/show-routes-with-outlets)
  * @ngModule RouterModule
  *
  * @publicApi
@@ -237,17 +240,17 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
    *
    * When unset, the value of the token is `undefined` by default.
    */
-  readonly routerOutletData = input<unknown>(undefined);
+  readonly routerOutletData = input<unknown>();
 
   private parentContexts = inject(ChildrenOutletContexts);
   private location = inject(ViewContainerRef);
   private changeDetector = inject(ChangeDetectorRef);
   private inputBinder = inject(INPUT_BINDER, {optional: true});
-  /** @nodoc */
+  /** @docs-private */
   readonly supportsBindingToComponentInputs = true;
 
-  /** @nodoc */
-  ngOnChanges(changes: SimpleChanges) {
+  /** @docs-private */
+  ngOnChanges(changes: SimpleChanges): void {
     if (changes['name']) {
       const {firstChange, previousValue} = changes['name'];
       if (firstChange) {
@@ -266,7 +269,7 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
     }
   }
 
-  /** @nodoc */
+  /** @docs-private */
   ngOnDestroy(): void {
     // Ensure that the registered outlet is this one before removing it on the context.
     if (this.isTrackedInParentContexts(this.name)) {
@@ -279,7 +282,7 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
     return this.parentContexts.getContext(outletName)?.outlet === this;
   }
 
-  /** @nodoc */
+  /** @docs-private */
   ngOnInit(): void {
     this.initializeOutletWithName();
   }
@@ -357,7 +360,7 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
   /**
    * Called when the `RouteReuseStrategy` instructs to re-attach a previously detached subtree
    */
-  attach(ref: ComponentRef<any>, activatedRoute: ActivatedRoute) {
+  attach(ref: ComponentRef<any>, activatedRoute: ActivatedRoute): void {
     this.activated = ref;
     this._activatedRoute = activatedRoute;
     this.location.insert(ref.hostView);
@@ -375,7 +378,7 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
     }
   }
 
-  activateWith(activatedRoute: ActivatedRoute, environmentInjector: EnvironmentInjector) {
+  activateWith(activatedRoute: ActivatedRoute, environmentInjector: EnvironmentInjector): void {
     if (this.isActivated) {
       throw new RuntimeError(
         RuntimeErrorCode.OUTLET_ALREADY_ACTIVATED,
@@ -433,7 +436,9 @@ class OutletInjector implements Injector {
   }
 }
 
-export const INPUT_BINDER = new InjectionToken<RoutedComponentInputBinder>('');
+export const INPUT_BINDER = new InjectionToken<RoutedComponentInputBinder>(
+  typeof ngDevMode !== 'undefined' && ngDevMode ? 'Router Input Binder' : '',
+);
 
 /**
  * Injectable used as a tree-shakable provider for opting in to binding router data to component
@@ -453,12 +458,16 @@ export const INPUT_BINDER = new InjectionToken<RoutedComponentInputBinder>('');
 export class RoutedComponentInputBinder {
   private outletDataSubscriptions = new Map<RouterOutlet, Subscription>();
 
-  bindActivatedRouteToOutletComponent(outlet: RouterOutlet) {
+  constructor(private options: ComponentInputBindingOptions) {
+    this.options.queryParams ??= true;
+  }
+
+  bindActivatedRouteToOutletComponent(outlet: RouterOutlet): void {
     this.unsubscribeFromRouteData(outlet);
     this.subscribeToRouteData(outlet);
   }
 
-  unsubscribeFromRouteData(outlet: RouterOutlet) {
+  unsubscribeFromRouteData(outlet: RouterOutlet): void {
     this.outletDataSubscriptions.get(outlet)?.unsubscribe();
     this.outletDataSubscriptions.delete(outlet);
   }
@@ -466,7 +475,7 @@ export class RoutedComponentInputBinder {
   private subscribeToRouteData(outlet: RouterOutlet) {
     const {activatedRoute} = outlet;
     const dataSubscription = combineLatest([
-      activatedRoute.queryParams,
+      this.options.queryParams ? activatedRoute.queryParams : of({}),
       activatedRoute.params,
       activatedRoute.data,
     ])

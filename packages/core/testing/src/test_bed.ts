@@ -11,37 +11,41 @@
 // this statement only.
 
 import {
+  ApplicationRef,
+  Binding,
   Component,
+  ɵRender3ComponentFactory as ComponentFactory,
   ComponentRef,
+  ɵDeferBlockBehavior as DeferBlockBehavior,
   Directive,
   EnvironmentInjector,
-  InjectOptions,
-  Injector,
-  NgModule,
-  NgZone,
-  Pipe,
-  PlatformRef,
-  ProviderToken,
-  runInInjectionContext,
-  Type,
-  ɵDeferBlockBehavior as DeferBlockBehavior,
-  ɵEffectScheduler as EffectScheduler,
   ɵflushModuleScopingQueueAsMuchAsPossible as flushModuleScopingQueueAsMuchAsPossible,
   ɵgetAsyncClassMetadataFn as getAsyncClassMetadataFn,
   ɵgetUnknownElementStrictMode as getUnknownElementStrictMode,
   ɵgetUnknownPropertyStrictMode as getUnknownPropertyStrictMode,
-  ɵRender3ComponentFactory as ComponentFactory,
+  InjectOptions,
+  Injector,
+  NgModule,
   ɵRender3NgModuleRef as NgModuleRef,
+  NgZone,
+  Pipe,
+  PlatformRef,
+  ProviderToken,
   ɵresetCompiledComponents as resetCompiledComponents,
+  runInInjectionContext,
   ɵsetAllowDuplicateNgModuleIdsForTest as setAllowDuplicateNgModuleIdsForTest,
   ɵsetUnknownElementStrictMode as setUnknownElementStrictMode,
   ɵsetUnknownPropertyStrictMode as setUnknownPropertyStrictMode,
   ɵstringify as stringify,
+  Type,
+  ɵinferTagNameFromDefinition as inferTagNameFromDefinition,
+  ɵgetComponentDef as getComponentDef,
 } from '../../src/core';
 
 import {ComponentFixture} from './component_fixture';
 import {MetadataOverride} from './metadata_override';
 import {
+  ANIMATIONS_ENABLED_DEFAULT,
   ComponentFixtureNoNgZone,
   DEFER_BLOCK_DEFAULT_BEHAVIOR,
   ModuleTeardownOptions,
@@ -61,6 +65,22 @@ import {TestBedCompiler} from './test_bed_compiler';
  */
 export interface TestBedStatic extends TestBed {
   new (...args: any[]): TestBed;
+}
+
+/**
+ * Options that can be configured for a test component.
+ *
+ * @publicApi
+ */
+export interface TestComponentOptions {
+  /** Bindings to apply to the test component. */
+  bindings?: Binding[];
+
+  /**
+   * Whether to infer the tag name of the test component from its selector.
+   * Otherwise `div` will be used as its tag name.
+   */
+  inferTagName?: boolean;
 }
 
 /**
@@ -149,14 +169,27 @@ export interface TestBed {
 
   overrideTemplateUsingTestingModule(component: Type<any>, template: string): TestBed;
 
-  createComponent<T>(component: Type<T>): ComponentFixture<T>;
+  createComponent<T>(component: Type<T>, options?: TestComponentOptions): ComponentFixture<T>;
+
+  /**
+   * Returns the most recently created `ComponentFixture`, or throws an error if one has not
+   * yet been created.
+   */
+  getLastFixture<T = unknown>(): ComponentFixture<T>;
 
   /**
    * Execute any pending effects.
    *
-   * @developerPreview
+   * @deprecated use `TestBed.tick()` instead
    */
   flushEffects(): void;
+
+  /**
+   * Execute any pending work required to synchronize model to the UI.
+   *
+   * @publicApi 20.0
+   */
+  tick(): void;
 }
 
 let _nextRootElementId = 0;
@@ -215,6 +248,11 @@ export class TestBedImpl implements TestBed {
   private _instanceDeferBlockBehavior = DEFER_BLOCK_DEFAULT_BEHAVIOR;
 
   /**
+   * Animations behavior option that specifies whether animations are enabled or disabled.
+   */
+  private _instanceAnimationsEnabled = ANIMATIONS_ENABLED_DEFAULT;
+
+  /**
    * "Error on unknown elements" option that has been configured at the `TestBed` instance level.
    * This option takes precedence over the environment-level one.
    */
@@ -237,6 +275,11 @@ export class TestBedImpl implements TestBed {
    * allowing to restore it in the reset testing module logic.
    */
   private _previousErrorOnUnknownPropertiesOption: boolean | undefined;
+
+  /**
+   * Stores the value for `inferTagName` from the testing module.
+   */
+  private _instanceInferTagName: boolean | undefined;
 
   /**
    * Initialize the environment for testing with a compiler factory, a PlatformRef, and an
@@ -370,8 +413,15 @@ export class TestBedImpl implements TestBed {
     return TestBedImpl.INSTANCE.runInInjectionContext(fn);
   }
 
-  static createComponent<T>(component: Type<T>): ComponentFixture<T> {
-    return TestBedImpl.INSTANCE.createComponent(component);
+  static createComponent<T>(
+    component: Type<T>,
+    options?: TestComponentOptions,
+  ): ComponentFixture<T> {
+    return TestBedImpl.INSTANCE.createComponent(component, options);
+  }
+
+  static getLastFixture<T = unknown>(): ComponentFixture<T> {
+    return TestBedImpl.INSTANCE.getLastFixture();
   }
 
   static resetTestingModule(): TestBed {
@@ -391,7 +441,11 @@ export class TestBedImpl implements TestBed {
   }
 
   static flushEffects(): void {
-    return TestBedImpl.INSTANCE.flushEffects();
+    return TestBedImpl.INSTANCE.tick();
+  }
+
+  static tick(): void {
+    return TestBedImpl.INSTANCE.tick();
   }
 
   // Properties
@@ -407,7 +461,7 @@ export class TestBedImpl implements TestBed {
   /**
    * Internal-only flag to indicate whether a module
    * scoping queue has been checked and flushed already.
-   * @nodoc
+   * @docs-private
    */
   globalCompilationChecked = false;
 
@@ -495,7 +549,9 @@ export class TestBedImpl implements TestBed {
         this._instanceTeardownOptions = undefined;
         this._instanceErrorOnUnknownElementsOption = undefined;
         this._instanceErrorOnUnknownPropertiesOption = undefined;
+        this._instanceInferTagName = undefined;
         this._instanceDeferBlockBehavior = DEFER_BLOCK_DEFAULT_BEHAVIOR;
+        this._instanceAnimationsEnabled = ANIMATIONS_ENABLED_DEFAULT;
       }
     }
     return this;
@@ -526,7 +582,9 @@ export class TestBedImpl implements TestBed {
     this._instanceTeardownOptions = moduleDef.teardown;
     this._instanceErrorOnUnknownElementsOption = moduleDef.errorOnUnknownElements;
     this._instanceErrorOnUnknownPropertiesOption = moduleDef.errorOnUnknownProperties;
+    this._instanceInferTagName = moduleDef.inferTagName;
     this._instanceDeferBlockBehavior = moduleDef.deferBlockBehavior ?? DEFER_BLOCK_DEFAULT_BEHAVIOR;
+    this._instanceAnimationsEnabled = moduleDef.animationsEnabled ?? ANIMATIONS_ENABLED_DEFAULT;
     // Store the current value of the strict mode option,
     // so we can restore it later
     this._previousErrorOnUnknownElementsOption = getUnknownElementStrictMode();
@@ -619,11 +677,7 @@ export class TestBedImpl implements TestBed {
     return this.overrideComponent(component, {set: {template, templateUrl: null!}});
   }
 
-  createComponent<T>(type: Type<T>): ComponentFixture<T> {
-    const testComponentRenderer = this.inject(TestComponentRenderer);
-    const rootElId = `root${_nextRootElementId++}`;
-    testComponentRenderer.insertRootElement(rootElId);
-
+  createComponent<T>(type: Type<T>, options?: TestComponentOptions): ComponentFixture<T> {
     if (getAsyncClassMetadataFn(type)) {
       throw new Error(
         `Component '${type.name}' has unresolved metadata. ` +
@@ -631,11 +685,20 @@ export class TestBedImpl implements TestBed {
       );
     }
 
-    const componentDef = (type as any).ɵcmp;
+    // Note: injecting the renderer before accessing the definition appears to be load-bearing.
+    const testComponentRenderer = this.inject(TestComponentRenderer);
+    const shouldInferTagName = options?.inferTagName ?? this._instanceInferTagName ?? false;
+    const componentDef = getComponentDef(type);
+    const rootElId = `root${_nextRootElementId++}`;
 
     if (!componentDef) {
       throw new Error(`It looks like '${stringify(type)}' has not been compiled.`);
     }
+
+    testComponentRenderer.insertRootElement(
+      rootElId,
+      shouldInferTagName ? inferTagNameFromDefinition(componentDef) : undefined,
+    );
 
     const componentFactory = new ComponentFactory(componentDef);
     const initComponent = () => {
@@ -644,6 +707,8 @@ export class TestBedImpl implements TestBed {
         [],
         `#${rootElId}`,
         this.testModuleRef,
+        undefined,
+        options?.bindings,
       ) as ComponentRef<T>;
       return this.runInInjectionContext(() => new ComponentFixture(componentRef));
     };
@@ -652,6 +717,13 @@ export class TestBedImpl implements TestBed {
     const fixture = ngZone ? ngZone.run(initComponent) : initComponent();
     this._activeFixtures.push(fixture);
     return fixture;
+  }
+
+  getLastFixture<T = unknown>(): ComponentFixture<T> {
+    if (this._activeFixtures.length === 0) {
+      throw new Error('No fixture has been created yet.');
+    }
+    return this._activeFixtures[this._activeFixtures.length - 1];
   }
 
   /**
@@ -776,6 +848,10 @@ export class TestBedImpl implements TestBed {
     return this._instanceDeferBlockBehavior;
   }
 
+  getAnimationsEnabled(): boolean {
+    return this._instanceAnimationsEnabled;
+  }
+
   tearDownTestingModule() {
     // If the module ref has already been destroyed, we won't be able to get a test renderer.
     if (this._testModuleRef === null) {
@@ -801,12 +877,33 @@ export class TestBedImpl implements TestBed {
   }
 
   /**
-   * Execute any pending effects.
+   * Execute any pending effects by executing any pending work required to synchronize model to the UI.
    *
-   * @developerPreview
+   * @deprecated use `TestBed.tick()` instead
    */
   flushEffects(): void {
-    this.inject(EffectScheduler).flush();
+    this.tick();
+  }
+
+  /**
+   * Execute any pending work required to synchronize model to the UI.
+   *
+   * @publicApi
+   */
+  tick(): void {
+    const appRef = this.inject(ApplicationRef);
+    try {
+      // TODO(atscott): ApplicationRef.tick should set includeAllTestViews to true itself rather than doing this here and in ComponentFixture
+      // The behavior should be that TestBed.tick, ComponentFixture.detectChanges, and ApplicationRef.tick all result in the test fixtures
+      // getting synchronized, regardless of whether they are autoDetect: true.
+      // Automatic scheduling (zone or zoneless) will call _tick which will _not_ include fixtures with autoDetect: false
+      // If this does get changed, we will need a new flag for the scheduler to use to omit the microtask scheduling
+      // from a tick initiated by tests.
+      (appRef as any).includeAllTestViews = true;
+      appRef.tick();
+    } finally {
+      (appRef as any).includeAllTestViews = false;
+    }
   }
 }
 

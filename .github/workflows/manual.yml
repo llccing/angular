@@ -8,27 +8,25 @@ jobs:
   # Bazel saucelabs job resides in `manual.yml` because it's currently unstable, but
   # kept as "runnable" for debugging/stabilization effort purposes.
   bazel-saucelabs:
-    runs-on: ubuntu-latest-4core
+    runs-on: ubuntu-latest
     env:
       JOBS: 2
     steps:
       - name: Initialize environment
-        uses: angular/dev-infra/github-actions/npm/checkout-and-setup-node@f172f3f62ce52d6e91f63b8fd6f3ed83df157aa5
-        with:
-          cache-node-modules: true
+        uses: angular/dev-infra/github-actions/npm/checkout-and-setup-node@616a50d0b747031b7ea052733adf3771fa6cace9
       - name: Install node modules
-        run: yarn install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Setup Bazel
-        uses: angular/dev-infra/github-actions/bazel/setup@f172f3f62ce52d6e91f63b8fd6f3ed83df157aa5
+        uses: angular/dev-infra/github-actions/bazel/setup@616a50d0b747031b7ea052733adf3771fa6cace9
       - name: Setup Bazel Remote Caching
-        uses: angular/dev-infra/github-actions/bazel/configure-remote@f172f3f62ce52d6e91f63b8fd6f3ed83df157aa5
+        uses: angular/dev-infra/github-actions/bazel/configure-remote@616a50d0b747031b7ea052733adf3771fa6cace9
       - name: Setup Saucelabs Variables
-        uses: angular/dev-infra/github-actions/saucelabs@f172f3f62ce52d6e91f63b8fd6f3ed83df157aa5
+        uses: angular/dev-infra/github-actions/saucelabs@616a50d0b747031b7ea052733adf3771fa6cace9
       - name: Set up Sauce Tunnel Daemon
-        run: yarn bazel run //tools/saucelabs-daemon/background-service -- $JOBS &
+        run: pnpm bazel run //tools/saucelabs-daemon/background-service -- $JOBS &
         env:
           SAUCE_TUNNEL_IDENTIFIER: angular-framework-${{ github.run_number }}
       - name: Run all saucelabs bazel tests
         run: |
           TESTS=$(./node_modules/.bin/bazelisk query --output label '(kind(karma_web_test, ...) intersect attr("tags", "saucelabs", ...)) except attr("tags", "fixme-saucelabs", ...)')
-          yarn bazel test --config=saucelabs --jobs=$JOBS ${TESTS}
+          pnpm bazel test --config=saucelabs --jobs=$JOBS ${TESTS}

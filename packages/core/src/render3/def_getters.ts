@@ -13,11 +13,14 @@ import {stringify} from '../util/stringify';
 import {NG_COMP_DEF, NG_DIR_DEF, NG_MOD_DEF, NG_PIPE_DEF} from './fields';
 import type {ComponentDef, DirectiveDef, PipeDef} from './interfaces/definition';
 
-export function getNgModuleDef<T>(type: any, throwIfNotFound: true): NgModuleDef<T>;
-export function getNgModuleDef<T>(type: any): NgModuleDef<T> | null;
-export function getNgModuleDef<T>(type: any, throwIfNotFound?: boolean): NgModuleDef<T> | null {
-  const ngModuleDef = type[NG_MOD_DEF] || null;
-  if (!ngModuleDef && throwIfNotFound) {
+export function getNgModuleDef<T>(type: any): NgModuleDef<T> | null {
+  assertTypeDefined(type, '@NgModule');
+  return type[NG_MOD_DEF] || null;
+}
+
+export function getNgModuleDefOrThrow<T>(type: any): NgModuleDef<T> | never {
+  const ngModuleDef = getNgModuleDef<T>(type);
+  if (!ngModuleDef) {
     throw new RuntimeError(
       RuntimeErrorCode.MISSING_NG_MODULE_DEFINITION,
       (typeof ngDevMode === 'undefined' || ngDevMode) &&
@@ -34,14 +37,13 @@ export function getNgModuleDef<T>(type: any, throwIfNotFound?: boolean): NgModul
  */
 
 export function getComponentDef<T>(type: any): ComponentDef<T> | null {
+  assertTypeDefined(type, '@Component');
   return type[NG_COMP_DEF] || null;
 }
 
-export function getDirectiveDef<T>(type: any, throwIfNotFound: true): DirectiveDef<T>;
-export function getDirectiveDef<T>(type: any): DirectiveDef<T> | null;
-export function getDirectiveDef<T>(type: any, throwIfNotFound?: boolean): DirectiveDef<T> | null {
-  const def = type[NG_DIR_DEF] || null;
-  if (!def && throwIfNotFound) {
+export function getDirectiveDefOrThrow<T>(type: any): DirectiveDef<T> | never {
+  const def = getDirectiveDef<T>(type);
+  if (!def) {
     throw new RuntimeError(
       RuntimeErrorCode.MISSING_DIRECTIVE_DEFINITION,
       (typeof ngDevMode === 'undefined' || ngDevMode) &&
@@ -51,14 +53,30 @@ export function getDirectiveDef<T>(type: any, throwIfNotFound?: boolean): Direct
   return def;
 }
 
+export function getDirectiveDef<T>(type: any): DirectiveDef<T> | null {
+  assertTypeDefined(type, '@Directive');
+  return type[NG_DIR_DEF] || null;
+}
+
 export function getPipeDef<T>(type: any): PipeDef<T> | null {
+  assertTypeDefined(type, '@Pipe');
   return type[NG_PIPE_DEF] || null;
+}
+
+function assertTypeDefined(type: any, symbolType: string): void {
+  if (type == null) {
+    throw new RuntimeError(
+      RuntimeErrorCode.DEF_TYPE_UNDEFINED,
+      (typeof ngDevMode === 'undefined' || ngDevMode) &&
+        `Cannot read ${symbolType} metadata. This can indicate a runtime ` +
+          `circular dependency in your app that needs to be resolved.`,
+    );
+  }
 }
 
 /**
  * Checks whether a given Component, Directive or Pipe is marked as standalone.
  * This will return false if passed anything other than a Component, Directive, or Pipe class
- * See [this guide](guide/components/importing) for additional information:
  *
  * @param type A reference to a Component, Directive or Pipe.
  * @publicApi

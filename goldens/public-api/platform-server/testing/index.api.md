@@ -6,12 +6,13 @@
 
 import * as i0 from '@angular/core';
 import * as i1 from '@angular/platform-browser-dynamic/testing';
+import { PlatformRef } from '@angular/core';
 import { StaticProvider } from '@angular/core';
 
-// @public
-export const platformServerTesting: (extraProviders?: StaticProvider[]) => i0.PlatformRef;
+// @public @deprecated
+export const platformServerTesting: (extraProviders?: StaticProvider[]) => PlatformRef;
 
-// @public
+// @public @deprecated
 export class ServerTestingModule {
     // (undocumented)
     static ɵfac: i0.ɵɵFactoryDeclaration<ServerTestingModule, never>;

@@ -1,14 +1,15 @@
-load("//tools:defaults.bzl", "ts_library")
+load("//tools:defaults.bzl", "ts_project")
 
 package(default_visibility = ["//packages/language-service:__subpackages__"])
 
-ts_library(
+ts_project(
     name = "src",
     srcs = glob([
         "*.ts",
         "**/*.ts",
     ]),
     deps = [
+        "//:node_modules/typescript",
         "//packages/compiler",
         "//packages/compiler-cli",
         "//packages/compiler-cli/src/ngtsc/core",
@@ -29,7 +30,5 @@ ts_library(
         "//packages/language-service:api",
         "//packages/language-service/src/refactorings",
         "//packages/language-service/src/utils",
-        "@npm//@types/node",
-        "@npm//typescript",
     ],
 )

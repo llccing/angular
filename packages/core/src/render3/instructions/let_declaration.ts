@@ -1,4 +1,4 @@
-/*!
+/**
  * @license
  * Copyright Google LLC All Rights Reserved.
  *
@@ -12,8 +12,7 @@ import {TNodeType} from '../interfaces/node';
 import {HEADER_OFFSET} from '../interfaces/view';
 import {getContextLView, getLView, getSelectedIndex, getTView, setCurrentTNode} from '../state';
 import {getOrCreateTNode} from '../tnode_manipulation';
-import {load} from '../util/view_utils';
-import {store} from './storage';
+import {load, store} from '../util/view_utils';
 
 /** Object that indicates the value of a `@let` declaration that hasn't been initialized yet. */
 const UNINITIALIZED_LET = {};
@@ -26,6 +25,7 @@ const UNINITIALIZED_LET = {};
  * @codeGenApi
  */
 export function ɵɵdeclareLet(index: number): typeof ɵɵdeclareLet {
+  performanceMarkFeature('NgLet');
   const tView = getTView();
   const lView = getLView();
   const adjustedIndex = index + HEADER_OFFSET;
@@ -42,7 +42,6 @@ export function ɵɵdeclareLet(index: number): typeof ɵɵdeclareLet {
  * @codeGenApi
  */
 export function ɵɵstoreLet<T>(value: T): T {
-  performanceMarkFeature('NgLet');
   const tView = getTView();
   const lView = getLView();
   const index = getSelectedIndex();

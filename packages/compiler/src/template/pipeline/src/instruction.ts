@@ -73,6 +73,56 @@ function elementOrContainerBase(
   return call(instruction, args, sourceSpan);
 }
 
+function templateBase(
+  instruction: o.ExternalReference,
+  slot: number,
+  templateFnRef: o.Expression,
+  decls: number,
+  vars: number,
+  tag: string | null,
+  constIndex: number | null,
+  localRefs: number | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  const args = [
+    o.literal(slot),
+    templateFnRef,
+    o.literal(decls),
+    o.literal(vars),
+    o.literal(tag),
+    o.literal(constIndex),
+  ];
+  if (localRefs !== null) {
+    args.push(o.literal(localRefs));
+    args.push(o.importExpr(Identifiers.templateRefExtractor));
+  }
+  while (args[args.length - 1].isEquivalent(o.NULL_EXPR)) {
+    args.pop();
+  }
+  return call(instruction, args, sourceSpan);
+}
+
+function propertyBase(
+  instruction: o.ExternalReference,
+  name: string,
+  expression: o.Expression | ir.Interpolation,
+  sanitizer: o.Expression | null,
+  sourceSpan: ParseSourceSpan,
+): ir.UpdateOp {
+  const args: o.Expression[] = [o.literal(name)];
+
+  if (expression instanceof ir.Interpolation) {
+    args.push(interpolationToExpression(expression, sourceSpan));
+  } else {
+    args.push(expression);
+  }
+
+  if (sanitizer !== null) {
+    args.push(sanitizer);
+  }
+  return call(instruction, args, sourceSpan);
+}
+
 export function elementEnd(sourceSpan: ParseSourceSpan | null): ir.CreateOp {
   return call(Identifiers.elementEnd, [], sourceSpan);
 }
@@ -123,22 +173,17 @@ export function template(
   localRefs: number | null,
   sourceSpan: ParseSourceSpan,
 ): ir.CreateOp {
-  const args = [
-    o.literal(slot),
+  return templateBase(
+    Identifiers.templateCreate,
+    slot,
     templateFnRef,
-    o.literal(decls),
-    o.literal(vars),
-    o.literal(tag),
-    o.literal(constIndex),
-  ];
-  if (localRefs !== null) {
-    args.push(o.literal(localRefs));
-    args.push(o.importExpr(Identifiers.templateRefExtractor));
-  }
-  while (args[args.length - 1].isEquivalent(o.NULL_EXPR)) {
-    args.pop();
-  }
-  return call(Identifiers.templateCreate, args, sourceSpan);
+    decls,
+    vars,
+    tag,
+    constIndex,
+    localRefs,
+    sourceSpan,
+  );
 }
 
 export function disableBindings(): ir.CreateOp {
@@ -330,7 +375,7 @@ const deferTriggerToR3TriggerInstructionsMap = new Map([
 
 export function deferOn(
   trigger: ir.DeferTriggerKind,
-  args: number[],
+  args: o.Expression[],
   modifier: ir.DeferOpModifierKind,
   sourceSpan: ParseSourceSpan | null,
 ): ir.CreateOp {
@@ -338,11 +383,7 @@ export function deferOn(
   if (instructionToCall === undefined) {
     throw new Error(`Unable to determine instruction for trigger ${trigger}`);
   }
-  return call(
-    instructionToCall,
-    args.map((a) => o.literal(a)),
-    sourceSpan,
-  );
+  return call(instructionToCall, args, sourceSpan);
 }
 
 export function projectionDef(def: o.Expression | null): ir.CreateOp {
@@ -537,17 +578,29 @@ export function i18nAttributes(slot: number, i18nAttributesConfig: number): ir.C
   return call(Identifiers.i18nAttributes, args, null);
 }
 
+export function ariaProperty(
+  name: string,
+  expression: o.Expression | ir.Interpolation,
+  sourceSpan: ParseSourceSpan,
+): ir.UpdateOp {
+  return propertyBase(Identifiers.ariaProperty, name, expression, null, sourceSpan);
+}
+
 export function property(
   name: string,
-  expression: o.Expression,
+  expression: o.Expression | ir.Interpolation,
   sanitizer: o.Expression | null,
   sourceSpan: ParseSourceSpan,
 ): ir.UpdateOp {
-  const args = [o.literal(name), expression];
-  if (sanitizer !== null) {
-    args.push(sanitizer);
-  }
-  return call(Identifiers.property, args, sourceSpan);
+  return propertyBase(Identifiers.property, name, expression, sanitizer, sourceSpan);
+}
+
+export function control(sourceSpan: ParseSourceSpan | null): ir.UpdateOp {
+  return call(Identifiers.control, [], sourceSpan);
+}
+
+export function controlCreate(sourceSpan: ParseSourceSpan | null): ir.CreateOp {
+  return call(Identifiers.controlCreate, [], sourceSpan);
 }
 
 export function twoWayProperty(
@@ -565,11 +618,18 @@ export function twoWayProperty(
 
 export function attribute(
   name: string,
-  expression: o.Expression,
+  expression: o.Expression | ir.Interpolation,
   sanitizer: o.Expression | null,
   namespace: string | null,
+  sourceSpan: ParseSourceSpan,
 ): ir.UpdateOp {
-  const args = [o.literal(name), expression];
+  const args: o.Expression[] = [o.literal(name)];
+
+  if (expression instanceof ir.Interpolation) {
+    args.push(interpolationToExpression(expression, sourceSpan));
+  } else {
+    args.push(expression);
+  }
   if (sanitizer !== null || namespace !== null) {
     args.push(sanitizer ?? o.literal(null));
   }
@@ -581,11 +641,18 @@ export function attribute(
 
 export function styleProp(
   name: string,
-  expression: o.Expression,
+  expression: o.Expression | ir.Interpolation,
   unit: string | null,
   sourceSpan: ParseSourceSpan,
 ): ir.UpdateOp {
-  const args = [o.literal(name), expression];
+  const args: o.Expression[] = [o.literal(name)];
+
+  if (expression instanceof ir.Interpolation) {
+    args.push(interpolationToExpression(expression, sourceSpan));
+  } else {
+    args.push(expression);
+  }
+
   if (unit !== null) {
     args.push(o.literal(unit));
   }
@@ -600,12 +667,136 @@ export function classProp(
   return call(Identifiers.classProp, [o.literal(name), expression], sourceSpan);
 }
 
-export function styleMap(expression: o.Expression, sourceSpan: ParseSourceSpan): ir.UpdateOp {
-  return call(Identifiers.styleMap, [expression], sourceSpan);
+export function styleMap(
+  expression: o.Expression | ir.Interpolation,
+  sourceSpan: ParseSourceSpan,
+): ir.UpdateOp {
+  const value =
+    expression instanceof ir.Interpolation
+      ? interpolationToExpression(expression, sourceSpan)
+      : expression;
+  return call(Identifiers.styleMap, [value], sourceSpan);
 }
 
-export function classMap(expression: o.Expression, sourceSpan: ParseSourceSpan): ir.UpdateOp {
-  return call(Identifiers.classMap, [expression], sourceSpan);
+export function classMap(
+  expression: o.Expression | ir.Interpolation,
+  sourceSpan: ParseSourceSpan,
+): ir.UpdateOp {
+  const value =
+    expression instanceof ir.Interpolation
+      ? interpolationToExpression(expression, sourceSpan)
+      : expression;
+  return call(Identifiers.classMap, [value], sourceSpan);
+}
+
+export function domElement(
+  slot: number,
+  tag: string,
+  constIndex: number | null,
+  localRefIndex: number | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  return elementOrContainerBase(
+    Identifiers.domElement,
+    slot,
+    tag,
+    constIndex,
+    localRefIndex,
+    sourceSpan,
+  );
+}
+
+export function domElementStart(
+  slot: number,
+  tag: string,
+  constIndex: number | null,
+  localRefIndex: number | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  return elementOrContainerBase(
+    Identifiers.domElementStart,
+    slot,
+    tag,
+    constIndex,
+    localRefIndex,
+    sourceSpan,
+  );
+}
+
+export function domElementEnd(sourceSpan: ParseSourceSpan | null): ir.CreateOp {
+  return call(Identifiers.domElementEnd, [], sourceSpan);
+}
+
+export function domElementContainerStart(
+  slot: number,
+  constIndex: number | null,
+  localRefIndex: number | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  return elementOrContainerBase(
+    Identifiers.domElementContainerStart,
+    slot,
+    /* tag */ null,
+    constIndex,
+    localRefIndex,
+    sourceSpan,
+  );
+}
+
+export function domElementContainer(
+  slot: number,
+  constIndex: number | null,
+  localRefIndex: number | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  return elementOrContainerBase(
+    Identifiers.domElementContainer,
+    slot,
+    /* tag */ null,
+    constIndex,
+    localRefIndex,
+    sourceSpan,
+  );
+}
+
+export function domElementContainerEnd(): ir.CreateOp {
+  return call(Identifiers.domElementContainerEnd, [], null);
+}
+
+export function domListener(
+  name: string,
+  handlerFn: o.Expression,
+  eventTargetResolver: o.ExternalReference | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  const args = [o.literal(name), handlerFn];
+  if (eventTargetResolver !== null) {
+    args.push(o.importExpr(eventTargetResolver));
+  }
+  return call(Identifiers.domListener, args, sourceSpan);
+}
+
+export function domTemplate(
+  slot: number,
+  templateFnRef: o.Expression,
+  decls: number,
+  vars: number,
+  tag: string | null,
+  constIndex: number | null,
+  localRefs: number | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  return templateBase(
+    Identifiers.domTemplate,
+    slot,
+    templateFnRef,
+    decls,
+    vars,
+    tag,
+    constIndex,
+    localRefs,
+    sourceSpan,
+  );
 }
 
 const PIPE_BINDINGS: o.ExternalReference[] = [
@@ -635,7 +826,7 @@ export function textInterpolate(
 ): ir.UpdateOp {
   const interpolationArgs = collateInterpolationArgs(strings, expressions);
 
-  return callVariadicInstruction(TEXT_INTERPOLATE_CONFIG, [], interpolationArgs, [], sourceSpan);
+  return callVariadicInstruction(TEXT_INTERPOLATE_CONFIG, [], interpolationArgs, sourceSpan);
 }
 
 export function i18nExp(expr: o.Expression, sourceSpan: ParseSourceSpan | null): ir.UpdateOp {
@@ -646,118 +837,69 @@ export function i18nApply(slot: number, sourceSpan: ParseSourceSpan | null): ir.
   return call(Identifiers.i18nApply, [o.literal(slot)], sourceSpan);
 }
 
-export function propertyInterpolate(
-  name: string,
-  strings: string[],
-  expressions: o.Expression[],
-  sanitizer: o.Expression | null,
-  sourceSpan: ParseSourceSpan,
-): ir.UpdateOp {
-  const interpolationArgs = collateInterpolationArgs(strings, expressions);
-
-  const extraArgs = [];
-  if (sanitizer !== null) {
-    extraArgs.push(sanitizer);
-  }
-
-  return callVariadicInstruction(
-    PROPERTY_INTERPOLATE_CONFIG,
-    [o.literal(name)],
-    interpolationArgs,
-    extraArgs,
-    sourceSpan,
-  );
-}
-
-export function attributeInterpolate(
-  name: string,
-  strings: string[],
-  expressions: o.Expression[],
-  sanitizer: o.Expression | null,
-  sourceSpan: ParseSourceSpan,
-): ir.UpdateOp {
-  const interpolationArgs = collateInterpolationArgs(strings, expressions);
-
-  const extraArgs = [];
-  if (sanitizer !== null) {
-    extraArgs.push(sanitizer);
-  }
-
-  return callVariadicInstruction(
-    ATTRIBUTE_INTERPOLATE_CONFIG,
-    [o.literal(name)],
-    interpolationArgs,
-    extraArgs,
-    sourceSpan,
-  );
-}
-
-export function stylePropInterpolate(
-  name: string,
-  strings: string[],
-  expressions: o.Expression[],
-  unit: string | null,
-  sourceSpan: ParseSourceSpan,
-): ir.UpdateOp {
-  const interpolationArgs = collateInterpolationArgs(strings, expressions);
-
-  const extraArgs: o.Expression[] = [];
-  if (unit !== null) {
-    extraArgs.push(o.literal(unit));
-  }
-
-  return callVariadicInstruction(
-    STYLE_PROP_INTERPOLATE_CONFIG,
-    [o.literal(name)],
-    interpolationArgs,
-    extraArgs,
-    sourceSpan,
-  );
-}
-
-export function styleMapInterpolate(
-  strings: string[],
-  expressions: o.Expression[],
-  sourceSpan: ParseSourceSpan,
-): ir.UpdateOp {
-  const interpolationArgs = collateInterpolationArgs(strings, expressions);
-
-  return callVariadicInstruction(
-    STYLE_MAP_INTERPOLATE_CONFIG,
-    [],
-    interpolationArgs,
-    [],
-    sourceSpan,
-  );
-}
-
-export function classMapInterpolate(
-  strings: string[],
-  expressions: o.Expression[],
-  sourceSpan: ParseSourceSpan,
-): ir.UpdateOp {
-  const interpolationArgs = collateInterpolationArgs(strings, expressions);
-
-  return callVariadicInstruction(
-    CLASS_MAP_INTERPOLATE_CONFIG,
-    [],
-    interpolationArgs,
-    [],
-    sourceSpan,
-  );
-}
-
 export function domProperty(
   name: string,
-  expression: o.Expression,
+  expression: o.Expression | ir.Interpolation,
   sanitizer: o.Expression | null,
-  sourceSpan: ParseSourceSpan | null,
+  sourceSpan: ParseSourceSpan,
 ): ir.UpdateOp {
-  const args = [o.literal(name), expression];
+  return propertyBase(Identifiers.domProperty, name, expression, sanitizer, sourceSpan);
+}
+
+export function animation(
+  animationKind: ir.AnimationKind,
+  handlerFn: o.Expression,
+  sanitizer: o.Expression | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  const args = [handlerFn];
   if (sanitizer !== null) {
     args.push(sanitizer);
   }
-  return call(Identifiers.domProperty, args, sourceSpan);
+  const identifier =
+    animationKind === ir.AnimationKind.ENTER
+      ? Identifiers.animationEnter
+      : Identifiers.animationLeave;
+  return call(identifier, args, sourceSpan);
+}
+
+export function animationString(
+  animationKind: ir.AnimationKind,
+  expression: o.Expression | ir.Interpolation,
+  sanitizer: o.Expression | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  const value =
+    expression instanceof ir.Interpolation
+      ? interpolationToExpression(expression, sourceSpan)
+      : expression;
+  const args = [value];
+  if (sanitizer !== null) {
+    args.push(sanitizer);
+  }
+  const identifier =
+    animationKind === ir.AnimationKind.ENTER
+      ? Identifiers.animationEnter
+      : Identifiers.animationLeave;
+  return call(identifier, args, sourceSpan);
+}
+
+export function animationListener(
+  animationKind: ir.AnimationKind,
+  handlerFn: o.Expression,
+  eventTargetResolver: o.ExternalReference | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  const args = [handlerFn];
+  if (eventTargetResolver !== null) {
+    args.push(o.importExpr(eventTargetResolver));
+  }
+  const identifier =
+    animationKind === ir.AnimationKind.ENTER
+      ? Identifiers.animationEnterListener
+      : Identifiers.animationLeaveListener;
+
+  return call(identifier, args, sourceSpan);
 }
 
 export function syntheticHostProperty(
@@ -773,13 +915,7 @@ export function pureFunction(
   fn: o.Expression,
   args: o.Expression[],
 ): o.Expression {
-  return callVariadicInstructionExpr(
-    PURE_FUNCTION_CONFIG,
-    [o.literal(varOffset), fn],
-    args,
-    [],
-    null,
-  );
+  return callVariadicInstructionExpr(PURE_FUNCTION_CONFIG, [o.literal(varOffset), fn], args, null);
 }
 
 export function attachSourceLocation(
@@ -787,6 +923,16 @@ export function attachSourceLocation(
   locations: o.LiteralArrayExpr,
 ): ir.CreateOp {
   return call(Identifiers.attachSourceLocations, [o.literal(templatePath), locations], null);
+}
+
+export function arrowFunction(
+  slotOffset: number,
+  factory: o.Expression,
+  contextRef: o.Expression,
+): o.Expression {
+  return o
+    .importExpr(Identifiers.arrowFunction)
+    .callFn([o.literal(slotOffset), factory, contextRef]);
 }
 
 /**
@@ -813,6 +959,17 @@ function collateInterpolationArgs(strings: string[], expressions: o.Expression[]
   }
 
   return interpolationArgs;
+}
+
+function interpolationToExpression(
+  interpolation: ir.Interpolation,
+  sourceSpan: ParseSourceSpan,
+): o.Expression {
+  const interpolationArgs = collateInterpolationArgs(
+    interpolation.strings,
+    interpolation.expressions,
+  );
+  return callVariadicInstructionExpr(VALUE_INTERPOLATE_CONFIG, [], interpolationArgs, sourceSpan);
 }
 
 function call<OpT extends ir.CreateOp | ir.UpdateOp>(
@@ -870,118 +1027,19 @@ const TEXT_INTERPOLATE_CONFIG: VariadicInstructionConfig = {
   },
 };
 
-/**
- * `InterpolationConfig` for the `propertyInterpolate` instruction.
- */
-const PROPERTY_INTERPOLATE_CONFIG: VariadicInstructionConfig = {
+const VALUE_INTERPOLATE_CONFIG: VariadicInstructionConfig = {
   constant: [
-    Identifiers.propertyInterpolate,
-    Identifiers.propertyInterpolate1,
-    Identifiers.propertyInterpolate2,
-    Identifiers.propertyInterpolate3,
-    Identifiers.propertyInterpolate4,
-    Identifiers.propertyInterpolate5,
-    Identifiers.propertyInterpolate6,
-    Identifiers.propertyInterpolate7,
-    Identifiers.propertyInterpolate8,
+    Identifiers.interpolate,
+    Identifiers.interpolate1,
+    Identifiers.interpolate2,
+    Identifiers.interpolate3,
+    Identifiers.interpolate4,
+    Identifiers.interpolate5,
+    Identifiers.interpolate6,
+    Identifiers.interpolate7,
+    Identifiers.interpolate8,
   ],
-  variable: Identifiers.propertyInterpolateV,
-  mapping: (n) => {
-    if (n % 2 === 0) {
-      throw new Error(`Expected odd number of arguments`);
-    }
-    return (n - 1) / 2;
-  },
-};
-
-/**
- * `InterpolationConfig` for the `stylePropInterpolate` instruction.
- */
-const STYLE_PROP_INTERPOLATE_CONFIG: VariadicInstructionConfig = {
-  constant: [
-    Identifiers.styleProp,
-    Identifiers.stylePropInterpolate1,
-    Identifiers.stylePropInterpolate2,
-    Identifiers.stylePropInterpolate3,
-    Identifiers.stylePropInterpolate4,
-    Identifiers.stylePropInterpolate5,
-    Identifiers.stylePropInterpolate6,
-    Identifiers.stylePropInterpolate7,
-    Identifiers.stylePropInterpolate8,
-  ],
-  variable: Identifiers.stylePropInterpolateV,
-  mapping: (n) => {
-    if (n % 2 === 0) {
-      throw new Error(`Expected odd number of arguments`);
-    }
-    return (n - 1) / 2;
-  },
-};
-
-/**
- * `InterpolationConfig` for the `attributeInterpolate` instruction.
- */
-const ATTRIBUTE_INTERPOLATE_CONFIG: VariadicInstructionConfig = {
-  constant: [
-    Identifiers.attribute,
-    Identifiers.attributeInterpolate1,
-    Identifiers.attributeInterpolate2,
-    Identifiers.attributeInterpolate3,
-    Identifiers.attributeInterpolate4,
-    Identifiers.attributeInterpolate5,
-    Identifiers.attributeInterpolate6,
-    Identifiers.attributeInterpolate7,
-    Identifiers.attributeInterpolate8,
-  ],
-  variable: Identifiers.attributeInterpolateV,
-  mapping: (n) => {
-    if (n % 2 === 0) {
-      throw new Error(`Expected odd number of arguments`);
-    }
-    return (n - 1) / 2;
-  },
-};
-
-/**
- * `InterpolationConfig` for the `styleMapInterpolate` instruction.
- */
-const STYLE_MAP_INTERPOLATE_CONFIG: VariadicInstructionConfig = {
-  constant: [
-    Identifiers.styleMap,
-    Identifiers.styleMapInterpolate1,
-    Identifiers.styleMapInterpolate2,
-    Identifiers.styleMapInterpolate3,
-    Identifiers.styleMapInterpolate4,
-    Identifiers.styleMapInterpolate5,
-    Identifiers.styleMapInterpolate6,
-    Identifiers.styleMapInterpolate7,
-    Identifiers.styleMapInterpolate8,
-  ],
-  variable: Identifiers.styleMapInterpolateV,
-  mapping: (n) => {
-    if (n % 2 === 0) {
-      throw new Error(`Expected odd number of arguments`);
-    }
-    return (n - 1) / 2;
-  },
-};
-
-/**
- * `InterpolationConfig` for the `classMapInterpolate` instruction.
- */
-const CLASS_MAP_INTERPOLATE_CONFIG: VariadicInstructionConfig = {
-  constant: [
-    Identifiers.classMap,
-    Identifiers.classMapInterpolate1,
-    Identifiers.classMapInterpolate2,
-    Identifiers.classMapInterpolate3,
-    Identifiers.classMapInterpolate4,
-    Identifiers.classMapInterpolate5,
-    Identifiers.classMapInterpolate6,
-    Identifiers.classMapInterpolate7,
-    Identifiers.classMapInterpolate8,
-  ],
-  variable: Identifiers.classMapInterpolateV,
+  variable: Identifiers.interpolateV,
   mapping: (n) => {
     if (n % 2 === 0) {
       throw new Error(`Expected odd number of arguments`);
@@ -1010,7 +1068,6 @@ function callVariadicInstructionExpr(
   config: VariadicInstructionConfig,
   baseArgs: o.Expression[],
   interpolationArgs: o.Expression[],
-  extraArgs: o.Expression[],
   sourceSpan: ParseSourceSpan | null,
 ): o.Expression {
   // mapping need to be done before potentially dropping the last interpolation argument
@@ -1020,7 +1077,6 @@ function callVariadicInstructionExpr(
   // And the runtime will take care of it.
   const lastInterpolationArg = interpolationArgs.at(-1);
   if (
-    extraArgs.length === 0 &&
     interpolationArgs.length > 1 &&
     lastInterpolationArg instanceof o.LiteralExpr &&
     lastInterpolationArg.value === ''
@@ -1030,14 +1086,12 @@ function callVariadicInstructionExpr(
 
   if (n < config.constant.length) {
     // Constant calling pattern.
-    return o
-      .importExpr(config.constant[n])
-      .callFn([...baseArgs, ...interpolationArgs, ...extraArgs], sourceSpan);
+    return o.importExpr(config.constant[n]).callFn([...baseArgs, ...interpolationArgs], sourceSpan);
   } else if (config.variable !== null) {
     // Variable calling pattern.
     return o
       .importExpr(config.variable)
-      .callFn([...baseArgs, o.literalArr(interpolationArgs), ...extraArgs], sourceSpan);
+      .callFn([...baseArgs, o.literalArr(interpolationArgs)], sourceSpan);
   } else {
     throw new Error(`AssertionError: unable to call variadic function`);
   }
@@ -1047,16 +1101,9 @@ function callVariadicInstruction(
   config: VariadicInstructionConfig,
   baseArgs: o.Expression[],
   interpolationArgs: o.Expression[],
-  extraArgs: o.Expression[],
   sourceSpan: ParseSourceSpan | null,
 ): ir.UpdateOp {
   return ir.createStatementOp(
-    callVariadicInstructionExpr(
-      config,
-      baseArgs,
-      interpolationArgs,
-      extraArgs,
-      sourceSpan,
-    ).toStmt(),
+    callVariadicInstructionExpr(config, baseArgs, interpolationArgs, sourceSpan).toStmt(),
   );
 }

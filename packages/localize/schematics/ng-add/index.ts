@@ -79,13 +79,26 @@ function addTypeScriptConfigTypes(projectName: string): Rule {
         case AngularBuilder.BrowserEsbuild:
         case AngularBuilder.Browser:
         case AngularBuilder.Application:
-        case AngularBuilder.BuildApplication:
+        case AngularBuilder.BuildKarma:
+        case AngularBuilder.BuildApplication: {
           const value = target.options?.['tsConfig'];
           if (typeof value === 'string') {
             tsConfigFiles.add(value);
           }
 
           break;
+        }
+        case AngularBuilder.BuildUnitTest: {
+          const value = target.options?.['tsConfig'];
+          if (typeof value === 'string') {
+            tsConfigFiles.add(value);
+          } else {
+            // Defaults to tsconfig in project root
+            tsConfigFiles.add((project.root || '.') + '/tsconfig.spec.json');
+          }
+
+          break;
+        }
       }
 
       if (
@@ -96,7 +109,10 @@ function addTypeScriptConfigTypes(projectName: string): Rule {
         if (typeof value === 'string') {
           addTripleSlashType(host, value);
         }
-      } else if (target.builder === AngularBuilder.Application) {
+      } else if (
+        target.builder === AngularBuilder.Application ||
+        target.builder === AngularBuilder.BuildApplication
+      ) {
         const value = target.options?.['browser'];
         if (typeof value === 'string') {
           addTripleSlashType(host, value);

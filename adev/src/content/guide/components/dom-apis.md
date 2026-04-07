@@ -7,7 +7,9 @@ directly interact with a component's DOM. Components can inject ElementRef to ge
 component's host element:
 
 ```ts
-@Component({...})
+@Component({
+  /*...*/
+})
 export class ProfilePhoto {
   constructor() {
     const elementRef = inject(ElementRef);
@@ -19,15 +21,17 @@ export class ProfilePhoto {
 The `nativeElement` property references the
 host [Element](https://developer.mozilla.org/docs/Web/API/Element) instance.
 
-You can use Angular's `afterRender` and `afterNextRender` functions to register a **render
+You can use Angular's `afterEveryRender` and `afterNextRender` functions to register a **render
 callback** that runs when Angular has finished rendering the page.
 
 ```ts
-@Component({...})
+@Component({
+  /*...*/
+})
 export class ProfilePhoto {
   constructor() {
     const elementRef = inject(ElementRef);
-    afterRender(() => {
+    afterEveryRender(() => {
       // Focus the first input element in this component.
       elementRef.nativeElement.querySelector('input')?.focus();
     });
@@ -35,7 +39,7 @@ export class ProfilePhoto {
 }
 ```
 
-`afterRender` and `afterNextRender` must be called in an _injection context_, typically a
+`afterEveryRender` and `afterNextRender` must be called in an _injection context_, typically a
 component's constructor.
 
 **Avoid direct DOM manipulation whenever possible.** Always prefer expressing your DOM's structure

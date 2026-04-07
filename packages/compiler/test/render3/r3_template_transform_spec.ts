@@ -14,10 +14,14 @@ import {parseR3 as parse} from './view/util';
 
 // Transform an IVY AST to a flat list of nodes to ease testing
 class R3AstHumanizer implements t.Visitor<void> {
-  result: any[] = [];
+  result: (string | number | null)[][] = [];
 
   visitElement(element: t.Element) {
-    this.result.push(['Element', element.name]);
+    const res = ['Element', element.name];
+    this.result.push(res);
+    if (element.isSelfClosing) {
+      res.push('#selfClosing');
+    }
     this.visitAll([
       element.attributes,
       element.inputs,
@@ -29,7 +33,11 @@ class R3AstHumanizer implements t.Visitor<void> {
   }
 
   visitTemplate(template: t.Template) {
-    this.result.push(['Template']);
+    const res = ['Template'];
+    if (template.isSelfClosing) {
+      res.push('#selfClosing');
+    }
+    this.result.push(res);
     this.visitAll([
       template.attributes,
       template.inputs,
@@ -43,7 +51,11 @@ class R3AstHumanizer implements t.Visitor<void> {
   }
 
   visitContent(content: t.Content) {
-    this.result.push(['Content', content.selector]);
+    const res = ['Content', content.selector];
+    this.result.push(res);
+    if (content.isSelfClosing) {
+      res.push('#selfClosing');
+    }
     this.visitAll([content.attributes, content.children]);
   }
 
@@ -86,7 +98,8 @@ class R3AstHumanizer implements t.Visitor<void> {
 
   visitSwitchBlock(block: t.SwitchBlock): void {
     this.result.push(['SwitchBlock', unparse(block.expression)]);
-    this.visitAll([block.cases]);
+    this.visitAll([block.groups]);
+    block.exhaustiveCheck?.visit(this);
   }
 
   visitSwitchBlockCase(block: t.SwitchBlockCase): void {
@@ -94,7 +107,15 @@ class R3AstHumanizer implements t.Visitor<void> {
       'SwitchBlockCase',
       block.expression === null ? null : unparse(block.expression),
     ]);
-    this.visitAll([block.children]);
+  }
+
+  visitSwitchBlockCaseGroup(block: t.SwitchBlockCaseGroup): void {
+    this.result.push(['SwitchBlockCaseGroup']);
+    this.visitAll([block.cases, block.children]);
+  }
+
+  visitSwitchExhaustiveCheck(block: t.SwitchExhaustiveCheck): void {
+    this.result.push(['SwitchExhaustiveCheck']);
   }
 
   visitForLoopBlock(block: t.ForLoopBlock): void {
@@ -132,13 +153,23 @@ class R3AstHumanizer implements t.Visitor<void> {
     } else if (trigger instanceof t.HoverDeferredTrigger) {
       this.result.push(['HoverDeferredTrigger', trigger.reference]);
     } else if (trigger instanceof t.IdleDeferredTrigger) {
-      this.result.push(['IdleDeferredTrigger']);
+      if (trigger.timeout != null) {
+        this.result.push(['IdleDeferredTrigger', trigger.timeout]);
+      } else {
+        this.result.push(['IdleDeferredTrigger']);
+      }
     } else if (trigger instanceof t.TimerDeferredTrigger) {
       this.result.push(['TimerDeferredTrigger', trigger.delay]);
     } else if (trigger instanceof t.InteractionDeferredTrigger) {
       this.result.push(['InteractionDeferredTrigger', trigger.reference]);
     } else if (trigger instanceof t.ViewportDeferredTrigger) {
-      this.result.push(['ViewportDeferredTrigger', trigger.reference]);
+      const result = ['ViewportDeferredTrigger', trigger.reference];
+
+      if (trigger.options !== null) {
+        result.push(unparse(trigger.options));
+      }
+
+      this.result.push(result);
     } else if (trigger instanceof t.NeverDeferredTrigger) {
       this.result.push(['NeverDeferredTrigger']);
     } else {
@@ -175,7 +206,11 @@ class R3AstHumanizer implements t.Visitor<void> {
   }
 
   visitComponent(component: t.Component) {
-    this.result.push(['Component', component.componentName, component.tagName, component.fullName]);
+    const res = ['Component', component.componentName, component.tagName, component.fullName];
+    if (component.isSelfClosing) {
+      res.push('#selfClosing');
+    }
+    this.result.push(res);
     this.visitAll([
       component.attributes,
       component.inputs,
@@ -269,6 +304,14 @@ describe('R3 template transform', () => {
         ['TextAttribute', 'select', 'a'],
       ]);
     });
+
+    it('should indicate whether an element is void', () => {
+      const nodes = parse('<input><div></div>').nodes as t.Element[];
+      expect(nodes[0].name).toBe('input');
+      expect(nodes[0].isVoid).toBe(true);
+      expect(nodes[1].name).toBe('div');
+      expect(nodes[1].isVoid).toBe(false);
+    });
   });
 
   describe('Bound text nodes', () => {
@@ -349,6 +392,61 @@ describe('R3 template transform', () => {
       expectFromHtml('<div [style.someStyle]="v"></div>').toEqual([
         ['Element', 'div'],
         ['BoundAttribute', BindingType.Style, 'someStyle', 'v'],
+      ]);
+    });
+
+    it('should parse class bindings with various characters', () => {
+      expectFromHtml(
+        `<foo [class.text-primary/80]="expr" ` +
+          `[class.data-active:text-green-300/80]="expr2" ` +
+          `[class.data-[size='large']:p-8] = "expr3" some-attr/>`,
+      ).toEqual([
+        ['Element', 'foo', '#selfClosing'],
+        ['TextAttribute', 'some-attr', ''],
+        ['BoundAttribute', BindingType.Class, 'text-primary/80', 'expr'],
+        ['BoundAttribute', BindingType.Class, 'data-active:text-green-300/80', 'expr2'],
+        ['BoundAttribute', BindingType.Class, `data-[size='large']:p-8`, 'expr3'],
+      ]);
+    });
+  });
+
+  describe('animation bindings', () => {
+    it('should support animate.enter', () => {
+      expectFromHtml('<div animate.enter="foo"></div>').toEqual([
+        ['Element', 'div'],
+        ['TextAttribute', 'animate.enter', 'foo'],
+      ]);
+
+      expectFromHtml(`<div [animate.enter]="['foo', 'bar']"></div>`).toEqual([
+        ['Element', 'div'],
+        ['BoundAttribute', 6, 'animate.enter', '["foo", "bar"]'],
+      ]);
+
+      expectFromHtml(`<div (animate.enter)="animateFn($event)"></div>`).toEqual([
+        ['Element', 'div'],
+        ['BoundEvent', 3, 'animate.enter', null, 'animateFn($event)'],
+      ]);
+    });
+
+    it('should support animate.leave', () => {
+      expectFromHtml('<div animate.leave="foo"></div>').toEqual([
+        ['Element', 'div'],
+        ['TextAttribute', 'animate.leave', 'foo'],
+      ]);
+
+      expectFromHtml(`<div [animate.leave]="['foo', 'bar']"></div>`).toEqual([
+        ['Element', 'div'],
+        ['BoundAttribute', 6, 'animate.leave', '["foo", "bar"]'],
+      ]);
+
+      expectFromHtml(`<div (animate.leave)="animateFn($event)"></div>`).toEqual([
+        ['Element', 'div'],
+        ['BoundEvent', 3, 'animate.leave', null, 'animateFn($event)'],
+      ]);
+
+      expectFromHtml(`<div (animateXYZ)="animateFn()"></div>`).toEqual([
+        ['Element', 'div'],
+        ['BoundEvent', 0, 'animateXYZ', null, 'animateFn()'],
       ]);
     });
   });
@@ -572,6 +670,10 @@ describe('R3 template transform', () => {
         'v + 1',
         'foo.bar?.baz',
         `foo.bar?.['baz']`,
+        'foo?.bar.baz[0]',
+        'foo?.bar.baz[0].boo[0]',
+        'foo?.bar.baz()',
+        '(foo?.bar).baz', // not null-safe and would crash at runtime, but may not report an error without `strictNullChecks`
         'true',
         '123',
         'a.b()',
@@ -594,6 +696,13 @@ describe('R3 template transform', () => {
         expect(() => parse(`<div [(prop)]="${expression}"></div>`))
           .withContext(expression)
           .toThrowError(/Unsupported expression in a two-way binding/);
+      }
+
+      const supportedExpressions = ['(foo?.bar ?? bar).baz'];
+      for (const expression of supportedExpressions) {
+        expect(() => parse(`<div [(prop)]="${expression}"></div>`))
+          .withContext(expression)
+          .not.toThrowError();
       }
     });
 
@@ -620,7 +729,7 @@ describe('R3 template transform', () => {
     it('should parse bound animation events when event name is empty', () => {
       expectFromHtml('<div (@)="onAnimationEvent($event)"></div>', true).toEqual([
         ['Element', 'div'],
-        ['BoundEvent', ParsedEventType.Animation, '', null, 'onAnimationEvent($event)'],
+        ['BoundEvent', ParsedEventType.LegacyAnimation, '', null, 'onAnimationEvent($event)'],
       ]);
       expect(() => parse('<div (@)></div>')).toThrowError(
         /Animation event name is missing in binding/,
@@ -746,6 +855,61 @@ describe('R3 template transform', () => {
         ['Text', 'Parent '],
         ['Element', 'span'],
         ['Text', 'Child'],
+      ]);
+    });
+  });
+
+  describe('parser errors', () => {
+    it('should only report errors on the node on which the error occurred', () => {
+      const errors = parse(
+        `
+        <input (input)="foo(12#3)">
+        <button (click)="bar()"></button>
+        <span (mousedown)="baz()"></span>
+      `,
+        {
+          ignoreError: true,
+        },
+      ).errors;
+
+      expect(errors.length).toBe(3);
+      expect(errors[0].msg).toContain('Parser Error: Missing expected )');
+      expect(errors[1].msg).toContain('Invalid character [#]');
+      expect(errors[2].msg).toContain(`Unexpected token ')'`);
+    });
+
+    it('should report parsing errors on the specific interpolated expressions', () => {
+      const errors = parse(
+        `
+          bunch of text bunch of text bunch of text bunch of text bunch of text bunch of text
+          bunch of text bunch of text bunch of text bunch of text
+
+          {{foo[0}} bunch of text bunch of text bunch of text bunch of text {{.bar}}
+
+          bunch of text
+          bunch of text
+          bunch of text
+          bunch of text
+          bunch of text {{one + #two + baz}}
+        `,
+        {
+          ignoreError: true,
+        },
+      ).errors;
+
+      expect(errors.map((e) => e.span.toString())).toEqual([
+        '{{foo[0}}',
+        '{{.bar}}',
+        '{{one + #two + baz}}',
+      ]);
+
+      expect(errors.map((e) => e.msg)).toEqual([
+        jasmine.stringContaining('Missing expected ] at the end of the expression [foo[0]'),
+        jasmine.stringContaining('Unexpected token . at column 1 in [.bar]'),
+        jasmine.stringContaining(
+          'Private identifiers are not supported. Unexpected private identifier: ' +
+            '#two at column 7 in [one + #two + baz]',
+        ),
       ]);
     });
   });
@@ -948,7 +1112,7 @@ describe('R3 template transform', () => {
           '@error {Loading failed :(}',
       ).toEqual([
         ['DeferredBlock'],
-        ['Element', 'calendar-cmp'],
+        ['Element', 'calendar-cmp', '#selfClosing'],
         ['BoundAttribute', 0, 'date', 'current'],
         ['DeferredBlockPlaceholder'],
         ['Text', 'Placeholder content!'],
@@ -967,7 +1131,7 @@ describe('R3 template transform', () => {
           '<!-- Show this on error --> @error {Loading failed :(}',
       ).toEqual([
         ['DeferredBlock'],
-        ['Element', 'calendar-cmp'],
+        ['Element', 'calendar-cmp', '#selfClosing'],
         ['BoundAttribute', 0, 'date', 'current'],
         ['DeferredBlockPlaceholder'],
         ['Text', 'Placeholder content!'],
@@ -991,7 +1155,7 @@ describe('R3 template transform', () => {
         expectFromR3Nodes(parse(template, {preserveWhitespaces: true}).nodes).toEqual([
           // Note: we also expect the whitespace nodes between the blocks to be ignored here.
           ['DeferredBlock'],
-          ['Element', 'calendar-cmp'],
+          ['Element', 'calendar-cmp', '#selfClosing'],
           ['BoundAttribute', 0, 'date', 'current'],
           ['DeferredBlockPlaceholder'],
           ['Text', 'Placeholder content!'],
@@ -1009,7 +1173,7 @@ describe('R3 template transform', () => {
           '@loading (after 100ms; minimum 1.5s){Loading...}',
       ).toEqual([
         ['DeferredBlock'],
-        ['Element', 'calendar-cmp'],
+        ['Element', 'calendar-cmp', '#selfClosing'],
         ['BoundAttribute', 0, 'date', 'current'],
         ['DeferredBlockLoading', 'after 100ms', 'minimum 1500ms'],
         ['Text', 'Loading...'],
@@ -1021,7 +1185,7 @@ describe('R3 template transform', () => {
         '@defer {<calendar-cmp [date]="current"/>}' + '@placeholder (minimum 1.5s){Placeholder...}',
       ).toEqual([
         ['DeferredBlock'],
-        ['Element', 'calendar-cmp'],
+        ['Element', 'calendar-cmp', '#selfClosing'],
         ['BoundAttribute', 0, 'date', 'current'],
         ['DeferredBlockPlaceholder', 'minimum 1500ms'],
         ['Text', 'Placeholder...'],
@@ -1038,6 +1202,28 @@ describe('R3 template transform', () => {
         ['ViewportDeferredTrigger', 'button'],
         ['HoverDeferredTrigger', 'button'],
         ['BoundDeferredTrigger', 'shouldPrefetch()'],
+        ['Text', 'hello'],
+      ]);
+    });
+
+    it('should parse prefetch `on idle(100)` trigger and preserve timeout', () => {
+      const html = '@defer (on idle; prefetch on idle(100)){hello}';
+
+      expectFromHtml(html).toEqual([
+        ['DeferredBlock'],
+        ['IdleDeferredTrigger'],
+        ['IdleDeferredTrigger', 100],
+        ['Text', 'hello'],
+      ]);
+    });
+
+    it('should parse hydrate `on idle(100)` trigger and preserve timeout', () => {
+      const html = '@defer (on idle; hydrate on idle(100)){hello}';
+
+      expectFromHtml(html).toEqual([
+        ['DeferredBlock'],
+        ['IdleDeferredTrigger', 100],
+        ['IdleDeferredTrigger'],
         ['Text', 'hello'],
       ]);
     });
@@ -1117,7 +1303,7 @@ describe('R3 template transform', () => {
         ['ViewportDeferredTrigger', 'container'],
         ['ImmediateDeferredTrigger'],
         ['BoundDeferredTrigger', 'isDataLoaded()'],
-        ['Element', 'calendar-cmp'],
+        ['Element', 'calendar-cmp', '#selfClosing'],
         ['BoundAttribute', 0, 'date', 'current'],
         ['DeferredBlockPlaceholder', 'minimum 500ms'],
         ['Text', 'Placeholder content!'],
@@ -1147,7 +1333,7 @@ describe('R3 template transform', () => {
             'interaction(button), viewport(container); prefetch on immediate; ' +
             'prefetch when isDataLoaded(); hydrate when shouldHydrate(); hydrate on viewport){',
         ],
-        ['Element', 'calendar-cmp'],
+        ['Element', 'calendar-cmp', '#selfClosing'],
         ['TextAttribute', '[date]', 'current'],
         ['Text', '}'],
         ['Text', '@loading (minimum 1s; after 100ms){'],
@@ -1176,7 +1362,30 @@ describe('R3 template transform', () => {
         ['ViewportDeferredTrigger', null],
         ['Text', 'hello'],
         ['DeferredBlockPlaceholder'],
-        ['Element', 'implied-trigger'],
+        ['Element', 'implied-trigger', '#selfClosing'],
+      ]);
+    });
+
+    it('should parse a viewport trigger with an options parameter', () => {
+      expectFromHtml(
+        '@defer (on viewport({trigger: foo, rootMargin: "123px", threshold: [1, 2, 3]})){hello}',
+      ).toEqual([
+        ['DeferredBlock'],
+        ['ViewportDeferredTrigger', 'foo', '{rootMargin: "123px", threshold: [1, 2, 3]}'],
+        ['Text', 'hello'],
+      ]);
+    });
+
+    it('should parse a viewport trigger with an options parameter, but without a trigger', () => {
+      expectFromHtml('@defer (on viewport({rootMargin: "123px"})){hello}').toEqual([
+        ['DeferredBlock'],
+        ['ViewportDeferredTrigger', null, '{rootMargin: "123px"}'],
+        ['Text', 'hello'],
+      ]);
+      expectFromHtml('@defer (on viewport({rootMargin: "123px"})){hello}').toEqual([
+        ['DeferredBlock'],
+        ['ViewportDeferredTrigger', null, '{rootMargin: "123px"}'],
+        ['Text', 'hello'],
       ]);
     });
 
@@ -1311,9 +1520,23 @@ describe('R3 template transform', () => {
         expect(() => parse('@defer (on viewport[]) {hello}')).toThrowError(/Unexpected token/);
       });
 
-      it('should report if parameters are passed to `idle` trigger', () => {
-        expect(() => parse('@defer (on idle(1)) {hello}')).toThrowError(
-          /"idle" trigger cannot have parameters/,
+      it('should allow optional parameter on `idle` trigger and parse timeout', () => {
+        expectFromHtml('@defer (on idle(1)) {hello}').toEqual([
+          ['DeferredBlock'],
+          ['IdleDeferredTrigger', 1],
+          ['Text', 'hello'],
+        ]);
+      });
+
+      it('should report if `idle` trigger value cannot be parsed', () => {
+        expect(() => parse('@defer (on idle(123abc)) {hello}')).toThrowError(
+          /Could not parse time value of trigger "idle"/,
+        );
+      });
+
+      it('should report if `idle` trigger has more than one parameter', () => {
+        expect(() => parse('@defer (on idle(a, b)) {hello}')).toThrowError(
+          /"idle" trigger can only have zero or one parameters/,
         );
       });
 
@@ -1350,6 +1573,26 @@ describe('R3 template transform', () => {
       it('should report if `viewport` trigger has more than one parameter', () => {
         expect(() => parse('@defer (on viewport(a, b)) {hello}')).toThrowError(
           /"viewport" trigger can only have zero or one parameters/,
+        );
+      });
+
+      it('should report if `viewport` trigger with an object literal parameter has a "trigger" that is not an identifier', () => {
+        expect(() => parse('@defer (on viewport({trigger: "str"})) {hello}')).toThrowError(
+          /"trigger" option of the "viewport" trigger must be an identifier/,
+        );
+      });
+
+      it('should report if `viewport` trigger has a variable options parameter', () => {
+        expect(() =>
+          parse('@defer (on viewport({threshold: [1, someVar, 3]})) {hello}'),
+        ).toThrowError(
+          /Options of the "viewport" trigger must be an object literal containing only literal values/,
+        );
+      });
+
+      it('should report if `viewport` trigger options parameter contains the `root` property', () => {
+        expect(() => parse('@defer (on viewport({root: foo})) {hello}')).toThrowError(
+          /The "root" option is not supported in the options parameter of the "viewport" trigger/,
         );
       });
 
@@ -1397,32 +1640,6 @@ describe('R3 template transform', () => {
         ).toThrowError(/@loading block can only have one "after" parameter/);
       });
 
-      it('should report if reference-based trigger has no reference and there is no placeholder block', () => {
-        expect(() => parse('@defer (on viewport) {hello}')).toThrowError(
-          /"viewport" trigger with no parameters can only be placed on an @defer that has a @placeholder block/,
-        );
-      });
-
-      it('should report if reference-based trigger has no reference and the placeholder is empty', () => {
-        expect(() => parse('@defer (on viewport) {hello} @placeholder {}')).toThrowError(
-          /"viewport" trigger with no parameters can only be placed on an @defer that has a @placeholder block with exactly one root element node/,
-        );
-      });
-
-      it('should report if reference-based trigger has no reference and the placeholder with text at the root', () => {
-        expect(() => parse('@defer (on viewport) {hello} @placeholder {placeholder}')).toThrowError(
-          /"viewport" trigger with no parameters can only be placed on an @defer that has a @placeholder block with exactly one root element node/,
-        );
-      });
-
-      it('should report if reference-based trigger has no reference and the placeholder has multiple root elements', () => {
-        expect(() =>
-          parse('@defer (on viewport) {hello} @placeholder {<div></div><span></span>}'),
-        ).toThrowError(
-          /"viewport" trigger with no parameters can only be placed on an @defer that has a @placeholder block with exactly one root element node/,
-        );
-      });
-
       it('should report parameter passed to hydrate trigger with reference-based equivalent', () => {
         expect(() =>
           parse('@defer (on interaction(button); hydrate on interaction(button)) {hello}'),
@@ -1431,18 +1648,6 @@ describe('R3 template transform', () => {
 
       it('should not report missing reference on hydrate trigger', () => {
         expect(() => parse('@defer (on immediate; hydrate on viewport) {hello}')).not.toThrow();
-      });
-
-      it('should report if reference-based trigger has no reference and there is no placeholder block but a hydrate trigger exists', () => {
-        expect(() => parse('@defer (on viewport; hydrate on immediate) {hello}')).toThrowError(
-          /"viewport" trigger with no parameters can only be placed on an @defer that has a @placeholder block/,
-        );
-      });
-
-      it('should report if reference-based trigger has no reference and there is no placeholder block but a hydrate trigger exists and it is also viewport', () => {
-        expect(() => parse('@defer (on viewport; hydrate on viewport) {hello}')).toThrowError(
-          /"viewport" trigger with no parameters can only be placed on an @defer that has a @placeholder block/,
-        );
       });
 
       it('should report never trigger used without `hydrate`', () => {
@@ -1509,16 +1714,28 @@ describe('R3 template transform', () => {
           }
         `).toEqual([
         ['SwitchBlock', 'cond.kind'],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', 'x()'],
         ['Text', ' X case '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '"hello"'],
         ['Element', 'button'],
         ['Text', 'Y case'],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '42'],
         ['Text', ' Z case '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', null],
         ['Text', ' No case matched '],
       ]);
+    });
+
+    it('should parse a switch block with a default never case', () => {
+      expectFromHtml(`
+          @switch (cond.kind) {
+            @default never;
+          }
+        `).toEqual([['SwitchBlock', 'cond.kind'], ['SwitchExhaustiveCheck']]);
     });
 
     // This is a special case for `switch` blocks, because `preserveWhitespaces` will cause
@@ -1544,15 +1761,19 @@ describe('R3 template transform', () => {
       expectFromR3Nodes(parse(template, {preserveWhitespaces: true}).nodes).toEqual([
         ['Text', '\n        '],
         ['SwitchBlock', 'cond.kind'],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', 'x()'],
         ['Text', '\n            X case\n          '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '"hello"'],
         ['Text', '\n            '],
         ['Element', 'button'],
         ['Text', 'Y case'],
         ['Text', '\n          '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '42'],
         ['Text', '\n            Z case\n          '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', null],
         ['Text', '\n            No case matched\n          '],
         ['Text', '\n      '],
@@ -1569,13 +1790,17 @@ describe('R3 template transform', () => {
           }
         `).toEqual([
         ['SwitchBlock', '(cond.kind)'],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '(x())'],
         ['Text', ' X case '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '("hello")'],
         ['Element', 'button'],
         ['Text', 'Y case'],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '(42)'],
         ['Text', ' Z case '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', null],
         ['Text', ' No case matched '],
       ]);
@@ -1607,27 +1832,38 @@ describe('R3 template transform', () => {
           }
         `).toEqual([
         ['SwitchBlock', 'cond'],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '"a"'],
         ['SwitchBlock', 'innerCond'],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '"innerA"'],
         ['Text', ' Inner A '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '"innerB"'],
         ['Text', ' Inner B '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '"b"'],
         ['Element', 'button'],
         ['Text', 'Y case'],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '"c"'],
         ['Text', ' Z case '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', null],
         ['SwitchBlock', 'innerCond'],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '"innerC"'],
         ['Text', ' Inner C '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '"innerD"'],
         ['Text', ' Inner D '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', null],
         ['SwitchBlock', 'innerInnerCond'],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '"innerInnerA"'],
         ['Text', ' Inner inner A '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', '"innerInnerA"'],
         ['Text', ' Inner inner B '],
       ]);
@@ -1644,8 +1880,34 @@ describe('R3 template transform', () => {
           }
         `).toEqual([
         ['SwitchBlock', 'cond.kind'],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', 'x'],
         ['Text', ' X case '],
+        ['SwitchBlockCaseGroup'],
+        ['SwitchBlockCase', null],
+        ['Text', ' No case matched '],
+      ]);
+    });
+
+    it('should parse multiple case blocks in a switch block', () => {
+      expectFromHtml(`
+          @switch (cond) {
+            @case ('a') @case('b') @case('c') @case('d') { ABCD case }
+            @case ('z') { Z case }
+            @default { No case matched }
+          }
+        `).toEqual([
+        ['SwitchBlock', 'cond'],
+        ['SwitchBlockCaseGroup'],
+        ['SwitchBlockCase', '"a"'],
+        ['SwitchBlockCase', '"b"'],
+        ['SwitchBlockCase', '"c"'],
+        ['SwitchBlockCase', '"d"'],
+        ['Text', ' ABCD case '],
+        ['SwitchBlockCaseGroup'],
+        ['SwitchBlockCase', '"z"'],
+        ['Text', ' Z case '],
+        ['SwitchBlockCaseGroup'],
         ['SwitchBlockCase', null],
         ['Text', ' No case matched '],
       ]);
@@ -1678,7 +1940,7 @@ describe('R3 template transform', () => {
           `
               @switch (cond) {
                 @case (x()) {X case}
-                @foo {Foo}
+                @if (true) {Foo}
               }
             `,
           {ignoreError: true},
@@ -1688,7 +1950,7 @@ describe('R3 template transform', () => {
         expect(result.errors.map((e) => e.msg)).toEqual([
           '@switch block can only contain @case and @default blocks',
         ]);
-        expect(switchNode.unknownBlocks.map((b) => b.name)).toEqual(['foo']);
+        expect(switchNode.unknownBlocks.map((b) => b.name)).toEqual(['if']);
       });
 
       it('should report if @case or @default is used outside of a switch block', () => {
@@ -1764,6 +2026,50 @@ describe('R3 template transform', () => {
           }
         `),
         ).toThrowError(/@default block cannot have parameters/);
+      });
+
+      it('should report if in a @switch block a @default never block has a body', () => {
+        expect(() =>
+          parse(`
+          @switch (cond) {
+            @default never {nope}
+          }
+        `),
+        ).toThrowError(/@default block with "never" parameter cannot have a body/);
+      });
+
+      it('should report if a switch fallthrough case is followed by a @default never block', () => {
+        expect(() =>
+          parse(`
+          @switch (cond) {
+            @case (foo)
+            @default never;
+          }
+        `),
+        ).toThrowError(
+          /A @case block with no body cannot be followed by a @default block with "never" parameter/,
+        );
+      });
+
+      it('should throw if @default never is not the last case in a switch block', () => {
+        expect(() =>
+          parse(`
+          @switch (cond) {
+            @default never;
+            @case (foo) {foo}
+          }
+        `),
+        ).toThrowError(/@default block with "never" parameter must be the last case in a switch/);
+      });
+
+      it('should throw if a semicolon is missing after @default never', () => {
+        expect(() =>
+          parse(`
+          @switch (cond) {
+            @default never
+          }
+        `),
+        ).toThrowError(/Incomplete block "default never"/);
       });
     });
   });
@@ -2046,8 +2352,8 @@ describe('R3 template transform', () => {
       });
 
       it('should report syntax error in for loop expression', () => {
-        expect(() => parse(`@for (item of items..foo) {hello}`)).toThrowError(
-          /Unexpected token \./,
+        expect(() => parse(`@for (item of items#foo) {hello}`)).toThrowError(
+          /Unexpected token '#foo'/,
         );
       });
 
@@ -2092,6 +2398,12 @@ describe('R3 template transform', () => {
       it('should report an empty block used without a @for loop block', () => {
         expect(() => parse(`@empty {hello}`)).toThrowError(
           /@empty block can only be used after an @for block/,
+        );
+      });
+
+      it('should report a pipe in a track expression', () => {
+        expect(() => parse(`@for (item of items; track item.id | json) {}`)).toThrowError(
+          /Cannot use pipes in track expressions/,
         );
       });
 
@@ -2284,6 +2596,24 @@ describe('R3 template transform', () => {
       ]);
     });
 
+    it('should parse an else if block with an aliased expression', () => {
+      expectFromHtml(`
+        @if (cond.expr; as foo) {
+          Main case was true!
+        } @else if (other.expr; as bar) {
+          Other case was true!
+        }
+        `).toEqual([
+        ['IfBlock'],
+        ['IfBlockBranch', 'cond.expr'],
+        ['Variable', 'foo', 'foo'],
+        ['Text', ' Main case was true! '],
+        ['IfBlockBranch', 'other.expr'],
+        ['Variable', 'bar', 'bar'],
+        ['Text', ' Other case was true! '],
+      ]);
+    });
+
     describe('validations', () => {
       it('should report an if block without a condition', () => {
         expect(() =>
@@ -2328,14 +2658,6 @@ describe('R3 template transform', () => {
           @if (foo) {hello} @else\nif (bar) {goodbye}
         `),
         ).toThrowError(/Unrecognized block @else\nif/);
-      });
-
-      it('should report an else if block that has an `as` expression', () => {
-        expect(() =>
-          parse(`
-          @if (foo) {hello} @else if (bar; as alias) {goodbye}
-        `),
-        ).toThrowError(/"as" expression is only allowed on the primary @if block/);
       });
 
       it('should report an @else if block used without an @if block', () => {
@@ -2393,12 +2715,14 @@ describe('R3 template transform', () => {
         `),
         ).toThrowError(/"as" expression must be a valid JavaScript identifier/);
       });
-    });
-  });
 
-  describe('unknown blocks', () => {
-    it('should parse unknown blocks', () => {
-      expectFromHtml('@unknown {}', true /* ignoreError */).toEqual([['UnknownBlock', 'unknown']]);
+      it('should report consecutive @if statements without a block in between', () => {
+        expect(() =>
+          parse(`
+          @if (foo) @if (bar) {hello}
+        `),
+        ).toThrowError(/Incomplete block "if"/);
+      });
     });
   });
 
@@ -2459,7 +2783,7 @@ describe('R3 template transform', () => {
         ['Text', 'Hello: '],
         ['Component', 'MyComp', null, 'MyComp'],
         ['Element', 'span'],
-        ['Component', 'OtherComp', null, 'OtherComp'],
+        ['Component', 'OtherComp', null, 'OtherComp', '#selfClosing'],
       ]);
     });
 
@@ -2494,7 +2818,7 @@ describe('R3 template transform', () => {
       ).toEqual([
         ['Template'],
         ['BoundAttribute', 0, 'ngIf', 'true'],
-        ['Component', 'MyComp', null, 'MyComp'],
+        ['Component', 'MyComp', null, 'MyComp', '#selfClosing'],
         ['Directive', 'Dir'],
         ['TextAttribute', 'static', '1'],
         ['BoundAttribute', 0, 'bound', 'expr'],
@@ -2553,7 +2877,7 @@ describe('R3 template transform', () => {
         ['Directive', 'Dir'],
         ['TextAttribute', 'a', '1'],
         ['BoundAttribute', 0, 'b', 'two'],
-        ['BoundAttribute', 5, 'd', 'd'],
+        ['BoundAttribute', BindingType.TwoWay, 'd', 'd'],
         ['BoundEvent', 0, 'c', null, 'c()'],
         ['BoundEvent', 2, 'dChange', null, 'd'],
       ]);
@@ -2646,6 +2970,33 @@ describe('R3 template transform', () => {
           /Binding is not supported in a directive context/,
         );
       });
+
+      it('should not allow named references', () => {
+        const pattern = /Cannot specify a value for a local reference in this context/;
+        expect(() => parseSelectorless('<MyComp #foo="bar"/>')).toThrowError(pattern);
+        expect(() => parseSelectorless('<div @Dir(#foo="bar")></div>')).toThrowError(pattern);
+      });
+
+      it('should not allow duplicate references', () => {
+        const pattern = /Duplicate reference names are not allowed/;
+        expect(() => parseSelectorless('<MyComp #foo #foo/>')).toThrowError(pattern);
+        expect(() => parseSelectorless('<div @Dir(#foo #foo)></div>')).toThrowError(pattern);
+      });
     });
+  });
+
+  it('should report an error for attribute bindings on ng-container', () => {
+    const template = `<ng-container [attr.title]="'test'"></ng-container>`;
+    const errors = parse(template, {ignoreError: true}).errors;
+    expect(errors.length).toBe(1);
+    expect(errors[0].msg).toBe(
+      'Attribute bindings are not supported on ng-container. Use property bindings instead.',
+    );
+  });
+
+  it('should not report an error on non-attr bindings on ng-container', () => {
+    const template = `<ng-container *ngIf"test" [ngTemplateOutlet]="foo"></ng-container>`;
+    const errors = parse(template, {ignoreError: true}).errors;
+    expect(errors.length).toBe(0);
   });
 });

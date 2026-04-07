@@ -14,6 +14,8 @@ import {
   Directive,
   EnvironmentInjector,
   inject,
+  provideZoneChangeDetection,
+  ChangeDetectionStrategy,
 } from '../../src/core';
 import {TestBed} from '../../testing';
 
@@ -72,17 +74,24 @@ describe('DestroyRef', () => {
 
       expect(() => {
         destroyRef.onDestroy(() => {});
-      }).toThrowError('NG0205: Injector has already been destroyed.');
+      }).toThrowError(/NG0205: Injector has already been destroyed./);
     });
   });
 
   describe('for node injector', () => {
+    beforeEach(() => {
+      TestBed.configureTestingModule({
+        providers: [provideZoneChangeDetection()],
+      });
+    });
     it('should inject cleanup context in components', () => {
       let destroyed = false;
 
       @Component({
         selector: 'test',
         template: ``,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmp {
         constructor(destroyCtx: DestroyRef) {
@@ -114,7 +123,10 @@ describe('DestroyRef', () => {
         imports: [WithCleanupDirective],
         // note: we are trying to register a LView-level cleanup _before_ TView-level one (event
         // listener)
-        template: `<div withCleanup></div><button (click)="noop()"></button>`,
+        template: `<div withCleanup></div>
+          <button (click)="noop()"></button>`,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmp {
         noop() {}
@@ -144,6 +156,8 @@ describe('DestroyRef', () => {
         selector: 'test',
         imports: [WithCleanupDirective, NgIf],
         template: `<ng-template [ngIf]="show"><div withCleanup></div></ng-template>`,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmp {
         show = true;
@@ -163,6 +177,8 @@ describe('DestroyRef', () => {
       @Component({
         selector: 'child',
         template: '',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Child {
         constructor() {
@@ -172,6 +188,8 @@ describe('DestroyRef', () => {
       @Component({
         imports: [Child, NgIf],
         template: '<child *ngIf="showChild"></child>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Parent {
         showChild = true;
@@ -191,6 +209,8 @@ describe('DestroyRef', () => {
     @Component({
       selector: 'test',
       template: ``,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestCmp {
       unRegFn: () => void;
@@ -216,6 +236,8 @@ describe('DestroyRef', () => {
     @Component({
       selector: 'test',
       template: ``,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestCmp {
       unRegFn: () => void;
@@ -239,12 +261,34 @@ describe('DestroyRef', () => {
     expect(onDestroyCalls).toBe(2);
   });
 
+  it('should throw when trying to register destroy callback on destroyed LView', () => {
+    @Component({
+      selector: 'test',
+      template: ``,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
+    })
+    class TestCmp {
+      constructor(public destroyRef: DestroyRef) {}
+    }
+
+    const fixture = TestBed.createComponent(TestCmp);
+    const destroyRef = fixture.componentRef.instance.destroyRef;
+    fixture.componentRef.destroy();
+
+    expect(() => {
+      destroyRef.onDestroy(() => {});
+    }).toThrowError('NG0911: View has already been destroyed.');
+  });
+
   it('should allow unregistration while destroying', () => {
     const destroyedLog: string[] = [];
 
     @Component({
       selector: 'test',
       template: ``,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestCmp {
       constructor(destroyCtx: DestroyRef) {

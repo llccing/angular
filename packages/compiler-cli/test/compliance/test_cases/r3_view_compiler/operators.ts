@@ -1,4 +1,4 @@
-import {Component, Pipe} from '@angular/core';
+import { Component, Pipe } from '@angular/core';
 
 @Pipe({name: 'identity'})
 export class IdentityPipe {
@@ -6,6 +6,8 @@ export class IdentityPipe {
     return value;
   }
 }
+
+export class Bar {}
 
 @Component({
   template: `
@@ -18,9 +20,23 @@ export class IdentityPipe {
     {{ typeof foo?.bar | identity }}
     {{ void 'test' }}
     {{ (-1) ** 3 }}
+    {{ 'bar' in foo }}
+    {{ bar instanceof Bar }}
+    <button (click)="number += 1"></button>
+    <button (click)="number -= 1"></button>
+    <button (click)="number *= 1"></button>
+    <button (click)="number /= 1"></button>
+    <button (click)="number %= 1"></button>
+    <button (click)="number **= 1"></button>
+    <button (click)="number &&= 1"></button>
+    <button (click)="number ||= 1"></button>
+    <button (click)="number ??= 1"></button>
   `,
   imports: [IdentityPipe],
 })
 export class MyApp {
   foo: {bar?: string} = {bar: 'baz'};
+  number = 1;
+  bar = new Bar();
+  Bar = Bar;
 }

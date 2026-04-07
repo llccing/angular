@@ -7,7 +7,7 @@
  */
 
 import {FlatTreeControl} from '@angular/cdk/tree';
-import {DevToolsNode} from 'protocol';
+import {DevToolsNode} from '../../../../../../../protocol';
 
 import {ComponentDataSource, FlatNode} from '.';
 
@@ -21,6 +21,8 @@ const tree1: DevToolsNode = {
   ],
   component: null,
   hydration: null,
+  controlFlowBlock: null,
+
   children: [
     {
       children: [],
@@ -33,6 +35,7 @@ const tree1: DevToolsNode = {
       element: 'bar',
       hydration: null,
       nativeElement: document.createElement('bar'),
+      controlFlowBlock: null,
     },
   ],
   nativeElement: document.createElement('foo'),
@@ -48,6 +51,8 @@ const tree2: DevToolsNode = {
   ],
   component: null,
   hydration: null,
+  controlFlowBlock: null,
+
   children: [
     {
       children: [],
@@ -60,6 +65,7 @@ const tree2: DevToolsNode = {
       element: 'bar',
       hydration: null,
       nativeElement: document.createElement('bar'),
+      controlFlowBlock: null,
     },
     {
       children: [],
@@ -71,7 +77,7 @@ const tree2: DevToolsNode = {
       directives: [],
       element: 'qux',
       hydration: null,
-      nativeElement: document.createElement('qux'),
+      controlFlowBlock: null,
     },
   ],
   nativeElement: document.createElement('foo'),
@@ -87,6 +93,7 @@ const tree3: DevToolsNode = {
   ],
   component: null,
   hydration: null,
+  controlFlowBlock: null,
   children: [
     {
       children: [],
@@ -98,6 +105,7 @@ const tree3: DevToolsNode = {
       directives: [],
       element: '#comment',
       hydration: null,
+      controlFlowBlock: null,
       nativeElement: document.createComment('bar'),
     },
     {
@@ -110,6 +118,7 @@ const tree3: DevToolsNode = {
       directives: [],
       element: '#comment',
       hydration: null,
+      controlFlowBlock: null,
       nativeElement: document.createComment('bar'),
     },
   ],
@@ -119,6 +128,7 @@ const tree3: DevToolsNode = {
 const tree4: DevToolsNode = {
   element: 'app',
   hydration: null,
+  controlFlowBlock: null,
   directives: [
     {
       id: 1,
@@ -145,6 +155,7 @@ const tree4: DevToolsNode = {
                       directives: [],
                       element: 'bar',
                       hydration: null,
+                      controlFlowBlock: null,
                       nativeElement: document.createComment('bar'),
                     },
                   ],
@@ -156,6 +167,7 @@ const tree4: DevToolsNode = {
                   directives: [],
                   element: '#comment',
                   hydration: null,
+                  controlFlowBlock: null,
                   nativeElement: document.createComment('bar'),
                 },
               ],
@@ -167,6 +179,7 @@ const tree4: DevToolsNode = {
               directives: [],
               element: '#comment',
               hydration: null,
+              controlFlowBlock: null,
               nativeElement: document.createComment('bar'),
             },
           ],
@@ -178,6 +191,7 @@ const tree4: DevToolsNode = {
           directives: [],
           element: '#comment',
           hydration: null,
+          controlFlowBlock: null,
           nativeElement: document.createComment('bar'),
         },
       ],
@@ -190,6 +204,7 @@ const tree4: DevToolsNode = {
       element: '#comment',
       hydration: null,
       nativeElement: document.createComment('bar'),
+      controlFlowBlock: null,
     },
   ],
   nativeElement: document.createElement('foo'),

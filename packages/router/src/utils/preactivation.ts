@@ -6,9 +6,15 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Injector, ProviderToken, ɵisInjectable as isInjectable} from '@angular/core';
-
+import {
+  Injector,
+  ProviderToken,
+  ɵisInjectable as isInjectable,
+  EnvironmentInjector,
+  runInInjectionContext,
+} from '@angular/core';
 import {RunGuardsAndResolvers} from '../models';
+
 import {ChildrenOutletContexts, OutletContext} from '../router_outlet_context';
 import {
   ActivatedRouteSnapshot,
@@ -42,7 +48,7 @@ export function getAllRouteGuards(
   future: RouterStateSnapshot,
   curr: RouterStateSnapshot,
   parentContexts: ChildrenOutletContexts,
-) {
+): Checks {
   const futureRoot = future._root;
   const currRoot = curr ? curr._root : null;
 
@@ -173,7 +179,7 @@ function shouldRunGuardsAndResolvers(
   mode: RunGuardsAndResolvers | undefined,
 ): boolean {
   if (typeof mode === 'function') {
-    return mode(curr, future);
+    return runInInjectionContext(future._environmentInjector, () => mode(curr, future));
   }
   switch (mode) {
     case 'pathParamsChange':

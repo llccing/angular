@@ -1193,6 +1193,77 @@ import {envIsSupported} from '../testing/utils';
       });
     });
 
+    describe('messageerror events', () => {
+      it('logs message deserialization errors', async () => {
+        await driver.initialized;
+
+        const debuggerLogSpy = spyOn(driver.debugger, 'log');
+
+        scope.handleMessageError('someClient');
+
+        expect(debuggerLogSpy).toHaveBeenCalledWith(
+          'Message error occurred - data could not be deserialized',
+          'Driver.onMessageError(origin: )',
+        );
+      });
+    });
+
+    describe('unhandledrejection events', () => {
+      it('logs unhandled promise rejection errors', async () => {
+        await driver.initialized;
+
+        const debuggerLogSpy = spyOn(driver.debugger, 'log');
+
+        // To drain the microtask queue (and process all rejections)
+        await new Promise((r) => setTimeout(r));
+
+        scope.handleUnhandledRejection('Test rejection reason');
+
+        expect(debuggerLogSpy).toHaveBeenCalledWith(
+          'Unhandled promise rejection occurred',
+          'Driver.onUnhandledRejection(reason: Test rejection reason)',
+        );
+      });
+    });
+
+    describe('notification close events', () => {
+      it('broadcasts notification close events', async () => {
+        expect(await makeRequest(scope, '/foo.txt')).toEqual('this is foo');
+        const notification = {title: 'This is a test with action', body: 'Test body with action'};
+        await driver.initialized;
+        await scope.handleClick(
+          {title: 'This is a test with action', body: 'Test body with action'},
+          'button',
+        );
+        await scope.handleClose(notification, '');
+
+        const {messages} = scope.clients.getMock('default')!;
+
+        expect(messages).toEqual([
+          {
+            type: 'NOTIFICATION_CLICK',
+            data: {
+              action: 'button',
+              notification: {
+                title: notification.title,
+                body: notification.body,
+              },
+            },
+          },
+          {
+            type: 'NOTIFICATION_CLOSE',
+            data: {
+              action: '',
+              notification: {
+                title: notification.title,
+                body: notification.body,
+              },
+            },
+          },
+        ]);
+      });
+    });
+
     it('prefetches updates to lazy cache when set', async () => {
       expect(await makeRequest(scope, '/foo.txt')).toEqual('this is foo');
       await driver.initialized;
@@ -1617,6 +1688,12 @@ import {envIsSupported} from '../testing/utils';
           expect(redirectReq.credentials).toBe('same-origin'); // The default value.
           expect(redirectReq.mode).toBe('cors'); // The default value.
           expect((redirectReq as any).unknownOption).toBeUndefined();
+        });
+
+        it('does not follow redirects when redirect policy is error', async () => {
+          await expectAsync(
+            makeRequest(scope, '/lazy/redirected.txt', undefined, {redirect: 'error'}),
+          ).toBeRejected();
         });
       });
     });

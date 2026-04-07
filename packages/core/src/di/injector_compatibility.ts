@@ -105,6 +105,8 @@ export function injectInjectorOnly<T>(
     return injectRootLimpMode(token, undefined, flags);
   } else {
     const options = convertToInjectOptions(flags);
+    // TODO: improve the typings here.
+    // `token` can be a multi: true provider definition, which is considered as a Token but not represented in the typings
     const value = currentInjector.retrieve(token as PrimitivesInjectionToken<T>, options) as T;
     ngDevMode && emitInjectEvent(token as Type<unknown>, value, flags);
     if (isNotFound(value)) {
@@ -284,6 +286,8 @@ export function inject(token: HostAttributeToken, options: {optional: false}): s
  * }
  * ```
  *
+ * @see [Injecting dependencies with inject()](guide/di#injecting-dependencies-with-inject)
+ *
  * @publicApi
  */
 export function inject<T>(token: ProviderToken<T> | HostAttributeToken, options?: InjectOptions) {
@@ -380,48 +384,4 @@ export function attachInjectFlag(decorator: any, flag: InternalInjectFlags | Dec
  */
 export function getInjectFlag(token: any): number | undefined {
   return token[DI_DECORATOR_FLAG];
-}
-
-export function catchInjectorError(
-  e: any,
-  token: any,
-  injectorErrorName: string,
-  source: string | null,
-): never {
-  const tokenPath: any[] = e[NG_TEMP_TOKEN_PATH];
-  if (token[SOURCE]) {
-    tokenPath.unshift(token[SOURCE]);
-  }
-  e.message = formatError('\n' + e.message, tokenPath, injectorErrorName, source);
-  e[NG_TOKEN_PATH] = tokenPath;
-  e[NG_TEMP_TOKEN_PATH] = null;
-  throw e;
-}
-
-export function formatError(
-  text: string,
-  obj: any,
-  injectorErrorName: string,
-  source: string | null = null,
-): string {
-  text = text && text.charAt(0) === '\n' && text.charAt(1) == NO_NEW_LINE ? text.slice(2) : text;
-  let context = stringify(obj);
-  if (Array.isArray(obj)) {
-    context = obj.map(stringify).join(' -> ');
-  } else if (typeof obj === 'object') {
-    let parts = <string[]>[];
-    for (let key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        let value = obj[key];
-        parts.push(
-          key + ':' + (typeof value === 'string' ? JSON.stringify(value) : stringify(value)),
-        );
-      }
-    }
-    context = `{${parts.join(', ')}}`;
-  }
-  return `${injectorErrorName}${source ? '(' + source + ')' : ''}[${context}]: ${text.replace(
-    NEW_LINE,
-    '\n  ',
-  )}`;
 }

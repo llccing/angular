@@ -54,7 +54,7 @@ describe('CliReferenceDetailsPage', () => {
     const harness = await RouterTestingHarness.create();
     fixture = harness.fixture;
     component = await harness.navigateByUrl('/', CliReferenceDetailsPage);
-    fixture.detectChanges();
+    await fixture.whenStable();
   });
 
   it('should create', () => {
@@ -64,7 +64,7 @@ describe('CliReferenceDetailsPage', () => {
   it('should load the doc content', () => {
     expect(component.docContent()?.contents).toBeTruthy();
 
-    const docsViewer = fixture.nativeElement.querySelector('docs-viewer');
+    const docsViewer = fixture.nativeElement.querySelector('main');
     expect(docsViewer).toBeTruthy();
   });
 });

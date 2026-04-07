@@ -6,14 +6,18 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {AsyncPipe} from '@angular/common';
-import {PLATFORM_BROWSER_ID} from '@angular/common/src/platform_id';
+import {AsyncPipe, ɵPLATFORM_BROWSER_ID as PLATFORM_BROWSER_ID} from '@angular/common';
+import {bootstrapApplication} from '@angular/platform-browser';
+import {BehaviorSubject} from 'rxjs';
+import {filter, take, tap} from 'rxjs/operators';
+import {toSignal} from '../rxjs-interop';
 import {
+  afterEveryRender,
   afterNextRender,
-  afterRender,
   ApplicationRef,
   ChangeDetectorRef,
   Component,
+  ComponentRef,
   createComponent,
   destroyPlatform,
   ElementRef,
@@ -25,31 +29,29 @@ import {
   NgZone,
   Output,
   PLATFORM_ID,
-  provideExperimentalZonelessChangeDetection as provideZonelessChangeDetection,
   provideZoneChangeDetection,
+  provideZonelessChangeDetection,
   signal,
   TemplateRef,
   Type,
   ViewChild,
   ViewContainerRef,
 } from '../src/core';
-import {toSignal} from '../rxjs-interop';
 import {
   ComponentFixture,
   ComponentFixtureAutoDetect,
-  TestBed,
   fakeAsync,
   flush,
+  TestBed,
   tick,
 } from '../testing';
-import {bootstrapApplication} from '@angular/platform-browser';
-import {withBody} from '@angular/private/testing';
-import {BehaviorSubject, firstValueFrom} from 'rxjs';
-import {filter, take, tap} from 'rxjs/operators';
 
+import {ChangeDetectionStrategy} from '@angular/compiler';
+import {provideNoopAnimations} from '@angular/platform-browser/animations';
+import {isBrowser, isNode, withBody} from '@angular/private/testing';
+import {ChangeDetectionSchedulerImpl} from '../src/change_detection/scheduling/zoneless_scheduling_impl';
 import {RuntimeError, RuntimeErrorCode} from '../src/errors';
 import {scheduleCallbackWithRafRace} from '../src/util/callback_scheduler';
-import {ChangeDetectionSchedulerImpl} from '../src/change_detection/scheduling/zoneless_scheduling_impl';
 import {global} from '../src/util/global';
 
 function isStable(injector = TestBed.inject(EnvironmentInjector)): boolean {
@@ -301,7 +303,7 @@ describe('Angular with zoneless enabled', () => {
         })
         class App {
           @ViewChild('ref', {read: ViewContainerRef}) viewContainer!: ViewContainerRef;
-          unused = afterRender(() => {
+          unused = afterEveryRender(() => {
             renderHookCalls++;
           });
 
@@ -374,6 +376,75 @@ describe('Angular with zoneless enabled', () => {
       appRef.attachView(component.hostView);
       expect(isStable()).toBe(false);
     });
+
+    it(
+      'when attaching view to ApplicationRef with animations',
+      withBody('<app></app>', async () => {
+        destroyPlatform();
+
+        @Component({
+          template: `<p>Component created</p>`,
+        })
+        class DynamicComponent {
+          cdr = inject(ChangeDetectorRef);
+        }
+
+        @Component({
+          selector: 'app',
+          template: `<main #outlet></main>`,
+        })
+        class App {
+          @ViewChild('outlet') outlet!: ElementRef<HTMLElement>;
+
+          envInjector = inject(EnvironmentInjector);
+          appRef = inject(ApplicationRef);
+          elementRef = inject(ElementRef);
+
+          createComponent() {
+            const host = document.createElement('div');
+            this.outlet.nativeElement.appendChild(host);
+
+            const ref = createComponent(DynamicComponent, {
+              environmentInjector: this.envInjector,
+              hostElement: host,
+            });
+
+            this.appRef.attachView(ref.hostView);
+
+            return ref;
+          }
+        }
+
+        const applicationRef = await bootstrapApplication(App, {
+          providers: [
+            provideZonelessChangeDetection(),
+            provideNoopAnimations(),
+            {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
+          ],
+        });
+
+        const component = applicationRef.components[0] as ComponentRef<App>;
+        const appNativeElement = component.instance.elementRef.nativeElement;
+
+        await applicationRef.whenStable();
+        expect(appNativeElement.innerHTML).toEqual('<main></main>');
+
+        const ref: ComponentRef<DynamicComponent> = component.instance.createComponent();
+        await applicationRef.whenStable();
+        expect(appNativeElement.innerHTML).toContain('<p>Component created</p>');
+
+        // Similating a case where invoking destroy also schedules a CD.
+        ref.instance.cdr.markForCheck();
+        ref.destroy();
+
+        // DOM is not synchronously removed because change detection hasn't run
+        expect(appNativeElement.innerHTML).toContain('<p>Component created</p>');
+        await applicationRef.whenStable();
+
+        expect(isStable()).toBe(true);
+        expect(appNativeElement.innerHTML).toEqual('<main></main>');
+      }),
+    );
 
     it('when a stable subscription synchronously causes another notification', async () => {
       const val = signal('initial');
@@ -485,6 +556,7 @@ describe('Angular with zoneless enabled', () => {
   it('change detects embedded view when attached to a host on ApplicationRef and declaration is marked for check', async () => {
     @Component({
       template: '<ng-template #template><div>{{thing}}</div></ng-template>',
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class DynamicCmp {
       @ViewChild('template') templateRef!: TemplateRef<{}>;
@@ -492,6 +564,7 @@ describe('Angular with zoneless enabled', () => {
     }
     @Component({
       template: '',
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class Host {
       readonly vcr = inject(ViewContainerRef);
@@ -516,6 +589,7 @@ describe('Angular with zoneless enabled', () => {
   it('change detects embedded view when attached directly to ApplicationRef and declaration is marked for check', async () => {
     @Component({
       template: '<ng-template #template><div>{{thing}}</div></ng-template>',
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class DynamicCmp {
       @ViewChild('template') templateRef!: TemplateRef<{}>;
@@ -566,7 +640,7 @@ describe('Angular with zoneless enabled', () => {
   it('should not run change detection twice if manual tick called when CD was scheduled', async () => {
     let changeDetectionRuns = 0;
     TestBed.runInInjectionContext(() => {
-      afterRender(() => {
+      afterEveryRender(() => {
         changeDetectionRuns++;
       });
     });
@@ -684,37 +758,17 @@ describe('Angular with scheduler and ZoneJS', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
+        provideZoneChangeDetection(),
         {provide: ComponentFixtureAutoDetect, useValue: true},
         {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
       ],
     });
   });
 
-  it('requires updates inside Angular zone when using ngZoneOnly', async () => {
-    TestBed.configureTestingModule({
-      providers: [provideZoneChangeDetection({ignoreChangesOutsideZone: true})],
-    });
-    @Component({template: '{{thing()}}'})
-    class App {
-      thing = signal('initial');
-    }
-
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    expect(fixture.nativeElement.innerText).toContain('initial');
-
-    TestBed.inject(NgZone).runOutsideAngular(() => {
-      fixture.componentInstance.thing.set('new');
-    });
-    expect(fixture.isStable()).toBe(true);
-    await fixture.whenStable();
-    expect(fixture.nativeElement.innerText).toContain('initial');
-  });
-
   it('will not schedule change detection if listener callback is outside the zone', async () => {
     let renders = 0;
     TestBed.runInInjectionContext(() => {
-      afterRender(() => {
+      afterEveryRender(() => {
         renders++;
       });
     });
@@ -822,14 +876,14 @@ describe('Angular with scheduler and ZoneJS', () => {
   it('should not run change detection twice if notified during AppRef.tick', async () => {
     TestBed.configureTestingModule({
       providers: [
-        provideZoneChangeDetection({ignoreChangesOutsideZone: false}),
+        provideZoneChangeDetection(),
         {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
       ],
     });
 
     let changeDetectionRuns = 0;
     TestBed.runInInjectionContext(() => {
-      afterRender(() => {
+      afterEveryRender(() => {
         changeDetectionRuns++;
       });
     });
@@ -859,9 +913,7 @@ describe('Angular with scheduler and ZoneJS', () => {
     }
 
     TestBed.configureTestingModule({
-      providers: [
-        provideZoneChangeDetection({runCoalescing: true, ignoreChangesOutsideZone: false}),
-      ],
+      providers: [provideZoneChangeDetection({runCoalescing: true})],
     });
     @Component({template: '{{thing()}}'})
     class App {
@@ -872,7 +924,7 @@ describe('Angular with scheduler and ZoneJS', () => {
 
     let ticks = 0;
     TestBed.runInInjectionContext(() => {
-      afterRender(() => {
+      afterEveryRender(() => {
         ticks++;
       });
     });
@@ -887,9 +939,7 @@ describe('Angular with scheduler and ZoneJS', () => {
     }
 
     TestBed.configureTestingModule({
-      providers: [
-        provideZoneChangeDetection({runCoalescing: true, ignoreChangesOutsideZone: false}),
-      ],
+      providers: [provideZoneChangeDetection({runCoalescing: true})],
     });
     @Component({template: '{{thing()}}'})
     class App {
@@ -900,7 +950,7 @@ describe('Angular with scheduler and ZoneJS', () => {
 
     let ticks = 0;
     TestBed.runInInjectionContext(() => {
-      afterRender(() => {
+      afterEveryRender(() => {
         ticks++;
       });
     });

@@ -1,8 +1,17 @@
-load("//tools:defaults.bzl", "api_golden_test", "api_golden_test_npm_package", "generate_api_docs", "ng_module", "ng_package")
+load("//tools:defaults.bzl", "api_golden_test", "api_golden_test_npm_package", "generate_api_docs", "ng_package", "ng_project", "ts_config")
 
 package(default_visibility = ["//visibility:public"])
 
-ng_module(
+ts_config(
+    name = "tsconfig_build",
+    src = "tsconfig.json",
+    deps = [
+        "//:node_modules/@types/dom-navigation",
+        "//packages:tsconfig_build",
+    ],
+)
+
+ng_project(
     name = "router",
     srcs = glob(
         [
@@ -10,21 +19,21 @@ ng_module(
             "src/**/*.ts",
         ],
     ),
+    tsconfig = ":tsconfig_build",
     deps = [
+        "//:node_modules/@types/dom-navigation",
+        "//:node_modules/rxjs",
         "//packages/common",
         "//packages/core",
         "//packages/platform-browser",
-        "@npm//@types/dom-view-transitions",
-        "@npm//rxjs",
     ],
 )
 
 ng_package(
-    name = "npm_package",
-    package_name = "@angular/router",
     srcs = [
         "package.json",
     ],
+    package = "@angular/router",
     tags = [
         "release-with-framework",
     ],
@@ -52,8 +61,8 @@ api_golden_test_npm_package(
         ":npm_package",
         "//goldens:public-api",
     ],
-    golden_dir = "angular/goldens/public-api/router",
-    npm_package = "angular/packages/router/npm_package",
+    golden_dir = "goldens/public-api/router",
+    npm_package = "packages/router/npm_package",
 )
 
 api_golden_test(
@@ -62,8 +71,8 @@ api_golden_test(
         "//goldens:public-api",
         "//packages/router",
     ],
-    entry_point = "angular/packages/router/src/errors.d.ts",
-    golden = "angular/goldens/public-api/router/errors.api.md",
+    entry_point = "src/errors.d.ts",
+    golden = "goldens/public-api/router/errors.api.md",
 )
 
 filegroup(
@@ -81,7 +90,6 @@ generate_api_docs(
         "//packages:common_files_and_deps_for_docs",
         "//packages/common:files_for_docgen",
         "//packages/common/http:files_for_docgen",
-        "@npm//@types/dom-view-transitions",
     ],
     entry_point = ":index.ts",
     module_name = "@angular/router",

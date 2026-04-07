@@ -1,3 +1,4 @@
+load("//adev/shared-docs:defaults.bzl", "js_library")
 load("//adev/shared-docs:index.bzl", "generate_guides")
 
 generate_guides(
@@ -6,10 +7,13 @@ generate_guides(
         "*.md",
     ]),
     data = [
-        "//adev/src/content/examples/service-worker-getting-started:src/app/check-for-update.service.ts",
-        "//adev/src/content/examples/service-worker-getting-started:src/app/handle-unrecoverable-state.service.ts",
-        "//adev/src/content/examples/service-worker-getting-started:src/app/log-update.service.ts",
-        "//adev/src/content/examples/service-worker-getting-started:src/app/prompt-update.service.ts",
+        "//adev/src/content/examples",
     ],
     visibility = ["//adev:__subpackages__"],
+)
+
+js_library(
+    name = "guide_files",
+    srcs = glob(["**/*.md"]),
+    visibility = ["//adev/src/content/ecosystem:__pkg__"],
 )

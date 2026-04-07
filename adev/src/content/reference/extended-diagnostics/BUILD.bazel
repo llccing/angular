@@ -1,3 +1,4 @@
+load("//adev/shared-docs:defaults.bzl", "js_library")
 load("//adev/shared-docs:index.bzl", "generate_guides", "generate_nav_items")
 
 package(default_visibility = ["//adev:__subpackages__"])
@@ -13,6 +14,12 @@ filegroup(
         ],
     ),
     visibility = ["//visibility:private"],
+)
+
+js_library(
+    name = "guide_files",
+    srcs = glob(["**/*.md"]),
+    visibility = ["//adev:__subpackages__"],
 )
 
 generate_guides(

@@ -7,19 +7,26 @@
  */
 
 import {animate, style, transition, trigger} from '@angular/animations';
-import {DOCUMENT, isPlatformBrowser, ɵgetDOM as getDOM} from '@angular/common';
+import {DOCUMENT, ɵgetDOM as getDOM, isPlatformBrowser} from '@angular/common';
 import {
+  inject as _inject,
   ANIMATION_MODULE_TYPE,
+  APP_ID,
   APP_INITIALIZER,
+  ApplicationRef,
+  ChangeDetectionStrategy,
   Compiler,
   Component,
+  ComponentRef,
+  ɵConsole as Console,
+  ɵcreateOrReusePlatformInjector as createOrReusePlatformInjector,
   createPlatformFactory,
   CUSTOM_ELEMENTS_SCHEMA,
+  destroyPlatform,
   Directive,
   ErrorHandler,
   importProvidersFrom,
   Inject,
-  inject as _inject,
   InjectionToken,
   Injector,
   LOCALE_ID,
@@ -29,6 +36,7 @@ import {
   OnDestroy,
   PLATFORM_ID,
   PLATFORM_INITIALIZER,
+  providePlatformInitializer,
   Provider,
   provideZoneChangeDetection,
   Sanitizer,
@@ -38,24 +46,14 @@ import {
   TransferState,
   Type,
   VERSION,
-  EnvironmentProviders,
 } from '@angular/core';
-import {ApplicationRef} from '@angular/core/src/application/application_ref';
-import {Console} from '@angular/core/src/console';
-import {ComponentRef} from '@angular/core/src/linker/component_factory';
-import {
-  createOrReusePlatformInjector,
-  destroyPlatform,
-  providePlatformInitializer,
-} from '@angular/core/src/platform/platform';
-import {inject, TestBed} from '@angular/core/testing';
-import {Log} from '@angular/core/testing/src/testing_internal';
-import {BrowserModule} from '../../index';
-import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
+import {inject, ɵLog as Log, TestBed} from '@angular/core/testing';
+import {isNode, withBody} from '@angular/private/testing';
+import {expect} from '@angular/private/testing/matchers';
 import {provideAnimations, provideNoopAnimations} from '../../animations';
-import {expect} from '../../testing/src/matchers';
+import {BrowserModule} from '../../index';
 
-import {bootstrapApplication} from '../../src/browser';
+import {bootstrapApplication, platformBrowser} from '../../src/browser';
 
 @Component({
   selector: 'non-existent',
@@ -174,11 +172,11 @@ function bootstrap(
     imports: [BrowserModule, ...imports],
     declarations: [cmpType],
     bootstrap: [cmpType],
-    providers: providers,
+    providers: [provideZoneChangeDetection(), ...providers],
     schemas: [CUSTOM_ELEMENTS_SCHEMA],
   })
   class TestModule {}
-  return platformBrowserDynamic(platformProviders).bootstrapModule(TestModule);
+  return platformBrowser(platformProviders).bootstrapModule(TestModule);
 }
 
 describe('bootstrap factory method', () => {
@@ -224,27 +222,27 @@ describe('bootstrap factory method', () => {
     const NAME = new InjectionToken<string>('name');
 
     @Component({
-      standalone: true,
       selector: 'hello-app',
       template: 'Hello from {{ name }}!',
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class SimpleComp {
       name = 'SimpleComp';
     }
 
     @Component({
-      standalone: true,
       selector: 'hello-app-2',
       template: 'Hello from {{ name }}!',
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class SimpleComp2 {
       name = 'SimpleComp2';
     }
 
     @Component({
-      standalone: true,
       selector: 'hello-app',
       template: 'Hello from {{ name }}!',
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class ComponentWithDeps {
       constructor(@Inject(NAME) public name: string) {}
@@ -254,6 +252,7 @@ describe('bootstrap factory method', () => {
       selector: 'hello-app-2',
       template: 'Hello from {{ name }}!',
       standalone: false,
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class NonStandaloneComp {
       name = 'NonStandaloneComp';
@@ -277,7 +276,7 @@ describe('bootstrap factory method', () => {
 
     it('should reuse existing platform', async () => {
       const platformProviders = [{provide: NAME, useValue: 'Name via DI (Platform level)'}];
-      platformBrowserDynamic(platformProviders);
+      platformBrowser(platformProviders);
 
       await bootstrapApplication(ComponentWithDeps);
       expect(el.innerText).toBe('Hello from Name via DI (Platform level)!');
@@ -292,8 +291,12 @@ describe('bootstrap factory method', () => {
     });
 
     it('should keep change detection isolated for separately bootstrapped apps', async () => {
-      const appRef1 = await bootstrapApplication(SimpleComp);
-      const appRef2 = await bootstrapApplication(SimpleComp2);
+      const appRef1 = await bootstrapApplication(SimpleComp, {
+        providers: [provideZoneChangeDetection()],
+      });
+      const appRef2 = await bootstrapApplication(SimpleComp2, {
+        providers: [provideZoneChangeDetection()],
+      });
 
       expect(el.innerText).toBe('Hello from SimpleComp!');
       expect(el2.innerText).toBe('Hello from SimpleComp2!');
@@ -318,7 +321,9 @@ describe('bootstrap factory method', () => {
     });
 
     it('should allow bootstrapping multiple standalone components within the same app', async () => {
-      const appRef = await bootstrapApplication(SimpleComp);
+      const appRef = await bootstrapApplication(SimpleComp, {
+        providers: [provideZoneChangeDetection()],
+      });
       appRef.bootstrap(SimpleComp2);
 
       expect(el.innerText).toBe('Hello from SimpleComp!');
@@ -337,7 +342,9 @@ describe('bootstrap factory method', () => {
     });
 
     it('should allow bootstrapping non-standalone components within the same app', async () => {
-      const appRef = await bootstrapApplication(SimpleComp);
+      const appRef = await bootstrapApplication(SimpleComp, {
+        providers: [provideZoneChangeDetection()],
+      });
 
       // ApplicationRef should still allow bootstrapping non-standalone
       // components into the same application.
@@ -362,7 +369,7 @@ describe('bootstrap factory method', () => {
       const msg =
         'NG0907: The NonStandaloneComp component is not marked as standalone, ' +
         'but Angular expects to have a standalone component here. Please make sure the ' +
-        'NonStandaloneComp component has the `standalone: true` flag in the decorator.';
+        'NonStandaloneComp component does not have the `standalone: false` flag in the decorator.';
       let bootstrapError: string | null = null;
 
       try {
@@ -376,7 +383,6 @@ describe('bootstrap factory method', () => {
 
     it('should throw when trying to bootstrap a standalone directive', async () => {
       @Directive({
-        standalone: true,
         selector: '[dir]',
       })
       class StandaloneDirective {}
@@ -415,7 +421,6 @@ describe('bootstrap factory method', () => {
       let state: TransferState | undefined;
       @Component({
         selector: 'hello-app',
-        standalone: true,
         template: '...',
       })
       class StandaloneComponent {
@@ -446,7 +451,6 @@ describe('bootstrap factory method', () => {
 
     describe('with animations', () => {
       @Component({
-        standalone: true,
         selector: 'hello-app',
         template:
           '<div @myAnimation (@myAnimation.start)="onStart($event)">Hello from AnimationCmp!</div>',
@@ -509,7 +513,6 @@ describe('bootstrap factory method', () => {
         template: '',
         selector: 'hello-app',
         imports: [SomeModule],
-        standalone: true,
       })
       class AnimationCmp {}
 
@@ -743,7 +746,7 @@ describe('bootstrap factory method', () => {
 
   it('should run platform initializers', (done) => {
     inject([Log], (log: Log) => {
-      const p = createPlatformFactory(platformBrowserDynamic, 'someName', [
+      const p = createPlatformFactory(platformBrowser, 'someName', [
         {provide: PLATFORM_INITIALIZER, useValue: log.fn('platform_init1'), multi: true},
         {provide: PLATFORM_INITIALIZER, useValue: log.fn('platform_init2'), multi: true},
       ])();
@@ -774,7 +777,7 @@ describe('bootstrap factory method', () => {
       ngDoBootstrap() {}
     }
 
-    await expectAsync(platformBrowserDynamic().bootstrapModule(SomeModule)).toBeResolved();
+    await expectAsync(platformBrowser().bootstrapModule(SomeModule)).toBeResolved();
   });
 
   it('should register each application with the testability registry', async () => {
@@ -796,6 +799,24 @@ describe('bootstrap factory method', () => {
     }, done.fail);
   });
 
+  it('should throw an error if the provided APP_ID is invalid', (done) => {
+    const logger = new MockConsole();
+    const errorHandler = new ErrorHandler();
+    (errorHandler as any)._console = logger as any;
+
+    const refPromise = bootstrap(HelloRootCmp, [{provide: APP_ID, useValue: 'foo:bar'}]);
+    refPromise.then(
+      () => fail(),
+      (reason) => {
+        expect(reason.message).toContain(
+          `NG0211: APP_ID value "foo:bar" is not alphanumeric. The APP_ID must be a string of alphanumeric characters.`,
+        );
+        done();
+        return null;
+      },
+    );
+  });
+
   describe('change detection', () => {
     const log: string[] = [];
 
@@ -803,6 +824,7 @@ describe('bootstrap factory method', () => {
       selector: 'hello-app',
       template: '<div id="button-a" (click)="onClick()">{{title}}</div>',
       standalone: false,
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class CompA {
       title: string = '';
@@ -821,6 +843,7 @@ describe('bootstrap factory method', () => {
       selector: 'hello-app-2',
       template: '<div id="button-b" (click)="onClick()">{{title}}</div>',
       standalone: false,
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class CompB {
       title: string = '';
@@ -841,9 +864,10 @@ describe('bootstrap factory method', () => {
         declarations: [CompA, CompB],
         bootstrap: [CompA, CompB],
         schemas: [CUSTOM_ELEMENTS_SCHEMA],
+        providers: [provideZoneChangeDetection()],
       })
       class TestModuleA {}
-      platformBrowserDynamic()
+      platformBrowser()
         .bootstrapModule(TestModuleA)
         .then((ref) => {
           log.length = 0;
@@ -902,28 +926,37 @@ describe('providePlatformInitializer', () => {
 
     createPlatformInjector([
       {provide: TEST_TOKEN, useValue: 'test'},
-      providePlatformInitializer(() => {
-        injectedValue = _inject(TEST_TOKEN);
-      }),
+      providePlatformInitializer(() => (injectedValue = _inject(TEST_TOKEN))),
     ]);
 
     expect(injectedValue).toBe('test');
   });
 
-  function createPlatformInjector(providers: Array<EnvironmentProviders | Provider>) {
-    /* TODO: should we change `createOrReusePlatformInjector` type to allow `EnvironmentProviders`?
-     */
-    return createOrReusePlatformInjector(providers as any);
+  function createPlatformInjector(providers: Array<StaticProvider>) {
+    return createOrReusePlatformInjector(providers);
   }
-});
 
-/**
- * Typing tests.
- */
-@Component({
-  template: '',
-  // @ts-expect-error: `providePlatformInitializer()` should not work with Component.providers, as
-  // it wouldn't be executed anyway.
-  providers: [providePlatformInitializer(() => {})],
-})
-class Test {}
+  it('should bootstrap with platform initializers', async () => {
+    return withBody('<app></app>', async () => {
+      @Component({
+        selector: 'app',
+        template: '',
+      })
+      class App {}
+
+      let platformInitializerCalls = 0;
+
+      const platformRef = platformBrowser([
+        providePlatformInitializer(() => {
+          platformInitializerCalls++;
+        }),
+      ]);
+
+      expect(platformInitializerCalls).toBe(0);
+      await bootstrapApplication(App, undefined, {platformRef});
+      expect(platformInitializerCalls).toBe(1);
+      await bootstrapApplication(App, undefined, {platformRef});
+      expect(platformInitializerCalls).toBe(1);
+    });
+  });
+});

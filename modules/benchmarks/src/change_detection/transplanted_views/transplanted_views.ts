@@ -13,6 +13,7 @@ import {
   Component,
   Input,
   NgModule,
+  provideZoneChangeDetection,
   TemplateRef,
   ViewChild,
 } from '@angular/core';
@@ -51,6 +52,7 @@ export class InsertionComponent {
     <insertion-component [template]="template" [viewCount]="viewCount"></insertion-component>
   `,
   standalone: false,
+  changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class DeclarationComponent {
   @Input() viewCount = 1;
@@ -67,6 +69,7 @@ export class DeclarationComponent {
 @NgModule({
   declarations: [DeclarationComponent, InsertionComponent],
   bootstrap: [DeclarationComponent],
+  providers: [provideZoneChangeDetection()],
   imports: [BrowserModule],
 })
 export class TransplantedViewsModule {}

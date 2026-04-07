@@ -12,13 +12,14 @@ import {
   ImplicitReceiver,
   ParsedEventType,
   PropertyRead,
-  PropertyWrite,
+  Binary,
   RecursiveAstVisitor,
   TmplAstBoundEvent,
   TmplAstLetDeclaration,
   TmplAstNode,
   TmplAstRecursiveVisitor,
   TmplAstVariable,
+  ThisReceiver,
 } from '@angular/compiler';
 import ts from 'typescript';
 
@@ -76,9 +77,12 @@ class ExpressionsSemanticsVisitor extends RecursiveAstVisitor {
     super();
   }
 
-  override visitPropertyWrite(ast: PropertyWrite, context: TmplAstNode): void {
-    super.visitPropertyWrite(ast, context);
-    this.checkForIllegalWriteInEventBinding(ast, context);
+  override visitBinary(ast: Binary, context: TmplAstNode): void {
+    if (Binary.isAssignmentOperation(ast.operation) && ast.left instanceof PropertyRead) {
+      this.checkForIllegalWriteInEventBinding(ast.left, context);
+    } else {
+      super.visitBinary(ast, context);
+    }
   }
 
   override visitPropertyRead(ast: PropertyRead, context: TmplAstNode) {
@@ -86,8 +90,8 @@ class ExpressionsSemanticsVisitor extends RecursiveAstVisitor {
     this.checkForIllegalWriteInTwoWayBinding(ast, context);
   }
 
-  private checkForIllegalWriteInEventBinding(ast: PropertyWrite, context: TmplAstNode) {
-    if (!(context instanceof TmplAstBoundEvent) || !(ast.receiver instanceof ImplicitReceiver)) {
+  private checkForIllegalWriteInEventBinding(ast: PropertyRead, context: TmplAstNode) {
+    if (!this.shouldCheckForIllegalWrites(ast, context)) {
       return;
     }
 
@@ -101,9 +105,8 @@ class ExpressionsSemanticsVisitor extends RecursiveAstVisitor {
   private checkForIllegalWriteInTwoWayBinding(ast: PropertyRead, context: TmplAstNode) {
     // Only check top-level property reads inside two-way bindings for illegal assignments.
     if (
-      !(context instanceof TmplAstBoundEvent) ||
+      !this.shouldCheckForIllegalWrites(ast, context) ||
       context.type !== ParsedEventType.TwoWay ||
-      !(ast.receiver instanceof ImplicitReceiver) ||
       ast !== unwrapAstWithSource(context.handler)
     ) {
       return;
@@ -119,7 +122,7 @@ class ExpressionsSemanticsVisitor extends RecursiveAstVisitor {
 
     // Two-way bindings to template variables are only allowed if the variables are signals.
     const symbol = this.templateTypeChecker.getSymbolOfNode(target, this.component);
-    if (symbol !== null && !isSignalReference(symbol)) {
+    if (symbol !== null && !isSignalReference(symbol, this.templateTypeChecker)) {
       let errorMessage: string;
 
       if (isVariable) {
@@ -153,6 +156,16 @@ class ExpressionsSemanticsVisitor extends RecursiveAstVisitor {
           sourceFile: this.component.getSourceFile(),
         },
       ],
+    );
+  }
+
+  private shouldCheckForIllegalWrites(
+    ast: PropertyRead,
+    context: TmplAstNode,
+  ): context is TmplAstBoundEvent {
+    return (
+      context instanceof TmplAstBoundEvent &&
+      (ast.receiver instanceof ImplicitReceiver || ast.receiver instanceof ThisReceiver)
     );
   }
 }

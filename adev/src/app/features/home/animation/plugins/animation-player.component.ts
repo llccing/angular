@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {ChangeDetectionStrategy, Component, computed, signal} from '@angular/core';
+import {Component, computed, signal} from '@angular/core';
 import {Animation} from '../animation';
 
 // In milliseconds. Used for going forward or back through the animation.
@@ -19,7 +19,6 @@ export type ComponentAlignment = 'left' | 'center' | 'right';
  */
 @Component({
   selector: 'adev-animation-player',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (animation(); as anim) {
       <div class="deck" [class]="[alignment()]">
@@ -49,7 +48,7 @@ export type ComponentAlignment = 'left' | 'center' | 'right';
       bottom: 30px;
       padding: 10px;
       border-radius: 12px;
-      background: rgba(0,0,0, 0.7);
+      background: rgba(0, 0, 0, 0.7);
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.1);
       z-index: 999999;
@@ -99,13 +98,13 @@ export type ComponentAlignment = 'left' | 'center' | 'right';
   `,
 })
 export class AnimationPlayerComponent {
-  animation = signal<Animation | null>(null);
-  alignment = signal<ComponentAlignment>('center');
+  readonly animation = signal<Animation | null>(null);
+  readonly alignment = signal<ComponentAlignment>('center');
   TIMESTEP = TIMESTEP;
 
-  progressPerc = computed(() => this.animation()!.progress() * 100 + '%');
+  protected readonly progressPerc = computed(() => this.animation()!.progress() * 100 + '%');
 
-  playPause() {
+  protected playPause() {
     const anim = this.animation()!;
 
     if (!anim.isPlaying()) {
@@ -115,7 +114,7 @@ export class AnimationPlayerComponent {
     }
   }
 
-  seek(e: MouseEvent) {
+  protected seek(e: MouseEvent) {
     const target = e.target as HTMLElement;
     const progress = e.offsetX / target.clientWidth;
     this.animation()!.seek(progress);

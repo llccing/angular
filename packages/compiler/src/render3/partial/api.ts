@@ -5,6 +5,7 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.dev/license
  */
+import {FactoryTarget} from '../../compiler_facade_interface';
 import {ChangeDetectionStrategy, ViewEncapsulation} from '../../core';
 import * as o from '../../output/output_ast';
 
@@ -130,6 +131,10 @@ export interface R3DeclareDirectiveMetadata extends R3PartialDeclaration {
    */
   usesOnChanges?: boolean;
 
+  controlCreate?: {
+    passThroughInput: string | null;
+  };
+
   /**
    * Whether the directive is standalone. Defaults to false.
    */
@@ -217,7 +222,7 @@ export interface R3DeclareComponentMetadata extends R3DeclareDirectiveMetadata {
 
   /**
    * Strategy used for detecting changes in the component.
-   * Defaults to `ChangeDetectionStrategy.Default`.
+   * Defaults to `ChangeDetectionStrategy.OnPush`.
    */
   changeDetection?: ChangeDetectionStrategy;
 
@@ -226,11 +231,6 @@ export interface R3DeclareComponentMetadata extends R3DeclareDirectiveMetadata {
    * Defaults to `ViewEncapsulation.Emulated`.
    */
   encapsulation?: ViewEncapsulation;
-
-  /**
-   * Overrides the default interpolation start and end delimiters. Defaults to {{ and }}.
-   */
-  interpolation?: [string, string];
 
   /**
    * Whether whitespace in the template should be preserved. Defaults to false.
@@ -441,14 +441,6 @@ export interface R3DeclareFactoryMetadata extends R3PartialDeclaration {
    * Type of the target being created by the factory.
    */
   target: FactoryTarget;
-}
-
-export enum FactoryTarget {
-  Directive = 0,
-  Component = 1,
-  Injectable = 2,
-  Pipe = 3,
-  NgModule = 4,
 }
 
 /**

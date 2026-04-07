@@ -7,10 +7,9 @@
  */
 
 import {DOCUMENT} from '@angular/common';
-import {inject, signal, Injectable, PLATFORM_ID, DestroyRef} from '@angular/core';
+import {inject, signal, Injectable, DestroyRef} from '@angular/core';
 
 import {TableOfContentsItem, TableOfContentsLevel} from '../interfaces/index';
-import {on} from 'events';
 
 /**
  * Name of an attribute that is set on an element that should be
@@ -45,7 +44,10 @@ export class TableOfContentsLoader {
 
   private getHeadingTitle(heading: HTMLHeadingElement): string {
     const div: HTMLDivElement = this.document.createElement('div');
+
     div.innerHTML = heading.innerHTML;
+    // Remove any existing copy link buttons to avoid including their text in the title
+    div.querySelectorAll('docs-copy-link-button').forEach((el) => el.remove());
 
     return (div.textContent || '').trim();
   }

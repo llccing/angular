@@ -5,14 +5,13 @@
   "author": "angular",
   "license": "MIT",
   "engines": {
-    "node": "^20.11.1 || >=22.11.0"
+    "node": "^22.22.0 || >=24.13.1"
   },
   "dependencies": {
     "tslib": "^2.3.0"
   },
   "peerDependencies": {
-    "@angular/core": "0.0.0-PLACEHOLDER",
-    "@angular/common": "0.0.0-PLACEHOLDER"
+    "@angular/core": "0.0.0-PLACEHOLDER"
   },
   "repository": {
     "type": "git",

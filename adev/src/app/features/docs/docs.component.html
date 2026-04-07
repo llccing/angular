@@ -1,8 +1,10 @@
 @let docContent = this.docContent();
 @if (docContent) {
-  <docs-viewer
+  <main
+    docsViewer
     class="docs-viewer"
+    [class.overview]="isOverview()"
     [docContent]="docContent.contents"
     [hasToc]="true"
-  />
+  ></main>
 }

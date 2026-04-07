@@ -7,21 +7,46 @@
  */
 
 import {
+  afterRenderEffect,
   Component,
   computed,
   CUSTOM_ELEMENTS_SCHEMA,
+  Directive,
+  effect,
   ElementRef,
+  inject,
   input,
   output,
+  resource,
   signal,
+  TemplateRef,
   viewChild,
+  ViewContainerRef,
   ViewEncapsulation,
 } from '@angular/core';
 
 import {ZippyComponent} from './zippy.component';
 import {HeavyComponent} from './heavy.component';
 import {SamplePropertiesComponent} from './sample-properties.component';
-import {RouterOutlet} from '@angular/router';
+import {RouterOutlet, RouterModule} from '@angular/router';
+import {CookieRecipe} from './cookies.component';
+
+// structual directive example
+@Directive({
+  selector: '[appStructural]',
+  host: {
+    '[class.app-structural]': 'true',
+  },
+})
+export class StructuralDirective {
+  templateRef = inject(TemplateRef);
+  viewContainerRef = inject(ViewContainerRef);
+
+  ngOnInit() {
+    // Example of using the structural directive
+    this.viewContainerRef.createEmbeddedView(this.templateRef);
+  }
+}
 
 @Component({
   selector: 'app-demo-component',
@@ -29,7 +54,14 @@ import {RouterOutlet} from '@angular/router';
   styleUrls: ['./demo-app.component.scss'],
   encapsulation: ViewEncapsulation.None,
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  imports: [HeavyComponent, SamplePropertiesComponent, RouterOutlet],
+  imports: [
+    StructuralDirective,
+    HeavyComponent,
+    SamplePropertiesComponent,
+    RouterOutlet,
+    RouterModule,
+    CookieRecipe,
+  ],
 })
 export class DemoAppComponent {
   readonly zippy = viewChild(ZippyComponent);
@@ -49,10 +81,25 @@ export class DemoAppComponent {
     return {...original, age: original.age + 1};
   });
 
+  demoRsrc = resource({
+    defaultValue: 'default_value',
+    loader: () => new Promise((res) => setTimeout(() => res('loaded_value'), 5000)),
+  });
+
   getTitle(): '► Click to expand' | '▼ Click to collapse' {
     if (!this.zippy() || !this.zippy()?.visible) {
       return '► Click to expand';
     }
     return '▼ Click to collapse';
+  }
+
+  constructor() {
+    afterRenderEffect(() => {
+      this.zippy();
+    });
+
+    effect(() => {
+      this.demoRsrc.isLoading();
+    });
   }
 }

@@ -1,13 +1,18 @@
 load("//integration/ng-modules-importability:index.bzl", "module_test")
-load("//tools:defaults.bzl", "ts_library")
+load("//tools:defaults.bzl", "ts_project")
 
-ts_library(
+ts_project(
     name = "test_lib",
     testonly = True,
-    srcs = glob(["*.ts"]),
+    srcs = glob(["*.mts"]),
+    data = [
+        "//packages:package_json",
+    ],
+    tsconfig = "tsconfig.json",
     deps = [
-        "//packages/compiler-cli",
-        "@npm//typescript",
+        "//:node_modules/@types/node",
+        "//:node_modules/typescript",
+        "//integration:node_modules/@angular/compiler-cli",
     ],
 )
 
@@ -20,7 +25,6 @@ module_test(
         "//packages/elements:npm_package": "packages/elements/npm_package",
         "//packages/forms:npm_package": "packages/forms/npm_package",
         "//packages/localize:npm_package": "packages/localize/npm_package",
-        "//packages/platform-browser-dynamic:npm_package": "packages/platform-browser-dynamic/npm_package",
         "//packages/platform-browser:npm_package": "packages/platform-browser/npm_package",
         "//packages/router:npm_package": "packages/router/npm_package",
         "//packages/service-worker:npm_package": "packages/service-worker/npm_package",

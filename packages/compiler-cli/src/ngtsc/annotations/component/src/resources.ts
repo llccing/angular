@@ -7,8 +7,6 @@
  */
 
 import {
-  DEFAULT_INTERPOLATION_CONFIG,
-  InterpolationConfig,
   LexerRange,
   ParsedTemplate,
   ParseSourceFile,
@@ -91,7 +89,6 @@ export interface ParsedTemplateWithSource extends ParsedComponentTemplate {
  */
 interface CommonTemplateDeclaration {
   preserveWhitespaces: boolean;
-  interpolationConfig: InterpolationConfig;
   templateUrl: string;
   resolvedTemplateUrl: string;
 }
@@ -135,6 +132,7 @@ export interface ExtractTemplateOptions {
   i18nNormalizeLineEndingsInICUs: boolean;
   enableBlockSyntax: boolean;
   enableLetSyntax: boolean;
+  enableSelectorless: boolean;
   preserveSignificantWhitespace?: boolean;
 }
 
@@ -283,7 +281,6 @@ export function createEmptyTemplate(
     declaration: templateUrl
       ? {
           isInline: false,
-          interpolationConfig: InterpolationConfig.fromArray(null),
           preserveWhitespaces: false,
           templateUrlExpression: templateUrl,
           templateUrl: 'missing.ng.html',
@@ -291,7 +288,6 @@ export function createEmptyTemplate(
         }
       : {
           isInline: true,
-          interpolationConfig: InterpolationConfig.fromArray(null),
           preserveWhitespaces: false,
           expression: template!,
           templateUrl: containingFile,
@@ -311,7 +307,6 @@ function parseExtractedTemplate(
   // We always normalize line endings if the template has been escaped (i.e. is inline).
   const i18nNormalizeLineEndingsInICUs = escapedString || options.i18nNormalizeLineEndingsInICUs;
   const commonParseOptions: ParseTemplateOptions = {
-    interpolationConfig: template.interpolationConfig,
     range: sourceParseRange ?? undefined,
     enableI18nLegacyMessageIdFormat: options.enableI18nLegacyMessageIdFormat,
     i18nNormalizeLineEndingsInICUs,
@@ -319,6 +314,7 @@ function parseExtractedTemplate(
     escapedString,
     enableBlockSyntax: options.enableBlockSyntax,
     enableLetSyntax: options.enableLetSyntax,
+    enableSelectorless: options.enableSelectorless,
   };
 
   const parsedTemplate = parseTemplate(sourceStr, sourceMapUrl ?? '', {
@@ -377,7 +373,6 @@ export function parseTemplateDeclaration(
     preserveWhitespaces = value;
   }
 
-  let interpolationConfig = DEFAULT_INTERPOLATION_CONFIG;
   if (component.has('interpolation')) {
     const expr = component.get('interpolation')!;
     const value = evaluator.evaluate(expr);
@@ -392,7 +387,6 @@ export function parseTemplateDeclaration(
         'interpolation must be an array with 2 elements of string type',
       );
     }
-    interpolationConfig = InterpolationConfig.fromArray(value as [string, string]);
   }
 
   if (component.has('templateUrl')) {
@@ -409,7 +403,6 @@ export function parseTemplateDeclaration(
       const resourceUrl = resourceLoader.resolve(templateUrl, containingFile);
       return {
         isInline: false,
-        interpolationConfig,
         preserveWhitespaces,
         templateUrl,
         templateUrlExpression: templateUrlExpr,
@@ -431,7 +424,6 @@ export function parseTemplateDeclaration(
   } else if (component.has('template')) {
     return {
       isInline: true,
-      interpolationConfig,
       preserveWhitespaces,
       expression: component.get('template')!,
       templateUrl: containingFile,
@@ -441,7 +433,7 @@ export function parseTemplateDeclaration(
     throw new FatalDiagnosticError(
       ErrorCode.COMPONENT_MISSING_TEMPLATE,
       decorator.node,
-      'component is missing a template',
+      '@Component is missing a template. Add either a `template` or `templateUrl`',
     );
   }
 }

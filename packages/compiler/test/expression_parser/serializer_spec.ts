@@ -10,15 +10,16 @@ import * as expr from '../../src/expression_parser/ast';
 import {Lexer} from '../../src/expression_parser/lexer';
 import {Parser} from '../../src/expression_parser/parser';
 import {serialize} from '../../src/expression_parser/serializer';
+import {getFakeSpan} from './utils/span';
 
 const parser = new Parser(new Lexer());
 
 function parse(expression: string): expr.ASTWithSource {
-  return parser.parseBinding(expression, /* location */ '', /* absoluteOffset */ 0);
+  return parser.parseBinding(expression, getFakeSpan(), /* absoluteOffset */ 0);
 }
 
 function parseAction(expression: string): expr.ASTWithSource {
-  return parser.parseAction(expression, /* location */ '', /* absoluteOffset */ 0);
+  return parser.parseAction(expression, getFakeSpan(), /* absoluteOffset */ 0);
 }
 
 describe('serializer', () => {
@@ -126,6 +127,14 @@ describe('serializer', () => {
 
     it('serializes void expressions', () => {
       expect(serialize(parse(' void   0 '))).toBe('void 0');
+    });
+
+    it('serializes in expressions', () => {
+      expect(serialize(parse(' foo   in   bar '))).toBe('foo in bar');
+    });
+
+    it('serializes instanceof expressions', () => {
+      expect(serialize(parse(' foo   instanceof   Bar '))).toBe('foo instanceof Bar');
     });
   });
 });

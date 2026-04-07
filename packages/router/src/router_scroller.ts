@@ -7,27 +7,24 @@
  */
 
 import {ViewportScroller} from '@angular/common';
-import {
-  EnvironmentInjector,
-  inject,
-  Injectable,
-  InjectionToken,
-  NgZone,
-  OnDestroy,
-} from '@angular/core';
+import {inject, Injectable, InjectionToken, NgZone, OnDestroy, untracked} from '@angular/core';
 import {Unsubscribable} from 'rxjs';
 
 import {
+  IMPERATIVE_NAVIGATION,
   NavigationEnd,
   NavigationSkipped,
   NavigationSkippedCode,
   NavigationStart,
+  NavigationTrigger,
   Scroll,
 } from './events';
 import {NavigationTransitions} from './navigation_transition';
 import {UrlSerializer} from './url_tree';
 
-export const ROUTER_SCROLLER = new InjectionToken<RouterScroller>('');
+export const ROUTER_SCROLLER = new InjectionToken<RouterScroller>(
+  typeof ngDevMode !== 'undefined' && ngDevMode ? 'Router Scroller' : '',
+);
 
 @Injectable()
 export class RouterScroller implements OnDestroy {
@@ -35,24 +32,25 @@ export class RouterScroller implements OnDestroy {
   private scrollEventsSubscription?: Unsubscribable;
 
   private lastId = 0;
-  private lastSource: 'imperative' | 'popstate' | 'hashchange' | undefined = 'imperative';
+  private lastSource: NavigationTrigger | undefined = IMPERATIVE_NAVIGATION;
   private restoredId = 0;
   private store: {[key: string]: [number, number]} = {};
 
-  /** @nodoc */
+  private readonly urlSerializer = inject(UrlSerializer);
+  private readonly zone = inject(NgZone);
+  readonly viewportScroller = inject(ViewportScroller);
+  private readonly transitions = inject(NavigationTransitions);
+
+  /** @docs-private */
   constructor(
-    readonly urlSerializer: UrlSerializer,
-    private transitions: NavigationTransitions,
-    public readonly viewportScroller: ViewportScroller,
-    private readonly zone: NgZone,
     private options: {
       scrollPositionRestoration?: 'disabled' | 'enabled' | 'top';
       anchorScrolling?: 'disabled' | 'enabled';
-    } = {},
+    },
   ) {
     // Default both options to 'disabled'
-    options.scrollPositionRestoration ||= 'disabled';
-    options.anchorScrolling ||= 'disabled';
+    this.options.scrollPositionRestoration ||= 'disabled';
+    this.options.anchorScrolling ||= 'disabled';
   }
 
   init(): void {
@@ -89,13 +87,14 @@ export class RouterScroller implements OnDestroy {
 
   private consumeScrollEvents() {
     return this.transitions.events.subscribe((e) => {
-      if (!(e instanceof Scroll)) return;
+      if (!(e instanceof Scroll) || e.scrollBehavior === 'manual') return;
+      const instantScroll: ScrollOptions = {behavior: 'instant'};
       // a popstate event. The pop state event will always ignore anchor scrolling.
       if (e.position) {
         if (this.options.scrollPositionRestoration === 'top') {
-          this.viewportScroller.scrollToPosition([0, 0]);
+          this.viewportScroller.scrollToPosition([0, 0], instantScroll);
         } else if (this.options.scrollPositionRestoration === 'enabled') {
-          this.viewportScroller.scrollToPosition(e.position);
+          this.viewportScroller.scrollToPosition(e.position, instantScroll);
         }
         // imperative navigation "forward"
       } else {
@@ -112,6 +111,7 @@ export class RouterScroller implements OnDestroy {
     routerEvent: NavigationEnd | NavigationSkipped,
     anchor: string | null,
   ): void {
+    const scroll = untracked(this.transitions.currentNavigation)?.extras.scroll;
     this.zone.runOutsideAngular(async () => {
       // The scroll event needs to be delayed until after change detection. Otherwise, we may
       // attempt to restore the scroll position before the router outlet has fully rendered the
@@ -133,14 +133,15 @@ export class RouterScroller implements OnDestroy {
             routerEvent,
             this.lastSource === 'popstate' ? this.store[this.restoredId] : null,
             anchor,
+            scroll,
           ),
         );
       });
     });
   }
 
-  /** @nodoc */
-  ngOnDestroy() {
+  /** @docs-private */
+  ngOnDestroy(): void {
     this.routerEventsSubscription?.unsubscribe();
     this.scrollEventsSubscription?.unsubscribe();
   }

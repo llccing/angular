@@ -16,7 +16,8 @@ import {Type} from '../../interface/type';
 import {throwError} from '../../util/assert';
 import type {TNode} from '../interfaces/node';
 import type {LView} from '../interfaces/view';
-import type {EffectRef} from '../reactivity/effect';
+import type {AfterRenderPhaseEffectNode} from '../reactivity/after_render_effect';
+import type {EffectRefImpl} from '../reactivity/effect';
 
 /**
  * An enum describing the types of events that can be emitted from the injector profiler
@@ -41,6 +42,11 @@ export const enum InjectorProfilerEventType {
    * Emits when an effect is created.
    */
   EffectCreated,
+
+  /**
+   * Emits when an after render effect phase is created.
+   */
+  AfterRenderEffectPhaseCreated,
 
   /**
    * Emits when an Angular DI system is about to create an instance corresponding to a given token.
@@ -94,7 +100,13 @@ export interface ProviderConfiguredEvent {
 export interface EffectCreatedEvent {
   type: InjectorProfilerEventType.EffectCreated;
   context: InjectorProfilerContext;
-  effect: EffectRef;
+  effect: EffectRefImpl;
+}
+
+export interface AfterRenderEffectPhaseCreatedEvent {
+  type: InjectorProfilerEventType.AfterRenderEffectPhaseCreated;
+  context: InjectorProfilerContext;
+  effectPhase: AfterRenderPhaseEffectNode;
 }
 
 /**
@@ -106,7 +118,8 @@ export type InjectorProfilerEvent =
   | InjectorToCreateInstanceEvent
   | InjectorCreatedInstanceEvent
   | ProviderConfiguredEvent
-  | EffectCreatedEvent;
+  | EffectCreatedEvent
+  | AfterRenderEffectPhaseCreatedEvent;
 
 /**
  * An object that contains information about a provider that has been configured
@@ -194,33 +207,55 @@ export function setInjectorProfilerContext(context: InjectorProfilerContext) {
   return previous;
 }
 
-let injectorProfilerCallback: InjectorProfiler | null = null;
+const injectorProfilerCallbacks: InjectorProfiler[] = [];
+
+const NOOP_PROFILER_REMOVAL = () => {};
+
+function removeProfiler(profiler: InjectorProfiler) {
+  const profilerIdx = injectorProfilerCallbacks.indexOf(profiler);
+  if (profilerIdx !== -1) {
+    injectorProfilerCallbacks.splice(profilerIdx, 1);
+  }
+}
 
 /**
- * Sets the callback function which will be invoked during certain DI events within the
- * runtime (for example: injecting services, creating injectable instances, configuring providers)
+ * Adds a callback function which will be invoked during certain DI events within the
+ * runtime (for example: injecting services, creating injectable instances, configuring providers).
+ * Multiple profiler callbacks can be set: in this case profiling events are
+ * reported to every registered callback.
  *
  * Warning: this function is *INTERNAL* and should not be relied upon in application's code.
  * The contract of the function might be changed in any release and/or the function can be removed
  * completely.
  *
  * @param profiler function provided by the caller or null value to disable profiling.
+ * @returns a cleanup function that, when invoked, removes a given profiler callback.
  */
-export const setInjectorProfiler = (injectorProfiler: InjectorProfiler | null) => {
+export function setInjectorProfiler(injectorProfiler: InjectorProfiler | null): () => void {
   !ngDevMode && throwError('setInjectorProfiler should never be called in production mode');
-  injectorProfilerCallback = injectorProfiler;
-};
+
+  if (injectorProfiler !== null) {
+    if (!injectorProfilerCallbacks.includes(injectorProfiler)) {
+      injectorProfilerCallbacks.push(injectorProfiler);
+    }
+    return () => removeProfiler(injectorProfiler);
+  } else {
+    injectorProfilerCallbacks.length = 0;
+    return NOOP_PROFILER_REMOVAL;
+  }
+}
 
 /**
  * Injector profiler function which emits on DI events executed by the runtime.
  *
  * @param event InjectorProfilerEvent corresponding to the DI event being emitted
  */
-function injectorProfiler(event: InjectorProfilerEvent): void {
+export function injectorProfiler(event: InjectorProfilerEvent): void {
   !ngDevMode && throwError('Injector profiler should never be called in production mode');
 
-  if (injectorProfilerCallback != null /* both `null` and `undefined` */) {
-    injectorProfilerCallback!(event);
+  for (let i = 0; i < injectorProfilerCallbacks.length; i++) {
+    const injectorProfilerCallback = injectorProfilerCallbacks[i];
+    injectorProfilerCallback(event);
   }
 }
 
@@ -317,13 +352,25 @@ export function emitInjectEvent(
   });
 }
 
-export function emitEffectCreatedEvent(effect: EffectRef): void {
+export function emitEffectCreatedEvent(effect: EffectRefImpl): void {
   !ngDevMode && throwError('Injector profiler should never be called in production mode');
 
   injectorProfiler({
     type: InjectorProfilerEventType.EffectCreated,
     context: getInjectorProfilerContext(),
     effect,
+  });
+}
+
+export function emitAfterRenderEffectPhaseCreatedEvent(
+  effectPhase: AfterRenderPhaseEffectNode,
+): void {
+  !ngDevMode && throwError('Injector profiler should never be called in production mode');
+
+  injectorProfiler({
+    type: InjectorProfilerEventType.AfterRenderEffectPhaseCreated,
+    context: getInjectorProfilerContext(),
+    effectPhase,
   });
 }
 

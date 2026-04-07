@@ -8,7 +8,7 @@
 
 import {ɵgetDOM as getDOM} from '@angular/common';
 import {SharedStylesHost} from '../../src/dom/shared_styles_host';
-import {expect} from '../../testing/src/matchers';
+import {expect} from '@angular/private/testing/matchers';
 
 describe('SharedStylesHost', () => {
   let doc: Document;
@@ -140,6 +140,33 @@ describe('SharedStylesHost', () => {
         '<link rel="stylesheet" href="component-1.css" ng-style-reused="">',
       );
       expect(doc.head.innerHTML).not.toContain('ng-app-id');
+    });
+  });
+
+  describe('removeHost', () => {
+    it('should remove inline style nodes from the host', () => {
+      ssh.addStyles(['a {}']);
+      ssh.addHost(someHost);
+      expect(someHost.innerHTML).toEqual('<style>a {}</style>');
+
+      ssh.removeHost(someHost);
+      expect(someHost.innerHTML).toEqual('');
+    });
+
+    it('should remove external style nodes from the host', () => {
+      ssh.addStyles([], ['component.css']);
+      ssh.addHost(someHost);
+      expect(someHost.innerHTML).toEqual('<link rel="stylesheet" href="component.css">');
+
+      ssh.removeHost(someHost);
+      expect(someHost.innerHTML).toEqual('');
+    });
+
+    it('should not add new styles to the host after removal', () => {
+      ssh.addHost(someHost);
+      ssh.removeHost(someHost);
+      ssh.addStyles(['a {}']);
+      expect(someHost.innerHTML).toEqual('');
     });
   });
 });

@@ -10,17 +10,17 @@ import {assertInInjectionContext, PendingTasks, inject, Injector} from '../../sr
 import {MonoTypeOperatorFunction, Observable} from 'rxjs';
 
 /**
- * Operator which makes the application unstable until the observable emits, complets, errors, or is unsubscribed.
+ * Operator which makes the application unstable until the observable emits, completes, errors, or is unsubscribed.
  *
  * Use this operator in observables whose subscriptions are important for rendering and should be included in SSR serialization.
  *
  * @param injector The `Injector` to use during creation. If this is not provided, the current injection context will be used instead (via `inject`).
  *
- * @experimental
+ * @developerPreview 20.0
  */
 export function pendingUntilEvent<T>(injector?: Injector): MonoTypeOperatorFunction<T> {
   if (injector === undefined) {
-    assertInInjectionContext(pendingUntilEvent);
+    ngDevMode && assertInInjectionContext(pendingUntilEvent);
     injector = inject(Injector);
   }
   const taskService = injector.get(PendingTasks);

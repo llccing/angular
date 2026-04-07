@@ -21,7 +21,8 @@ import {
   getParentBlockHydrationQueue,
   isIncrementalHydrationEnabled,
 } from '../hydration/utils';
-import {PendingTasksInternal} from '../pending_tasks';
+import {PendingTasks} from '../pending_tasks';
+import {PendingTasksInternal} from '../pending_tasks_internal';
 import {assertLContainer} from '../render3/assert';
 import {getComponentDef, getDirectiveDef, getPipeDef} from '../render3/def_getters';
 import {getTemplateLocationDetails} from '../render3/instructions/element_validation';
@@ -36,7 +37,7 @@ import {
   invokeTriggerCleanupFns,
   storeTriggerCleanupFn,
 } from './cleanup';
-import {onViewport} from './dom_triggers';
+import {onViewportWrapper} from './dom_triggers';
 import {onIdle} from './idle_scheduler';
 import {
   DEFER_BLOCK_STATE,
@@ -70,7 +71,7 @@ import {
   getTDeferBlockDetails,
 } from './utils';
 import {ApplicationRef} from '../application/application_ref';
-import {DEHYDRATED_VIEWS} from '../render3/interfaces/container';
+import {promiseWithResolvers} from '../util/promise_with_resolvers';
 
 /**
  * Schedules triggering of a defer block for `on idle` and `on timer` conditions.
@@ -105,7 +106,6 @@ export function scheduleDelayedTrigger(
  */
 export function scheduleDelayedPrefetching(
   scheduleFn: (callback: VoidFunction, injector: Injector) => VoidFunction,
-  trigger: DeferBlockTrigger,
 ) {
   if (typeof ngServerMode !== 'undefined' && ngServerMode) return;
 
@@ -205,8 +205,7 @@ export function triggerResourceLoading(
   }
 
   // Indicate that an application is not stable and has a pending task.
-  const pendingTasks = injector.get(PendingTasksInternal);
-  const taskId = pendingTasks.add();
+  const removeTask = injector.get(PendingTasks).add();
 
   // The `dependenciesFn` might be `null` when all dependencies within
   // a given defer block were eagerly referenced elsewhere in a file,
@@ -215,7 +214,7 @@ export function triggerResourceLoading(
     tDetails.loadingPromise = Promise.resolve().then(() => {
       tDetails.loadingPromise = null;
       tDetails.loadingState = DeferDependenciesLoadingState.COMPLETE;
-      pendingTasks.remove(taskId);
+      removeTask();
     });
     return tDetails.loadingPromise;
   }
@@ -223,10 +222,12 @@ export function triggerResourceLoading(
   // Start downloading of defer block dependencies.
   tDetails.loadingPromise = Promise.allSettled(dependenciesFn()).then((results) => {
     let failed = false;
+    let failedReason: Error | null = null;
     const directiveDefs: DirectiveDefList = [];
     const pipeDefs: PipeDefList = [];
 
-    for (const result of results) {
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
       if (result.status === 'fulfilled') {
         const dependency = result.value;
         const directiveDef = getComponentDef(dependency) || getDirectiveDef(dependency);
@@ -240,27 +241,42 @@ export function triggerResourceLoading(
         }
       } else {
         failed = true;
+        failedReason =
+          result.reason instanceof Error ? result.reason : new Error(String(result.reason));
         break;
       }
     }
-
-    // Loading is completed, we no longer need the loading Promise
-    // and a pending task should also be removed.
-    tDetails.loadingPromise = null;
-    pendingTasks.remove(taskId);
 
     if (failed) {
       tDetails.loadingState = DeferDependenciesLoadingState.FAILED;
 
       if (tDetails.errorTmplIndex === null) {
         const templateLocation = ngDevMode ? getTemplateLocationDetails(lView) : '';
-        const error = new RuntimeError(
-          RuntimeErrorCode.DEFER_LOADING_FAILED,
-          ngDevMode &&
+        let errorMsg = '';
+
+        if (ngDevMode) {
+          errorMsg =
             'Loading dependencies for `@defer` block failed, ' +
-              `but no \`@error\` block was configured${templateLocation}. ` +
-              'Consider using the `@error` block to render an error state.',
-        );
+            `but no \`@error\` block was configured${templateLocation}. ` +
+            'Consider using the `@error` block to render an error state.';
+
+          const depsFn = tDetails.dependencyResolverFn;
+          const errorReason = failedReason?.message;
+
+          if (depsFn) {
+            errorMsg +=
+              `\n\nAngular tried to invoke the following dependency function (compiler-generated):\n` +
+              `\`\`\`\n${depsFn.toString()}\n\`\`\``;
+          }
+
+          if (errorReason) {
+            errorMsg += depsFn
+              ? `\n\nbut it resulted in the following error:\n\n${errorReason}`
+              : `\n\nThe loading resulted in the following error:\n\n${errorReason}`;
+          }
+        }
+
+        const error = new RuntimeError(RuntimeErrorCode.DEFER_LOADING_FAILED, errorMsg);
         handleUncaughtError(lView, error);
       }
     } else {
@@ -288,7 +304,13 @@ export function triggerResourceLoading(
       }
     }
   });
-  return tDetails.loadingPromise;
+
+  return tDetails.loadingPromise.finally(() => {
+    // Loading is completed, we no longer need the loading Promise
+    // and a pending task should also be removed.
+    tDetails.loadingPromise = null;
+    removeTask();
+  });
 }
 
 /**
@@ -549,7 +571,7 @@ function cleanupRemainingHydrationQueue(
  */
 function populateHydratingStateForQueue(registry: DehydratedBlockRegistry, queue: string[]) {
   for (let blockId of queue) {
-    registry.hydrating.set(blockId, Promise.withResolvers());
+    registry.hydrating.set(blockId, promiseWithResolvers<void>());
   }
 }
 
@@ -595,6 +617,14 @@ export function shouldAttachTrigger(triggerType: TriggerType, lView: LView, tNod
   return !(typeof ngServerMode !== 'undefined' && ngServerMode);
 }
 
+/** Whether a given defer block has `hydrate` triggers. */
+export function hasHydrateTriggers(flags: TDeferDetailsFlags | null | undefined): boolean {
+  return (
+    flags != null &&
+    (flags & TDeferDetailsFlags.HasHydrateTriggers) === TDeferDetailsFlags.HasHydrateTriggers
+  );
+}
+
 /**
  * Defines whether a regular trigger logic (e.g. "on viewport") should be attached
  * to a defer block. This function defines a condition, which mutually excludes
@@ -606,24 +636,21 @@ function shouldAttachRegularTrigger(lView: LView, tNode: TNode): boolean {
 
   const tDetails = getTDeferBlockDetails(lView[TVIEW], tNode);
   const incrementalHydrationEnabled = isIncrementalHydrationEnabled(injector);
-  const hasHydrateTriggers =
-    tDetails.flags !== null &&
-    (tDetails.flags & TDeferDetailsFlags.HasHydrateTriggers) ===
-      TDeferDetailsFlags.HasHydrateTriggers;
+  const _hasHydrateTriggers = hasHydrateTriggers(tDetails.flags);
 
   // On the server:
   if (typeof ngServerMode !== 'undefined' && ngServerMode) {
     // Regular triggers are activated on the server when:
     //  - Either Incremental Hydration is *not* enabled
     //  - Or Incremental Hydration is enabled, but a given block doesn't have "hydrate" triggers
-    return !incrementalHydrationEnabled || !hasHydrateTriggers;
+    return !incrementalHydrationEnabled || !_hasHydrateTriggers;
   }
 
   // On the client:
   const lDetails = getLDeferBlockDetails(lView, tNode);
   const wasServerSideRendered = lDetails[SSR_UNIQUE_ID] !== null;
 
-  if (hasHydrateTriggers && wasServerSideRendered && incrementalHydrationEnabled) {
+  if (_hasHydrateTriggers && wasServerSideRendered && incrementalHydrationEnabled) {
     return false;
   }
   return true;
@@ -676,6 +703,9 @@ export function processAndInitTriggers(
           timerElements.push(elementTrigger);
         }
         if (blockSummary.hydrate.viewport) {
+          if (typeof blockSummary.hydrate.viewport !== 'boolean') {
+            elementTrigger.intersectionObserverOptions = blockSummary.hydrate.viewport;
+          }
           viewportElements.push(elementTrigger);
         }
       }
@@ -701,10 +731,11 @@ function setViewportTriggers(injector: Injector, elementTriggers: ElementTrigger
   if (elementTriggers.length > 0) {
     const registry = injector.get(DEHYDRATED_BLOCK_REGISTRY);
     for (let elementTrigger of elementTriggers) {
-      const cleanupFn = onViewport(
+      const cleanupFn = onViewportWrapper(
         elementTrigger.el,
         () => triggerHydrationFromBlockName(injector, elementTrigger.blockName),
         injector,
+        elementTrigger.intersectionObserverOptions,
       );
       registry.addCleanupFn(elementTrigger.blockName, cleanupFn);
     }

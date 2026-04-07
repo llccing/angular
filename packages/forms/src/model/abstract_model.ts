@@ -31,6 +31,7 @@ import {
   hasValidator,
   removeValidators,
   toObservable,
+  Validators,
 } from '../validators';
 import type {FormArray} from './form_array';
 import type {FormGroup} from './form_group';
@@ -101,6 +102,8 @@ export abstract class ControlEvent<T = any> {
 /**
  * Event fired when the value of a control changes.
  *
+ * @see {@link AbstractControl.events}
+ *
  * @publicApi
  */
 export class ValueChangeEvent<T> extends ControlEvent<T> {
@@ -115,6 +118,8 @@ export class ValueChangeEvent<T> extends ControlEvent<T> {
 /**
  * Event fired when the control's pristine state changes (pristine <=> dirty).
  *
+ * @see {@link AbstractControl.events}
+ *
  * @publicApi */
 export class PristineChangeEvent extends ControlEvent {
   constructor(
@@ -127,6 +132,8 @@ export class PristineChangeEvent extends ControlEvent {
 
 /**
  * Event fired when the control's touched status changes (touched <=> untouched).
+ *
+ * @see {@link AbstractControl.events}
  *
  * @publicApi
  */
@@ -142,6 +149,8 @@ export class TouchedChangeEvent extends ControlEvent {
 /**
  * Event fired when the control's status changes.
  *
+ * @see {@link AbstractControl.events}
+ *
  * @publicApi
  */
 export class StatusChangeEvent extends ControlEvent {
@@ -156,6 +165,8 @@ export class StatusChangeEvent extends ControlEvent {
 /**
  * Event fired when a form is submitted
  *
+ * @see {@link AbstractControl.events}
+ *
  * @publicApi
  */
 export class FormSubmittedEvent extends ControlEvent {
@@ -165,6 +176,8 @@ export class FormSubmittedEvent extends ControlEvent {
 }
 /**
  * Event fired when a form is reset.
+ *
+ * @see {@link AbstractControl.events}
  *
  * @publicApi
  */
@@ -465,7 +478,11 @@ export type ɵGetProperty<T, K> =
  *
  * @publicApi
  */
-export abstract class AbstractControl<TValue = any, TRawValue extends TValue = TValue> {
+export abstract class AbstractControl<
+  TValue = any,
+  TRawValue extends TValue = TValue,
+  TValueWithOptionalControlStates = any,
+> {
   /** @internal */
   _pendingDirty = false;
 
@@ -485,6 +502,9 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
 
   /** @internal */
   _updateOn?: FormHooks;
+
+  /** @internal */
+  _hasRequired = signal(false);
 
   private _parent: FormGroup | FormArray | null = null;
   private _asyncValidationSubscription: any;
@@ -534,7 +554,8 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    * with a key-value pair for each member of the group.
    * * For a disabled `FormGroup`, the values of all controls as an object
    * with a key-value pair for each member of the group.
-   * * For a `FormArray`, the values of enabled controls as an array.
+   * * For an enabled `FormArray`, the values of enabled controls as an array.
+   * * For a disabled `FormArray`, the values of all controls as an array.
    *
    */
   public readonly value!: TValue;
@@ -565,6 +586,7 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
   }
   set validator(validatorFn: ValidatorFn | null) {
     this._rawValidators = this._composedValidatorFn = validatorFn;
+    this._updateHasRequiredValidator();
   }
 
   /**
@@ -637,7 +659,7 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    * false otherwise.
    */
   get pending(): boolean {
-    return this.status == PENDING;
+    return this.status === PENDING;
   }
 
   /**
@@ -746,6 +768,7 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    * `events` of the parent control instead.
    * For other event types, the events are emitted after the parent control has been updated.
    *
+   * @see [Unified control state change events](guide/forms/reactive-forms#unified-control-state-change-events)
    */
   public readonly events = this._events.asObservable();
 
@@ -848,9 +871,7 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    *
    * @usageNotes
    *
-   * ### Reference to a ValidatorFn
-   *
-   * ```
+   * ```ts
    * // Reference to the RequiredValidator
    * const ctrl = new FormControl<string | null>('', Validators.required);
    * ctrl.removeValidators(Validators.required);
@@ -894,9 +915,7 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    *
    * @usageNotes
    *
-   * ### Reference to a ValidatorFn
-   *
-   * ```
+   * ```ts
    * // Reference to the RequiredValidator
    * const ctrl = new FormControl<number | null>(0, Validators.required);
    * expect(ctrl.hasValidator(Validators.required)).toEqual(true)
@@ -964,6 +983,9 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    * * `emitEvent`: When true or not supplied (the default), the `events`
    * observable emits a `TouchedChangeEvent` with the `touched` property being `true`.
    * When false, no events are emitted.
+   *
+   * @see [Managing form control state](guide/forms/reactive-forms#managing-form-control-state)
+   *
    */
   markAsTouched(opts?: {onlySelf?: boolean; emitEvent?: boolean}): void;
   /**
@@ -981,8 +1003,8 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
     this.touched = true;
 
     const sourceControl = opts.sourceControl ?? this;
-    if (this._parent && !opts.onlySelf) {
-      this._parent.markAsTouched({...opts, sourceControl});
+    if (!opts.onlySelf) {
+      this._parent?.markAsTouched({...opts, sourceControl});
     }
 
     if (changed && opts.emitEvent !== false) {
@@ -999,6 +1021,9 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    * * `emitEvent`: When true or not supplied (the default), the `events`
    * observable emits a `PristineChangeEvent` with the `pristine` property being `false`.
    * When false, no events are emitted.
+   *
+   * @see [Managing form control state](guide/forms/reactive-forms#managing-form-control-state)
+   *
    */
   markAllAsDirty(opts: {emitEvent?: boolean} = {}): void {
     this.markAsDirty({onlySelf: true, emitEvent: opts.emitEvent, sourceControl: this});
@@ -1015,6 +1040,9 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    * * `emitEvent`: When true or not supplied (the default), the `events`
    * observable emits a `TouchedChangeEvent` with the `touched` property being `true`.
    * When false, no events are emitted.
+   *
+   * @see [Managing form control state](guide/forms/reactive-forms#managing-form-control-state)
+   *
    */
   markAllAsTouched(opts: {emitEvent?: boolean} = {}): void {
     this.markAsTouched({onlySelf: true, emitEvent: opts.emitEvent, sourceControl: this});
@@ -1039,6 +1067,9 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    * * `emitEvent`: When true or not supplied (the default), the `events`
    * observable emits a `TouchedChangeEvent` with the `touched` property being `false`.
    * When false, no events are emitted.
+   *
+   * @see [Managing form control state](guide/forms/reactive-forms#managing-form-control-state)
+   *
    */
   markAsUntouched(opts?: {onlySelf?: boolean; emitEvent?: boolean}): void;
   /**
@@ -1062,8 +1093,8 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
       control.markAsUntouched({onlySelf: true, emitEvent: opts.emitEvent, sourceControl});
     });
 
-    if (this._parent && !opts.onlySelf) {
-      this._parent._updateTouched(opts, sourceControl);
+    if (!opts.onlySelf) {
+      this._parent?._updateTouched(opts, sourceControl);
     }
 
     if (changed && opts.emitEvent !== false) {
@@ -1086,6 +1117,9 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    * * `emitEvent`: When true or not supplied (the default), the `events`
    * observable emits a `PristineChangeEvent` with the `pristine` property being `false`.
    * When false, no events are emitted.
+   *
+   * @see [Managing form control state](guide/forms/reactive-forms#managing-form-control-state)
+   *
    */
   markAsDirty(opts?: {onlySelf?: boolean; emitEvent?: boolean}): void;
   /**
@@ -1103,8 +1137,8 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
     this.pristine = false;
 
     const sourceControl = opts.sourceControl ?? this;
-    if (this._parent && !opts.onlySelf) {
-      this._parent.markAsDirty({...opts, sourceControl});
+    if (!opts.onlySelf) {
+      this._parent?.markAsDirty({...opts, sourceControl});
     }
 
     if (changed && opts.emitEvent !== false) {
@@ -1130,6 +1164,9 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    * * `emitEvent`: When true or not supplied (the default), the `events`
    * observable emits a `PristineChangeEvent` with the `pristine` property being `true`.
    * When false, no events are emitted.
+   *
+   * @see [Managing form control state](guide/forms/reactive-forms#managing-form-control-state)
+   *
    */
   markAsPristine(opts?: {onlySelf?: boolean; emitEvent?: boolean}): void;
   /**
@@ -1153,8 +1190,8 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
       control.markAsPristine({onlySelf: true, emitEvent: opts.emitEvent});
     });
 
-    if (this._parent && !opts.onlySelf) {
-      this._parent._updatePristine(opts, sourceControl);
+    if (!opts.onlySelf) {
+      this._parent?._updatePristine(opts, sourceControl);
     }
 
     if (changed && opts.emitEvent !== false) {
@@ -1199,8 +1236,8 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
       (this.statusChanges as EventEmitter<FormControlStatus>).emit(this.status);
     }
 
-    if (this._parent && !opts.onlySelf) {
-      this._parent.markAsPending({...opts, sourceControl});
+    if (!opts.onlySelf) {
+      this._parent?.markAsPending({...opts, sourceControl});
     }
   }
 
@@ -1290,12 +1327,12 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
     opts: {onlySelf?: boolean; emitEvent?: boolean; skipPristineCheck?: boolean},
     sourceControl: AbstractControl,
   ): void {
-    if (this._parent && !opts.onlySelf) {
-      this._parent.updateValueAndValidity(opts);
+    if (!opts.onlySelf) {
+      this._parent?.updateValueAndValidity(opts);
       if (!opts.skipPristineCheck) {
-        this._parent._updatePristine({}, sourceControl);
+        this._parent?._updatePristine({}, sourceControl);
       }
-      this._parent._updateTouched({}, sourceControl);
+      this._parent?._updateTouched({}, sourceControl);
     }
   }
 
@@ -1321,7 +1358,7 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
   /**
    * Resets the control. Abstract method (implemented in sub-classes).
    */
-  abstract reset(value?: TValue, options?: Object): void;
+  abstract reset(value?: TValueWithOptionalControlStates, options?: Object): void;
 
   /**
    * The raw value of this control. For most control implementations, the raw value will include
@@ -1344,6 +1381,9 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    * `valueChanges` and `events`
    * observables emit events with the latest status and value when the control is updated.
    * When false, no events are emitted.
+   *
+   * @see [Understanding propagation control](guide/forms/reactive-forms#understanding-event-emission)
+   *
    */
   updateValueAndValidity(opts?: {onlySelf?: boolean; emitEvent?: boolean}): void;
   /**
@@ -1381,8 +1421,8 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
       (this.statusChanges as EventEmitter<FormControlStatus>).emit(this.status);
     }
 
-    if (this._parent && !opts.onlySelf) {
-      this._parent.updateValueAndValidity({...opts, sourceControl});
+    if (!opts.onlySelf) {
+      this._parent?.updateValueAndValidity({...opts, sourceControl});
     }
   }
 
@@ -1438,6 +1478,8 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    * Sets errors on a form control when running validations manually, rather than automatically.
    *
    * Calling `setErrors` also updates the validity of the parent control.
+   *
+   * Note: Manually set errors are always overwritten by the results of the next validation run.
    *
    * @param opts Configuration options that determine how the control propagates
    * changes and emits events after the control errors are set.
@@ -1568,7 +1610,7 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    */
   getError(errorCode: string, path?: Array<string | number> | string): any {
     const control = path ? this.get(path) : this;
-    return control && control.errors ? control.errors[errorCode] : null;
+    return control?.errors ? control.errors[errorCode] : null;
   }
 
   /**
@@ -1693,8 +1735,8 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
     const changed = this.pristine !== newPristine;
     this.pristine = newPristine;
 
-    if (this._parent && !opts.onlySelf) {
-      this._parent._updatePristine(opts, changedControl);
+    if (!opts.onlySelf) {
+      this._parent?._updatePristine(opts, changedControl);
     }
 
     if (changed) {
@@ -1707,8 +1749,8 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
     this.touched = this._anyControlsTouched();
     this._events.next(new TouchedChangeEvent(this.touched, changedControl));
 
-    if (this._parent && !opts.onlySelf) {
-      this._parent._updateTouched(opts, changedControl);
+    if (!opts.onlySelf) {
+      this._parent?._updateTouched(opts, changedControl);
     }
   }
 
@@ -1732,8 +1774,7 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
    * @internal
    */
   private _parentMarkedDirty(onlySelf?: boolean): boolean {
-    const parentDirty = this._parent && this._parent.dirty;
-    return !onlySelf && !!parentDirty && !this._parent!._anyControlsDirty();
+    return !onlySelf && !!this._parent?.dirty && !this._parent!._anyControlsDirty();
   }
 
   /** @internal */
@@ -1749,6 +1790,7 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
   private _assignValidators(validators: ValidatorFn | ValidatorFn[] | null): void {
     this._rawValidators = Array.isArray(validators) ? validators.slice() : validators;
     this._composedValidatorFn = coerceToValidator(this._rawValidators);
+    this._updateHasRequiredValidator();
   }
 
   /**
@@ -1759,5 +1801,9 @@ export abstract class AbstractControl<TValue = any, TRawValue extends TValue = T
   private _assignAsyncValidators(validators: AsyncValidatorFn | AsyncValidatorFn[] | null): void {
     this._rawAsyncValidators = Array.isArray(validators) ? validators.slice() : validators;
     this._composedAsyncValidatorFn = coerceToAsyncValidator(this._rawAsyncValidators);
+  }
+
+  private _updateHasRequiredValidator(): void {
+    untracked(() => this._hasRequired.set(this.hasValidator(Validators.required)));
   }
 }

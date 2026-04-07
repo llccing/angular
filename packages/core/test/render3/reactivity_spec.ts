@@ -6,7 +6,14 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
+// Needed for the global `Zone` ambient types to be available.
+import type {} from 'zone.js';
+
 import {AsyncPipe} from '@angular/common';
+import {bootstrapApplication} from '@angular/platform-browser';
+import {withBody} from '@angular/private/testing';
+import {SIGNAL} from '../../primitives/signals';
+import {toObservable} from '../../rxjs-interop';
 import {
   AfterViewInit,
   ApplicationRef,
@@ -27,7 +34,7 @@ import {
   Input,
   NgZone,
   OnChanges,
-  provideExperimentalZonelessChangeDetection,
+  provideZonelessChangeDetection,
   QueryList,
   signal,
   SimpleChanges,
@@ -36,12 +43,8 @@ import {
   ViewChild,
   ViewContainerRef,
 } from '../../src/core';
-import {SIGNAL} from '../../primitives/signals';
-import {toObservable} from '../../rxjs-interop';
 import {EffectNode} from '../../src/render3/reactivity/effect';
 import {TestBed} from '../../testing';
-import {bootstrapApplication} from '@angular/platform-browser';
-import {withBody} from '@angular/private/testing';
 
 describe('reactivity', () => {
   describe('effects', () => {
@@ -88,6 +91,7 @@ describe('reactivity', () => {
       expect(isStable).toEqual([true, false]);
 
       appRef.tick();
+      await appRef.whenStable();
 
       expect(isStable).toEqual([true, false, true]);
     });
@@ -263,35 +267,32 @@ describe('reactivity', () => {
     });
 
     it('should create root effects when outside of a component, using injection context', () => {
-      TestBed.configureTestingModule({});
       const counter = signal(0);
       const log: number[] = [];
       TestBed.runInInjectionContext(() => effect(() => log.push(counter())));
 
-      TestBed.flushEffects();
+      TestBed.tick();
       expect(log).toEqual([0]);
 
       counter.set(1);
-      TestBed.flushEffects();
+      TestBed.tick();
       expect(log).toEqual([0, 1]);
     });
 
     it('should create root effects when outside of a component, using an injector', () => {
-      TestBed.configureTestingModule({});
       const counter = signal(0);
       const log: number[] = [];
       effect(() => log.push(counter()), {injector: TestBed.inject(Injector)});
 
-      TestBed.flushEffects();
+      TestBed.tick();
       expect(log).toEqual([0]);
 
       counter.set(1);
-      TestBed.flushEffects();
+      TestBed.tick();
       expect(log).toEqual([0, 1]);
     });
 
     it('should cleanup effect when manualCleanup is enabled and an injector is provided', () => {
-      TestBed.configureTestingModule({});
       const counter = signal(0);
       const log: number[] = [];
       // It needs the injector to be able to inject the other deps (and not just the DestroyRef).
@@ -300,22 +301,22 @@ describe('reactivity', () => {
         injector: TestBed.inject(Injector),
       });
 
-      TestBed.flushEffects();
+      TestBed.tick();
       expect(log).toEqual([0]);
 
       counter.set(1);
-      TestBed.flushEffects();
+      TestBed.tick();
       expect(log).toEqual([0, 1]);
 
       ref.destroy();
       counter.set(2);
-      TestBed.flushEffects();
+      TestBed.tick();
       expect(log).toEqual([0, 1]);
     });
 
     it('should run root effects in creation order independent of dirty order', async () => {
       TestBed.configureTestingModule({
-        providers: [provideExperimentalZonelessChangeDetection()],
+        providers: [provideZonelessChangeDetection()],
       });
       const appRef = TestBed.inject(ApplicationRef);
 
@@ -343,7 +344,7 @@ describe('reactivity', () => {
 
     it('should check components made dirty from markForCheck() from an effect', async () => {
       TestBed.configureTestingModule({
-        providers: [provideExperimentalZonelessChangeDetection()],
+        providers: [provideZonelessChangeDetection()],
       });
 
       const source = signal('');
@@ -373,7 +374,7 @@ describe('reactivity', () => {
 
     it('should check components made dirty from markForCheck() from an effect in a service', async () => {
       TestBed.configureTestingModule({
-        providers: [provideExperimentalZonelessChangeDetection()],
+        providers: [provideZonelessChangeDetection()],
       });
 
       const source = signal('');
@@ -410,7 +411,7 @@ describe('reactivity', () => {
 
     it('should check views made dirty from markForCheck() from an effect in a directive', async () => {
       TestBed.configureTestingModule({
-        providers: [provideExperimentalZonelessChangeDetection()],
+        providers: [provideZonelessChangeDetection()],
       });
 
       const source = signal('');
@@ -437,7 +438,7 @@ describe('reactivity', () => {
 
       @Component({
         imports: [Dir],
-        template: `<ng-template dir let-data>{{data}}</ng-template>`,
+        template: `<ng-template dir let-data>{{ data }}</ng-template>`,
         changeDetection: ChangeDetectionStrategy.OnPush,
       })
       class TestCmp {}
@@ -518,11 +519,11 @@ describe('reactivity', () => {
         );
         expect(effectCounter).toBe(0);
         effectRef.destroy();
-        TestBed.flushEffects();
+        TestBed.tick();
         expect(effectCounter).toBe(0);
 
         counter.set(2);
-        TestBed.flushEffects();
+        TestBed.tick();
         expect(effectCounter).toBe(0);
       });
 
@@ -543,11 +544,11 @@ describe('reactivity', () => {
         fixture.detectChanges();
         expect(effectCounter).toBe(0);
 
-        TestBed.flushEffects();
+        TestBed.tick();
         expect(effectCounter).toBe(0);
 
         fixture.componentInstance.counter.set(2);
-        TestBed.flushEffects();
+        TestBed.tick();
         expect(effectCounter).toBe(0);
       });
     });
@@ -558,7 +559,7 @@ describe('reactivity', () => {
       const counter = signal(0);
 
       effect(() => counter.set(1), {injector: TestBed.inject(Injector)});
-      TestBed.flushEffects();
+      TestBed.tick();
       expect(counter()).toBe(1);
     });
 
@@ -634,7 +635,7 @@ describe('reactivity', () => {
         imports: [WithInputSetter],
         template: `
           <with-input-setter [testInput]="'binding'" />|<with-input-setter testInput="static" />
-      `,
+        `,
       })
       class Cmp {}
 
@@ -751,6 +752,41 @@ describe('reactivity', () => {
       expect(effectRef[SIGNAL].debugName).toBe('TEST_DEBUG_NAME');
     });
 
+    it('should disallow writing to signals within computed', () => {
+      @Component({
+        selector: 'with-input',
+        template: '{{comp()}}',
+      })
+      class WriteComputed {
+        sig = signal(0);
+        comp = computed(() => {
+          this.sig.set(this.sig() + 1);
+          return this.sig();
+        });
+      }
+
+      const fixture = TestBed.createComponent(WriteComputed);
+
+      expect(() => fixture.detectChanges()).toThrowError(/NG0600.*in a `computed`/);
+    });
+
+    it('should disallow writing to signals within a template', () => {
+      @Component({
+        selector: 'with-input',
+        template: '{{func()}}',
+      })
+      class WriteComputed {
+        sig = signal(0);
+        func() {
+          this.sig.set(this.sig() + 1);
+        }
+      }
+
+      const fixture = TestBed.createComponent(WriteComputed);
+
+      expect(() => fixture.detectChanges()).toThrowError(/NG0600.*template/);
+    });
+
     describe('effects created in components should first run after ngOnInit', () => {
       it('when created during bootstrapping', () => {
         let log: string[] = [];
@@ -768,10 +804,8 @@ describe('reactivity', () => {
           }
         }
 
-        const fixture = TestBed.createComponent(TestCmp);
-        TestBed.flushEffects();
-        expect(log).toEqual([]);
-        fixture.detectChanges();
+        TestBed.createComponent(TestCmp);
+        TestBed.tick();
         expect(log).toEqual(['init', 'effect']);
       });
 
@@ -781,6 +815,7 @@ describe('reactivity', () => {
         @Component({
           selector: 'test-cmp',
           template: '',
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class TestCmp {
           ngOnInitRan = false;
@@ -797,10 +832,11 @@ describe('reactivity', () => {
           selector: 'driver-cmp',
           imports: [TestCmp],
           template: `
-          @if (cond) {
-            <test-cmp />
-          }
-        `,
+            @if (cond) {
+              <test-cmp />
+            }
+          `,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class DriverCmp {
           cond = false;
@@ -812,6 +848,7 @@ describe('reactivity', () => {
 
         // Toggle the @if, which should create and run the effect.
         fixture.componentInstance.cond = true;
+        fixture.changeDetectorRef.markForCheck();
         fixture.detectChanges();
         expect(log).toEqual(['init', 'effect']);
       });
@@ -841,17 +878,17 @@ describe('reactivity', () => {
           vcr = inject(ViewContainerRef);
         }
 
-        const fixture = TestBed.createComponent(DriverCmp);
-        fixture.detectChanges();
+        const componentRef = createComponent(DriverCmp, {
+          environmentInjector: TestBed.inject(EnvironmentInjector),
+        });
+        componentRef.changeDetectorRef.detectChanges();
 
-        fixture.componentInstance.vcr.createComponent(TestCmp);
+        componentRef.instance.vcr.createComponent(TestCmp);
 
         // Verify that simply creating the component didn't schedule the effect.
-        TestBed.flushEffects();
+        TestBed.inject(ApplicationRef).tick();
         expect(log).toEqual([]);
-
-        // Running change detection should schedule and run the effect.
-        fixture.detectChanges();
+        componentRef.changeDetectorRef.detectChanges();
         expect(log).toEqual(['init', 'effect']);
       });
 
@@ -879,9 +916,7 @@ describe('reactivity', () => {
         }
 
         const fixture = TestBed.createComponent(TestCmp);
-        TestBed.flushEffects();
-        expect(log).toEqual([]);
-        fixture.detectChanges();
+        TestBed.tick();
         expect(log).toEqual(['init', 'effect']);
       });
 

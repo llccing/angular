@@ -55,6 +55,8 @@ function toFloat(value: string | number): number {
  * @description
  * Defines the map of errors returned from failed validation checks.
  *
+ * @see [Defining custom validators](guide/forms/form-validation#defining-custom-validators)
+ *
  * @publicApi
  */
 export type ValidationErrors = {
@@ -75,7 +77,7 @@ export type ValidationErrors = {
  * ```ts
  * @Directive({
  *   selector: '[customValidator]',
- *   providers: [{provide: NG_VALIDATORS, useExisting: CustomValidatorDirective, multi: true}]
+ *   providers: [{provide: NG_VALIDATORS, useExisting: forwardRef(() => CustomValidatorDirective), multi: true}]
  * })
  * class CustomValidatorDirective implements Validator {
  *   validate(control: AbstractControl): ValidationErrors|null {
@@ -154,24 +156,22 @@ abstract class AbstractValidatorDirective implements Validator, OnChanges {
    */
   abstract normalizeInput(input: unknown): unknown;
 
-  /** @nodoc */
+  /** @docs-private */
   ngOnChanges(changes: SimpleChanges): void {
     if (this.inputName in changes) {
       const input = this.normalizeInput(changes[this.inputName].currentValue);
       this._enabled = this.enabled(input);
       this._validator = this._enabled ? this.createValidator(input) : nullValidator;
-      if (this._onChange) {
-        this._onChange();
-      }
+      this._onChange?.();
     }
   }
 
-  /** @nodoc */
+  /** @docs-private */
   validate(control: AbstractControl): ValidationErrors | null {
     return this._validator(control);
   }
 
-  /** @nodoc */
+  /** @docs-private */
   registerOnValidatorChange(fn: () => void): void {
     this._onChange = fn;
   }
@@ -318,6 +318,8 @@ export class MinValidator extends AbstractValidatorDirective {
  * }
  * ```
  *
+ * @see [Creating asynchronous validators](guide/forms/form-validation#creating-asynchronous-validators)
+ *
  * @publicApi
  */
 export interface AsyncValidator extends Validator {
@@ -397,7 +399,7 @@ export class RequiredValidator extends AbstractValidatorDirective {
   /** @internal */
   override createValidator = (input: boolean): ValidatorFn => requiredValidator;
 
-  /** @nodoc */
+  /** @docs-private */
   override enabled(input: boolean): boolean {
     return input;
   }
@@ -494,7 +496,7 @@ export class EmailValidator extends AbstractValidatorDirective {
   /** @internal */
   override createValidator = (input: number): ValidatorFn => emailValidator;
 
-  /** @nodoc */
+  /** @docs-private */
   override enabled(input: boolean): boolean {
     return input;
   }
@@ -504,6 +506,8 @@ export class EmailValidator extends AbstractValidatorDirective {
  * @description
  * A function that receives a control and synchronously returns a map of
  * validation errors if present, otherwise null.
+ *
+ * @see [Defining custom validators](guide/forms/form-validation#defining-custom-validators)
  *
  * @publicApi
  */
@@ -515,6 +519,8 @@ export interface ValidatorFn {
  * @description
  * A function that receives a control and returns a Promise or observable
  * that emits validation errors if present, otherwise null.
+ *
+ * @see [Creating asynchronous validators](guide/forms/form-validation#creating-asynchronous-validators)
  *
  * @publicApi
  */

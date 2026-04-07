@@ -6,8 +6,10 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
+import {Provider} from '@angular/core';
 import {PLACEHOLDER_QUALITY} from './constants';
 import {createImageLoader, ImageLoaderConfig} from './image_loader';
+import {normalizeLoaderTransform} from './normalized_options';
 
 /**
  * Function that generates an ImageLoader for [Cloudflare Image
@@ -18,9 +20,10 @@ import {createImageLoader, ImageLoaderConfig} from './image_loader';
  * @param path Your domain name, e.g. https://mysite.com
  * @returns Provider that provides an ImageLoader function
  *
+ * @see [Image Optimization Guide](guide/image-optimization)
  * @publicApi
  */
-export const provideCloudflareLoader = createImageLoader(
+export const provideCloudflareLoader: (path: string) => Provider[] = createImageLoader(
   createCloudflareUrl,
   ngDevMode ? ['https://<ZONE>/cdn-cgi/image/<OPTIONS>/<SOURCE-IMAGE>'] : undefined,
 );
@@ -31,9 +34,19 @@ function createCloudflareUrl(path: string, config: ImageLoaderConfig) {
     params += `,width=${config.width}`;
   }
 
+  if (config.height) {
+    params += `,height=${config.height}`;
+  }
+
   // When requesting a placeholder image we ask for a low quality image to reduce the load time.
   if (config.isPlaceholder) {
     params += `,quality=${PLACEHOLDER_QUALITY}`;
+  }
+
+  // Support custom transformation parameters
+  if (config.loaderParams?.['transform']) {
+    const transformStr = normalizeLoaderTransform(config.loaderParams['transform'], '=');
+    params += `,${transformStr}`;
   }
 
   // Cloudflare image URLs format:

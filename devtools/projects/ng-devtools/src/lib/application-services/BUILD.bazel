@@ -1,38 +1,64 @@
-load("//devtools/tools:defaults.bzl", "karma_web_test_suite")
-load("//devtools/tools:ng_module.bzl", "ng_module")
-load("//devtools/tools:typescript.bzl", "ts_test_library")
+load("//devtools/tools:defaults.bzl", "ng_project", "ts_project", "ts_test_library", "zoneless_web_test_suite")
 
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = ["//devtools:__subpackages__"])
 
-ng_module(
+ng_project(
     name = "browser_styles",
     srcs = ["browser_styles_service.ts"],
     deps = [
-        "//packages/common",
-        "//packages/core",
-        "@npm//@angular/cdk",
+        "//:node_modules/@angular/cdk",
+        "//:node_modules/@angular/common",
+        "//:node_modules/@angular/core",
     ],
 )
 
-ng_module(
+ng_project(
     name = "frame_manager",
     srcs = ["frame_manager.ts"],
     deps = [
+        "//:node_modules/@angular/core",
+        "//:node_modules/@types/chrome",
         "//devtools/projects/ng-devtools/src/lib/application-environment",
         "//devtools/projects/protocol",
-        "//packages/core",
     ],
 )
 
-ng_module(
+ts_project(
+    name = "theme_types_lib",
+    srcs = ["theme_types.ts"],
+)
+
+ng_project(
     name = "theme",
-    srcs = ["theme_service.ts"],
+    srcs = [
+        "theme_service.ts",
+    ],
     deps = [
+        ":settings",
+        ":theme_types_lib",
+        "//:node_modules/@angular/common",
+        "//:node_modules/@angular/core",
+        "//:node_modules/rxjs",
         "//devtools/projects/ng-devtools/src/lib/application-providers:window",
-        "//packages/common",
-        "//packages/core",
-        "@npm//@types",
-        "@npm//rxjs",
+    ],
+)
+
+ng_project(
+    name = "settings_store",
+    srcs = ["settings_store.ts"],
+    deps = [
+        "//:node_modules/@angular/core",
+        "//devtools/projects/ng-devtools/src/lib/application-operations",
+    ],
+)
+
+ng_project(
+    name = "settings",
+    srcs = ["settings.ts"],
+    deps = [
+        ":settings_store",
+        ":theme_types_lib",
+        "//:node_modules/@angular/core",
     ],
 )
 
@@ -42,17 +68,21 @@ ts_test_library(
     deps = [
         ":browser_styles",
         ":frame_manager",
+        ":settings_store",
         ":theme",
+        "//:node_modules/@angular/cdk",
+        "//:node_modules/@angular/common",
+        "//:node_modules/@angular/core",
         "//devtools/projects/ng-devtools/src/lib/application-environment",
+        "//devtools/projects/ng-devtools/src/lib/application-operations",
         "//devtools/projects/ng-devtools/src/lib/application-providers:window",
+        "//devtools/projects/ng-devtools/src/lib/application-services/test-utils:app_operations_mock",
+        "//devtools/projects/ng-devtools/src/lib/application-services/test-utils:settings_mock",
         "//devtools/projects/protocol",
-        "//packages/common",
-        "//packages/core/testing",
-        "@npm//@angular/cdk",
     ],
 )
 
-karma_web_test_suite(
+zoneless_web_test_suite(
     name = "test_application_services",
     deps = [
         ":test_application_services_lib",

@@ -26,12 +26,21 @@ describe('ApiItemsSection', () => {
         title: 'Fake Deprecated Title',
         itemType: ApiItemType.CONST,
         url: 'api/fakeDeprecatedTitle',
-        isDeprecated: true,
+        deprecated: {version: undefined},
+        developerPreview: undefined,
+        experimental: undefined,
+        stable: undefined,
+        category: undefined,
       },
       {
         title: 'Fake Standard Title',
         itemType: ApiItemType.DIRECTIVE,
         url: 'api/fakeTitle',
+        deprecated: undefined,
+        developerPreview: undefined,
+        experimental: undefined,
+        stable: undefined,
+        category: undefined,
       },
     ],
   };
@@ -45,21 +54,21 @@ describe('ApiItemsSection', () => {
     component = fixture.componentInstance;
   });
 
-  it('should render list of all APIs of provided group', () => {
+  it('should render list of all APIs of provided group', async () => {
     fixture.componentRef.setInput('group', fakeGroup);
-    fixture.detectChanges();
+    await fixture.whenStable();
 
     const apis = fixture.debugElement.queryAll(By.css('.adev-api-items-section-grid li'));
 
     expect(apis.length).toBe(2);
   });
 
-  it('should display deprecated icon for deprecated API', () => {
+  it('should display deprecated icon for deprecated API', async () => {
     fixture.componentRef.setInput('group', fakeGroup);
-    fixture.detectChanges();
+    await fixture.whenStable();
 
     const deprecatedApiIcons = fixture.debugElement.queryAll(
-      By.css('.adev-api-items-section-grid li .adev-deprecated'),
+      By.css('.adev-api-items-section-grid li .adev-item-attribute'),
     );
     const deprecatedApiTitle = deprecatedApiIcons[0].parent?.query(By.css('.adev-item-title'));
 

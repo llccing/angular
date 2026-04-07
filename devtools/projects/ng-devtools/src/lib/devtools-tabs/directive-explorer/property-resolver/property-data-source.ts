@@ -10,17 +10,23 @@ import {CollectionViewer, DataSource, SelectionChange} from '@angular/cdk/collec
 import {FlatTreeControl} from '@angular/cdk/tree';
 import {DefaultIterableDiffer, TrackByFunction} from '@angular/core';
 import {MatTreeFlattener} from '@angular/material/tree';
-import {Descriptor, DirectivePosition, Events, MessageBus, Properties} from 'protocol';
+import {
+  Descriptor,
+  DirectivePosition,
+  Events,
+  MessageBus,
+  Properties,
+} from '../../../../../../protocol';
 import {BehaviorSubject, merge, Observable, Subscription} from 'rxjs';
 import {map} from 'rxjs/operators';
 
-import {diff} from '../../diffing';
+import {diff} from '../diffing';
 
 import {arrayifyProps} from './arrayify-props';
-import {FlatNode, Property} from './element-property-resolver';
+import {FlatNode, Property} from '../../../shared/object-tree-explorer/object-tree-types';
 
 const trackBy: TrackByFunction<FlatNode> = (_: number, item: FlatNode) =>
-  `#${item.prop.name}#${item.prop.descriptor.preview}#${item.level}`;
+  `#${item.prop.name}#${item.level}`;
 
 export class PropertyDataSource extends DataSource<FlatNode> {
   private _data = new BehaviorSubject<FlatNode[]>([]);

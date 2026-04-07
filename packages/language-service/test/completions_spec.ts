@@ -6,14 +6,20 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {initMockFileSystem} from '@angular/compiler-cli/src/ngtsc/file_system/testing';
 import ts from 'typescript';
 
 import {
   DisplayInfoKind,
   unsafeCastDisplayInfoKindToScriptElementKind,
 } from '../src/utils/display_parts';
-import {LanguageServiceTestEnv, OpenBuffer, TestableOptions} from '../testing';
+import {
+  LanguageServiceTestEnv,
+  OpenBuffer,
+  Project,
+  ProjectFiles,
+  TestableOptions,
+} from '../testing';
+import {getSharedEnv} from './shared_env';
 
 const DIR_WITH_INPUT = {
   'Dir': `
@@ -162,10 +168,6 @@ function trigger(name: string) {
 const ANIMATION_METADATA = `animations: [trigger('animationName')],`;
 
 describe('completions', () => {
-  beforeEach(() => {
-    initMockFileSystem('Native');
-  });
-
   describe('in the global scope', () => {
     it('should be able to complete an interpolation', () => {
       const {templateFile} = setup('{{ti}}', `title!: string; hero!: number;`);
@@ -294,6 +296,20 @@ describe('completions', () => {
       expectContain(completions, ts.ScriptElementKind.keyword, ['null']);
       expectContain(completions, ts.ScriptElementKind.variableElement, ['undefined']);
       expectDoesNotContain(completions, ts.ScriptElementKind.parameterElement, ['ctx']);
+    });
+
+    it('should provide completions for access of a component property in an arrow function', () => {
+      const {templateFile} = setup('{{() => ti}}', `title!: string; hero!: number;`);
+      templateFile.moveCursorToText('{{() => ti¦}}');
+      const completions = templateFile.getCompletionsAtPosition();
+      expectContain(completions, ts.ScriptElementKind.memberVariableElement, ['title', 'hero']);
+    });
+
+    it('should provide completions for access of a parameter in an arrow function', () => {
+      const {templateFile} = setup('{{((value) => value.)(foo)}}', `foo = {a: number, b: string};`);
+      templateFile.moveCursorToText('{{((value) => value.¦)(foo)}}');
+      const completions = templateFile.getCompletionsAtPosition();
+      expectContain(completions, ts.ScriptElementKind.memberVariableElement, ['a', 'b']);
     });
   });
 
@@ -831,14 +847,13 @@ describe('completions', () => {
       expect(ts.displayPartsToString(details.documentation!)).toEqual('This is another component.');
     });
 
-    // TODO: check why this test is now broken
-    xit('should return component completions not imported', () => {
+    it('should return component completions not imported', () => {
       const {templateFile} = setup(
         `<other-cmp>`,
         '',
         {},
         `
-        @Component({selector: 'other-cmp', template: 'unimportant', standalone: true})
+        @Component({selector: 'other-cmp', template: 'unimportant'})
         export class OtherCmp {}
       `,
       );
@@ -1098,7 +1113,6 @@ describe('completions', () => {
           const {templateFile} = setup(`<input dir my>`, '', {
             'Dir': `
               @Directive({
-                standalone: true,
                 inputs: ['myInput']
               })
               export class HostDir {
@@ -1132,8 +1146,7 @@ describe('completions', () => {
           const {templateFile} = setup(`<input dir my>`, '', {
             'Dir': `
               @Directive({
-                standalone: true,
-                inputs: ['myInput']
+                                inputs: ['myInput']
               })
               export class HostDir {
                 myInput = 'foo';
@@ -1162,8 +1175,7 @@ describe('completions', () => {
           const {templateFile} = setup(`<input dir ali>`, '', {
             'Dir': `
               @Directive({
-                standalone: true,
-                inputs: ['myInput']
+                                inputs: ['myInput']
               })
               export class HostDir {
                 myInput = 'foo';
@@ -1196,8 +1208,7 @@ describe('completions', () => {
           const {templateFile} = setup(`<input dir ali>`, '', {
             'Dir': `
                   @Directive({
-                    standalone: true,
-                    inputs: ['myInput: myPublicInput']
+                                        inputs: ['myInput: myPublicInput']
                   })
                   export class HostDir {
                     myInput = 'foo';
@@ -1528,6 +1539,82 @@ describe('completions', () => {
         );
       });
 
+      it('should provide auto-import code action for a directive with an alias', () => {
+        const {templateFile, project} = setup(
+          '<div appHighlight></div>',
+          '',
+          undefined,
+          undefined,
+          undefined,
+          {
+            '/component/share/highlight.ts': `
+            import {Directive,input} from '@angular/core';
+
+            @Directive({
+              selector: '[appHighlight]',
+              standalone: true,
+            })
+            export class HighlightDirective {
+              appHighlight = input('');
+            }
+          `,
+          },
+          {
+            paths: {
+              '@angular/core': ['./node_modules/@angular/core'],
+              '@angular/core/rxjs-interop': ['./node_modules/@angular/core/rxjs-interop'],
+              '@app/*': ['./component/share/*.ts'],
+            },
+          },
+          'test_alias_completions',
+        );
+        templateFile.moveCursorToText('appHighlight¦');
+
+        const completions = templateFile.getCompletionsAtPosition({
+          includeCompletionsForModuleExports: true,
+        });
+
+        const completionEntry = completions?.entries.find((entry) => {
+          return entry.name === '[appHighlight]';
+        });
+
+        expect(completionEntry).toBeDefined();
+
+        const detail = templateFile.getCompletionEntryDetails(
+          completionEntry?.name!,
+          undefined,
+          {includeCompletionsForModuleExports: true},
+          completionEntry?.data,
+        );
+
+        expect(detail?.codeActions).toContain(
+          jasmine.objectContaining({
+            'description': "Import HighlightDirective from '@app/highlight' on AppCmp",
+            'changes': [
+              {
+                'fileName': project.getAbsFileName('test.ts'),
+                'textChanges': [
+                  {
+                    'span': {
+                      'start': 303,
+                      'length': 0,
+                    },
+                    'newText': '\nimport { HighlightDirective } from "@app/highlight";',
+                  },
+                  {
+                    'span': {
+                      'start': 407,
+                      'length': 0,
+                    },
+                    'newText': ',\n           imports: [HighlightDirective]',
+                  },
+                ],
+              },
+            ],
+          }),
+        );
+      });
+
       it('should return input completions for a binding property name', () => {
         const {templateFile} = setup(
           `<h1 dir [customModel]></h1>`,
@@ -1566,8 +1653,7 @@ describe('completions', () => {
         const {templateFile} = setup(`<input dir (my)>`, '', {
           'Dir': `
             @Directive({
-              standalone: true,
-              outputs: ['myOutput']
+                            outputs: ['myOutput']
             })
             export class HostDir {
               myOutput: any;
@@ -1600,8 +1686,7 @@ describe('completions', () => {
         const {templateFile} = setup(`<input dir (my)>`, '', {
           'Dir': `
             @Directive({
-              standalone: true,
-              outputs: ['myOutput']
+                            outputs: ['myOutput']
             })
             export class HostDir {
               myOutput: any;
@@ -1629,8 +1714,7 @@ describe('completions', () => {
         const {templateFile} = setup(`<input dir (ali)>`, '', {
           'Dir': `
             @Directive({
-              standalone: true,
-              outputs: ['myOutput: myPublicOutput']
+                            outputs: ['myOutput: myPublicOutput']
             })
             export class HostDir {
               myOutput: any;
@@ -1657,6 +1741,84 @@ describe('completions', () => {
           ['alias'],
         );
         expectReplacementText(completions, templateFile.contents, 'ali');
+      });
+    });
+
+    describe('element attribute out of scope', () => {
+      it('should return completions for an element attribute out of scope', () => {
+        const {templateFile, project} = setup(
+          `<div app />`,
+          '',
+          undefined,
+          undefined,
+          undefined,
+          {
+            '/component/share/highlight.ts': `
+            import {Directive,input} from '@angular/core';
+
+            @Directive({
+              selector: '[appHighlight]',
+              standalone: true,
+            })
+            export class HighlightDirective {
+              appHighlight = input('');
+            }
+          `,
+          },
+          {
+            paths: {
+              '@angular/core': ['./node_modules/@angular/core'],
+              '@angular/core/rxjs-interop': ['./node_modules/@angular/core/rxjs-interop'],
+              '@app/*': ['./component/share/*.ts'],
+            },
+          },
+          'test_alias_completions_2',
+        );
+        templateFile.moveCursorToText('app¦');
+
+        const completions = templateFile.getCompletionsAtPosition({
+          includeCompletionsForModuleExports: true,
+        });
+
+        const completionEntry = completions?.entries.find((entry) => {
+          return entry.name === '[appHighlight]';
+        });
+
+        expect(completionEntry).toBeDefined();
+
+        const detail = templateFile.getCompletionEntryDetails(
+          completionEntry?.name!,
+          undefined,
+          {includeCompletionsForModuleExports: true},
+          completionEntry?.data,
+        );
+
+        expect(detail?.codeActions).toContain(
+          jasmine.objectContaining({
+            'description': "Import HighlightDirective from '@app/highlight' on AppCmp",
+            'changes': [
+              {
+                'fileName': project.getAbsFileName('test.ts'),
+                'textChanges': [
+                  {
+                    'span': {
+                      'start': 303,
+                      'length': 0,
+                    },
+                    'newText': '\nimport { HighlightDirective } from "@app/highlight";',
+                  },
+                  {
+                    'span': {
+                      'start': 407,
+                      'length': 0,
+                    },
+                    'newText': ',\n           imports: [HighlightDirective]',
+                  },
+                ],
+              },
+            ],
+          }),
+        );
       });
     });
   });
@@ -2086,9 +2248,6 @@ describe('completions', () => {
         `title!: string; hero!: number;`,
         undefined,
         `host: {'[title]': 'ti'},`,
-        {
-          typeCheckHostBindings: true,
-        },
       );
       appFile.moveCursorToText(`'ti¦'`);
       const completions = appFile.getCompletionsAtPosition();
@@ -2101,9 +2260,6 @@ describe('completions', () => {
         `title!: string; hero!: number;`,
         undefined,
         `host: {'(click)': 't'},`,
-        {
-          typeCheckHostBindings: true,
-        },
       );
       appFile.moveCursorToText(`'(click)': 't¦'`);
       const completions = appFile.getCompletionsAtPosition();
@@ -2111,11 +2267,8 @@ describe('completions', () => {
     });
 
     it('should be able to complete inside `host` of a directive', () => {
-      const {appFile} = setupInlineTemplate(
-        '',
-        '',
-        {
-          'Dir': `
+      const {appFile} = setupInlineTemplate('', '', {
+        'Dir': `
             @Directive({
               host: {'[title]': 'ti'},
             })
@@ -2124,12 +2277,7 @@ describe('completions', () => {
               hero!: number;
             }
           `,
-        },
-        undefined,
-        {
-          typeCheckHostBindings: true,
-        },
-      );
+      });
       appFile.moveCursorToText(`'ti¦'`);
       const completions = appFile.getCompletionsAtPosition();
       expectContain(completions, ts.ScriptElementKind.memberVariableElement, ['title', 'hero']);
@@ -2236,16 +2384,22 @@ function setup(
   otherDeclarations: {[name: string]: string} = {},
   functionDeclarations: string = '',
   componentMetadata: string = '',
+  standaloneFiles: ProjectFiles = {},
+  tsCompilerOptions = {},
+  projectName: string = 'test',
 ): {
   templateFile: OpenBuffer;
+  project: Project;
 } {
   const decls = ['AppCmp', ...Object.keys(otherDeclarations)];
 
   const otherDirectiveClassDecls = Object.values(otherDeclarations).join('\n\n');
 
-  const env = LanguageServiceTestEnv.setup();
-  const project = env.addProject('test', {
-    'test.ts': `
+  const env = getSharedEnv();
+  const project = env.addProject(
+    projectName,
+    {
+      'test.ts': `
          import {Component,
           input,
           output,
@@ -2276,9 +2430,13 @@ function setup(
          })
          export class AppModule {}
          `,
-    'test.html': template,
-  });
-  return {templateFile: project.openFile('test.html')};
+      'test.html': template,
+      ...standaloneFiles,
+    },
+    undefined,
+    tsCompilerOptions,
+  );
+  return {templateFile: project.openFile('test.html'), project};
 }
 
 function setupInlineTemplate(

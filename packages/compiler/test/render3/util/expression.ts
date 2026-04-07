@@ -59,10 +59,6 @@ class ExpressionSourceHumanizer extends e.RecursiveAstVisitor implements t.Visit
     this.recordAst(ast);
     super.visitKeyedRead(ast, null);
   }
-  override visitKeyedWrite(ast: e.KeyedWrite) {
-    this.recordAst(ast);
-    super.visitKeyedWrite(ast, null);
-  }
   override visitLiteralPrimitive(ast: e.LiteralPrimitive) {
     this.recordAst(ast);
     super.visitLiteralPrimitive(ast, null);
@@ -99,10 +95,6 @@ class ExpressionSourceHumanizer extends e.RecursiveAstVisitor implements t.Visit
     this.recordAst(ast);
     super.visitPropertyRead(ast, null);
   }
-  override visitPropertyWrite(ast: e.PropertyWrite) {
-    this.recordAst(ast);
-    super.visitPropertyWrite(ast, null);
-  }
   override visitSafePropertyRead(ast: e.SafePropertyRead) {
     this.recordAst(ast);
     super.visitSafePropertyRead(ast, null);
@@ -119,21 +111,34 @@ class ExpressionSourceHumanizer extends e.RecursiveAstVisitor implements t.Visit
     this.recordAst(ast);
     super.visitSafeCall(ast, null);
   }
-  override visitTemplateLiteral(ast: e.TemplateLiteral, context: any): void {
+  override visitTemplateLiteral(ast: e.TemplateLiteral): void {
     this.recordAst(ast);
     super.visitTemplateLiteral(ast, null);
   }
-  override visitTemplateLiteralElement(ast: e.TemplateLiteralElement, context: any): void {
+  override visitTemplateLiteralElement(ast: e.TemplateLiteralElement): void {
     this.recordAst(ast);
     super.visitTemplateLiteralElement(ast, null);
   }
-  override visitTaggedTemplateLiteral(ast: e.TaggedTemplateLiteral, context: any): void {
+  override visitTaggedTemplateLiteral(ast: e.TaggedTemplateLiteral): void {
     this.recordAst(ast);
     super.visitTaggedTemplateLiteral(ast, null);
   }
-  override visitParenthesizedExpression(ast: e.ParenthesizedExpression, context: any): void {
+  override visitParenthesizedExpression(ast: e.ParenthesizedExpression): void {
     this.recordAst(ast);
     super.visitParenthesizedExpression(ast, null);
+  }
+  override visitRegularExpressionLiteral(ast: e.RegularExpressionLiteral): void {
+    this.recordAst(ast);
+    super.visitRegularExpressionLiteral(ast, null);
+  }
+  override visitSpreadElement(ast: e.SpreadElement): void {
+    this.recordAst(ast);
+    super.visitSpreadElement(ast, null);
+  }
+
+  override visitArrowFunction(ast: e.ArrowFunction) {
+    this.recordAst(ast);
+    super.visitArrowFunction(ast, null);
   }
 
   visitTemplate(ast: t.Template) {
@@ -183,6 +188,8 @@ class ExpressionSourceHumanizer extends e.RecursiveAstVisitor implements t.Visit
   visitDeferredTrigger(trigger: t.DeferredTrigger): void {
     if (trigger instanceof t.BoundDeferredTrigger) {
       this.recordAst(trigger.value);
+    } else if (trigger instanceof t.ViewportDeferredTrigger && trigger.options !== null) {
+      this.recordAst(trigger.options);
     }
   }
 
@@ -200,13 +207,19 @@ class ExpressionSourceHumanizer extends e.RecursiveAstVisitor implements t.Visit
 
   visitSwitchBlock(block: t.SwitchBlock) {
     block.expression.visit(this);
-    t.visitAll(this, block.cases);
+    t.visitAll(this, block.groups);
   }
 
   visitSwitchBlockCase(block: t.SwitchBlockCase) {
     block.expression?.visit(this);
+  }
+
+  visitSwitchBlockCaseGroup(block: t.SwitchBlockCaseGroup) {
+    t.visitAll(this, block.cases);
     t.visitAll(this, block.children);
   }
+
+  visitSwitchExhaustiveCheck(block: t.SwitchExhaustiveCheck) {}
 
   visitForLoopBlock(block: t.ForLoopBlock) {
     block.item.visit(this);

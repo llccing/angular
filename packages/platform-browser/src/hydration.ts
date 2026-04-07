@@ -12,17 +12,18 @@ import {
   EnvironmentProviders,
   inject,
   makeEnvironmentProviders,
-  NgZone,
   Provider,
   ɵConsole as Console,
+  ɵRuntimeError as RuntimeError,
   ɵformatRuntimeError as formatRuntimeError,
   ɵwithDomHydration as withDomHydration,
   ɵwithEventReplay,
   ɵwithI18nSupport,
   ɵZONELESS_ENABLED as ZONELESS_ENABLED,
   ɵwithIncrementalHydration,
+  ɵIS_ENABLED_BLOCKING_INITIAL_NAVIGATION as IS_ENABLED_BLOCKING_INITIAL_NAVIGATION,
+  provideStabilityDebugging,
 } from '@angular/core';
-
 import {RuntimeErrorCode} from './errors';
 
 /**
@@ -64,6 +65,8 @@ function hydrationFeature<FeatureKind extends HydrationFeatureKind>(
  * Disables HTTP transfer cache. Effectively causes HTTP requests to be performed twice: once on the
  * server and other one on the browser.
  *
+ * @see [Disabling Caching](guide/ssr#disabling-caching)
+ *
  * @publicApi
  */
 export function withNoHttpTransferCache(): HydrationFeature<HydrationFeatureKind.NoHttpTransferCache> {
@@ -77,6 +80,8 @@ export function withNoHttpTransferCache(): HydrationFeature<HydrationFeatureKind
  * such as which headers should be included (no headers are included by default),
  * whether POST requests should be cached or a callback function to determine if a
  * particular request should be cached.
+ *
+ * @see [Configuring HTTP transfer cache options](guide/ssr#caching-data-when-using-httpclient)
  *
  * @publicApi
  */
@@ -93,8 +98,7 @@ export function withHttpTransferCacheOptions(
 /**
  * Enables support for hydrating i18n blocks.
  *
- * @developerPreview
- * @publicApi
+ * @publicApi 20.0
  */
 export function withI18nSupport(): HydrationFeature<HydrationFeatureKind.I18nSupport> {
   return hydrationFeature(HydrationFeatureKind.I18nSupport, ɵwithI18nSupport());
@@ -133,8 +137,7 @@ export function withEventReplay(): HydrationFeature<HydrationFeatureKind.EventRe
  *   providers: [provideClientHydration(withIncrementalHydration())]
  * });
  * ```
- * @experimental
- * @publicApi
+ * @publicApi 20.0
  * @see {@link provideClientHydration}
  */
 export function withIncrementalHydration(): HydrationFeature<HydrationFeatureKind.IncrementalHydration> {
@@ -143,25 +146,24 @@ export function withIncrementalHydration(): HydrationFeature<HydrationFeatureKin
 
 /**
  * Returns an `ENVIRONMENT_INITIALIZER` token setup with a function
- * that verifies whether compatible ZoneJS was used in an application
- * and logs a warning in a console if it's not the case.
+ * that verifies whether enabledBlocking initial navigation is used in an application
+ * and logs a warning in a console if it's not compatible with hydration.
  */
-function provideZoneJsCompatibilityDetector(): Provider[] {
+function provideEnabledBlockingInitialNavigationDetector(): Provider[] {
   return [
     {
       provide: ENVIRONMENT_INITIALIZER,
       useValue: () => {
-        const ngZone = inject(NgZone);
-        const isZoneless = inject(ZONELESS_ENABLED);
-        // Checking `ngZone instanceof NgZone` would be insufficient here,
-        // because custom implementations might use NgZone as a base class.
-        if (!isZoneless && ngZone.constructor !== NgZone) {
+        const isEnabledBlockingInitialNavigation = inject(IS_ENABLED_BLOCKING_INITIAL_NAVIGATION, {
+          optional: true,
+        });
+
+        if (isEnabledBlockingInitialNavigation) {
           const console = inject(Console);
           const message = formatRuntimeError(
-            RuntimeErrorCode.UNSUPPORTED_ZONEJS_INSTANCE,
-            'Angular detected that hydration was enabled for an application ' +
-              'that uses a custom or a noop Zone.js implementation. ' +
-              'This is not yet a fully supported configuration.',
+            RuntimeErrorCode.HYDRATION_CONFLICTING_FEATURES,
+            'Configuration error: found both hydration and enabledBlocking initial navigation ' +
+              'in the same application, which is a contradiction.',
           );
           console.warn(message);
         }
@@ -218,7 +220,7 @@ function provideZoneJsCompatibilityDetector(): Provider[] {
  * @param features Optional features to configure additional hydration behaviors.
  * @returns A set of providers to enable hydration.
  *
- * @publicApi
+ * @publicApi 17.0
  */
 export function provideClientHydration(
   ...features: HydrationFeature<HydrationFeatureKind>[]
@@ -244,14 +246,17 @@ export function provideClientHydration(
     featuresKind.has(HydrationFeatureKind.NoHttpTransferCache) &&
     hasHttpTransferCacheOptions
   ) {
-    // TODO: Make this a runtime error
-    throw new Error(
+    throw new RuntimeError(
+      RuntimeErrorCode.HYDRATION_CONFLICTING_FEATURES,
       'Configuration error: found both withHttpTransferCacheOptions() and withNoHttpTransferCache() in the same call to provideClientHydration(), which is a contradiction.',
     );
   }
 
   return makeEnvironmentProviders([
-    typeof ngDevMode !== 'undefined' && ngDevMode ? provideZoneJsCompatibilityDetector() : [],
+    typeof ngDevMode !== 'undefined' && ngDevMode
+      ? provideEnabledBlockingInitialNavigationDetector()
+      : [],
+    typeof ngDevMode !== 'undefined' && ngDevMode ? provideStabilityDebugging() : [],
     withDomHydration(),
     featuresKind.has(HydrationFeatureKind.NoHttpTransferCache) || hasHttpTransferCacheOptions
       ? []

@@ -6,11 +6,8 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {inject} from '@angular/core';
 import {Subject} from 'rxjs';
-import {Terminal} from '@xterm/xterm';
-
-import {WINDOW} from '@angular/docs';
+import {Terminal, ITerminalOptions, ITerminalInitOnlyOptions} from '@xterm/xterm';
 
 import {CommandValidator} from './command-validator.service';
 
@@ -24,17 +21,28 @@ export const ALLOWED_KEYS: Array<KeyboardEvent['key']> = [
   'ArrowDown',
 ];
 
-export class InteractiveTerminal extends Terminal {
-  private readonly window = inject(WINDOW);
-  private readonly commandValidator = inject(CommandValidator);
+/** Set of defaults to use for all terminal instances in adev. */
+export const adevTerminalDefaultOptions: ITerminalOptions = {
+  convertEol: true,
+  theme: {
+    background: '#00000000',
+  },
+  fontFamily: 'courier-new, courier, monospace',
+  fontSize: 15,
+};
 
+export class InteractiveTerminal extends Terminal {
   private readonly breakProcess = new Subject<void>();
 
   // Using this stream, the webcontainer shell can break current process.
   breakProcess$ = this.breakProcess.asObservable();
 
-  constructor() {
-    super({convertEol: true, disableStdin: false});
+  constructor(
+    options: ITerminalOptions & ITerminalInitOnlyOptions,
+    readonly window: Window,
+    readonly commandValidator: CommandValidator,
+  ) {
+    super(options);
 
     // bypass command validation if sudo=true is present in the query string
     if (!this.window.location.search.includes('sudo=true')) {
@@ -44,6 +52,11 @@ export class InteractiveTerminal extends Terminal {
 
   breakCurrentProcess(): void {
     this.breakProcess.next();
+  }
+
+  override dispose(): void {
+    super.dispose();
+    this.breakProcess.complete();
   }
 
   // Method validate if provided command by user is on the list of the allowed commands.

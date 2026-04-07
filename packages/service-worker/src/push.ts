@@ -6,10 +6,11 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Injectable} from '@angular/core';
+import {Injectable, ɵRuntimeError as RuntimeError} from '@angular/core';
 import {NEVER, Observable, Subject} from 'rxjs';
 import {map, switchMap, take} from 'rxjs/operators';
 
+import {RuntimeErrorCode} from './errors';
 import {ERR_SW_NOT_SUPPORTED, NgswCommChannel, PushEvent} from './low_level';
 
 /**
@@ -23,7 +24,7 @@ import {ERR_SW_NOT_SUPPORTED, NgswCommChannel, PushEvent} from './low_level';
  * You can inject a `SwPush` instance into any component or service
  * as a dependency.
  *
- * <code-example path="service-worker/push/module.ts" region="inject-sw-push"
+ * <code-example path="service-worker/push/service_worker_component.ts" region="inject-sw-push"
  * header="app.component.ts"></code-example>
  *
  * To subscribe, call `SwPush.requestSubscription()`, which asks the user for permission.
@@ -31,7 +32,7 @@ import {ERR_SW_NOT_SUPPORTED, NgswCommChannel, PushEvent} from './low_level';
  * [`PushSubscription`](https://developer.mozilla.org/en-US/docs/Web/API/PushSubscription)
  * instance.
  *
- * <code-example path="service-worker/push/module.ts" region="subscribe-to-push"
+ * <code-example path="service-worker/push/service_worker_component.ts" region="subscribe-to-push"
  * header="app.component.ts"></code-example>
  *
  * A request is rejected if the user denies permission, or if the browser
@@ -77,7 +78,7 @@ import {ERR_SW_NOT_SUPPORTED, NgswCommChannel, PushEvent} from './low_level';
  * An application can subscribe to `SwPush.notificationClicks` observable to be notified when a user
  * clicks on a notification. For example:
  *
- * <code-example path="service-worker/push/module.ts" region="subscribe-to-notification-clicks"
+ * <code-example path="service-worker/push/service_worker_component.ts" region="subscribe-to-notification-clicks"
  * header="app.component.ts"></code-example>
  *
  * You can read more on handling notification clicks in the [Service worker notifications
@@ -88,6 +89,7 @@ import {ERR_SW_NOT_SUPPORTED, NgswCommChannel, PushEvent} from './low_level';
  * @see [MDN: Push API](https://developer.mozilla.org/en-US/docs/Web/API/Push_API)
  * @see [MDN: Notifications API](https://developer.mozilla.org/en-US/docs/Web/API/Notifications_API)
  * @see [MDN: Web Push API Notifications best practices](https://developer.mozilla.org/en-US/docs/Web/API/Push_API/Best_Practices)
+ * @see [Push notifications guide](ecosystem/service-workers/push-notifications)
  *
  * @publicApi
  */
@@ -108,12 +110,52 @@ export class SwPush {
    * object that also includes the `title` of the [Notification][Mozilla Notification] object.
    *
    * [Mozilla Notification]: https://developer.mozilla.org/en-US/docs/Web/API/Notification
+   *
+   * @see [Notification click handling](ecosystem/service-workers/push-notifications#notification-click-handling)
+   *
    */
   readonly notificationClicks: Observable<{
     action: string;
     notification: NotificationOptions & {
       title: string;
     };
+  }>;
+
+  /**
+   * Emits the payloads of notifications that were closed, along with the action (if any)
+   * associated with the close event. If no action was used, the `action` property contains
+   * an empty string `''`.
+   *
+   * Note that the `notification` property does **not** contain a
+   * [Notification][Mozilla Notification] object but rather a
+   * [NotificationOptions](https://notifications.spec.whatwg.org/#dictdef-notificationoptions)
+   * object that also includes the `title` of the [Notification][Mozilla Notification] object.
+   *
+   * [Mozilla Notification]: https://developer.mozilla.org/en-US/docs/Web/API/Notification
+   */
+  readonly notificationCloses: Observable<{
+    action: string;
+    notification: NotificationOptions & {
+      title: string;
+    };
+  }>;
+
+  /**
+   * Emits updates to the push subscription, including both the previous (`oldSubscription`)
+   * and current (`newSubscription`) values. Either subscription may be `null`, depending on
+   * the context:
+   *
+   * - `oldSubscription` is `null` if no previous subscription existed.
+   * - `newSubscription` is `null` if the subscription was invalidated and not replaced.
+   *
+   * This stream allows clients to react to automatic changes in push subscriptions,
+   * such as those triggered by browser expiration or key rotation.
+   *
+   * [Push API]: https://w3c.github.io/push-api
+   */
+  readonly pushSubscriptionChanges: Observable<{
+    oldSubscription: PushSubscription | null;
+    newSubscription: PushSubscription | null;
   }>;
 
   /**
@@ -138,6 +180,8 @@ export class SwPush {
     if (!sw.isEnabled) {
       this.messages = NEVER;
       this.notificationClicks = NEVER;
+      this.notificationCloses = NEVER;
+      this.pushSubscriptionChanges = NEVER;
       this.subscription = NEVER;
       return;
     }
@@ -148,7 +192,20 @@ export class SwPush {
       .eventsOfType('NOTIFICATION_CLICK')
       .pipe(map((message: any) => message.data));
 
-    this.pushManager = this.sw.registration.pipe(map((registration) => registration.pushManager));
+    this.notificationCloses = this.sw
+      .eventsOfType('NOTIFICATION_CLOSE')
+      .pipe(map((message: any) => message.data));
+
+    this.pushSubscriptionChanges = this.sw
+      .eventsOfType('PUSH_SUBSCRIPTION_CHANGE')
+      .pipe(map((message: any) => message.data));
+
+    this.pushManager = this.sw.registration.pipe(
+      map(
+        (registration) =>
+          (registration as ServiceWorkerRegistration & {pushManager: PushManager}).pushManager,
+      ),
+    );
 
     const workerDrivenSubscriptions = this.pushManager.pipe(
       switchMap((pm) => pm.getSubscription()),
@@ -209,12 +266,19 @@ export class SwPush {
 
     const doUnsubscribe = (sub: PushSubscription | null) => {
       if (sub === null) {
-        throw new Error('Not subscribed to push notifications.');
+        throw new RuntimeError(
+          RuntimeErrorCode.NOT_SUBSCRIBED_TO_PUSH_NOTIFICATIONS,
+          (typeof ngDevMode === 'undefined' || ngDevMode) &&
+            'Not subscribed to push notifications.',
+        );
       }
 
       return sub.unsubscribe().then((success) => {
         if (!success) {
-          throw new Error('Unsubscribe failed!');
+          throw new RuntimeError(
+            RuntimeErrorCode.PUSH_SUBSCRIPTION_UNSUBSCRIBE_FAILED,
+            (typeof ngDevMode === 'undefined' || ngDevMode) && 'Unsubscribe failed!',
+          );
         }
 
         this.subscriptionChanges.next(null);

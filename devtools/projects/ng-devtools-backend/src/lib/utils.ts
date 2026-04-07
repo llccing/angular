@@ -45,6 +45,23 @@ export function isSignal(prop: unknown): prop is (() => unknown) & {set: (value:
   return (window as any).ng.isSignal(prop);
 }
 
+export function safelyReadSignalValue(signal: any): {error?: Error; value?: any} {
+  try {
+    const value = signal();
+    return {error: undefined, value};
+  } catch (error) {
+    return {error: error as Error, value: undefined};
+  }
+}
+
 export function unwrapSignal(s: any): any {
-  return isSignal(s) ? s() : s;
+  if (!isSignal(s)) {
+    return s;
+  }
+
+  const {error, value} = safelyReadSignalValue(s);
+  if (error) {
+    return;
+  }
+  return value;
 }

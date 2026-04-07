@@ -1,8 +1,8 @@
-load("//tools:defaults.bzl", "jasmine_node_test", "karma_web_test_suite", "ng_module")
+load("//tools:defaults.bzl", "angular_jasmine_test", "ng_project", "ng_web_test_suite")
 
 package(default_visibility = ["//visibility:private"])
 
-ng_module(
+ng_project(
     name = "resource_lib",
     testonly = True,
     srcs = glob(
@@ -10,19 +10,20 @@ ng_module(
     ),
     deps = [
         "//packages/core",
+        "//packages/core/src/util",
         "//packages/core/testing",
+        "//packages/private/testing",
     ],
 )
 
-jasmine_node_test(
+angular_jasmine_test(
     name = "resource",
-    bootstrap = ["//tools/testing:node"],
-    deps = [
+    data = [
         ":resource_lib",
     ],
 )
 
-karma_web_test_suite(
+ng_web_test_suite(
     name = "resource_web",
     deps = [
         ":resource_lib",

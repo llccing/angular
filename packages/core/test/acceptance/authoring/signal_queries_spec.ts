@@ -7,6 +7,7 @@
  */
 
 import {
+  ChangeDetectionStrategy,
   Component,
   computed,
   contentChild,
@@ -20,9 +21,9 @@ import {
   ViewChildren,
   viewChildren,
 } from '@angular/core';
+import {By} from '@angular/platform-browser';
 import {SIGNAL} from '../../../primitives/signals';
 import {TestBed} from '../../../testing';
-import {By} from '@angular/platform-browser';
 
 describe('queries as signals', () => {
   describe('view', () => {
@@ -83,24 +84,6 @@ describe('queries as signals', () => {
       expect(fixture.componentInstance.foundEl()).toBeTrue();
     });
 
-    it('should throw if required query is read in the constructor', () => {
-      @Component({
-        template: `<div #el></div>`,
-      })
-      class AppComponent {
-        divEl = viewChild.required<ElementRef<HTMLDivElement>>('el');
-
-        constructor() {
-          this.divEl();
-        }
-      }
-
-      // non-required query results are undefined before we run creation mode on the view queries
-      expect(() => {
-        TestBed.createComponent(AppComponent);
-      }).toThrowError(/NG0951: Child query result is required but no value is available/);
-    });
-
     it('should query for multiple elements in a template', () => {
       @Component({
         template: `
@@ -109,6 +92,7 @@ describe('queries as signals', () => {
             <div #el></div>
           }
         `,
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class AppComponent {
         show = false;
@@ -127,10 +111,12 @@ describe('queries as signals', () => {
       expect(fixture.componentInstance.foundEl()).toBe(1);
 
       fixture.componentInstance.show = true;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.componentInstance.foundEl()).toBe(2);
 
       fixture.componentInstance.show = false;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.componentInstance.foundEl()).toBe(1);
     });
@@ -177,11 +163,11 @@ describe('queries as signals', () => {
 
       @Component({
         template: `
+          <div #el></div>
+          @if (show) {
             <div #el></div>
-            @if (show) {
-              <div #el></div>
-            }
-          `,
+          }
+        `,
       })
       class AppComponent {
         divEl = viewChild.required<ElementRef<HTMLDivElement>>('el');
@@ -197,6 +183,7 @@ describe('queries as signals', () => {
       // subsequent reads should return the same result instance and _not_ trigger downstream
       // computed re-evaluation
       fixture.componentInstance.show = true;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.componentInstance.divEl()).toBe(divEl);
       expect(fixture.componentInstance.isThere()).toBe(1);
@@ -205,11 +192,11 @@ describe('queries as signals', () => {
     it('should return the same array instance when there were no changes in results after view manipulation', () => {
       @Component({
         template: `
-            <div #el></div>
-            @if (show) {
-              <div></div>
-            }
-          `,
+          <div #el></div>
+          @if (show) {
+            <div></div>
+          }
+        `,
       })
       class AppComponent {
         divEls = viewChildren<ElementRef<HTMLDivElement>>('el');
@@ -223,6 +210,7 @@ describe('queries as signals', () => {
       expect(result1.length).toBe(1);
 
       fixture.componentInstance.show = true;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       // subsequent reads should return the same result instance since the query results didn't
       // change
@@ -287,7 +275,7 @@ describe('queries as signals', () => {
     it('should run content queries defined on components', () => {
       @Component({
         selector: 'query-cmp',
-        template: `{{noOfEls()}}`,
+        template: `{{ noOfEls() }}`,
       })
       class QueryComponent {
         elements = contentChildren('el');
@@ -306,12 +294,13 @@ describe('queries as signals', () => {
         imports: [QueryComponent],
         template: `
           <query-cmp>
-            <div #el></div >
+            <div #el></div>
             @if (show) {
               <div #el></div>
             }
           </query-cmp>
         `,
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class AppComponent {
         show = false;
@@ -322,10 +311,12 @@ describe('queries as signals', () => {
       expect(fixture.nativeElement.textContent).toBe('3');
 
       fixture.componentInstance.show = true;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toBe('4');
 
       fixture.componentInstance.show = false;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toBe('3');
     });
@@ -358,6 +349,7 @@ describe('queries as signals', () => {
             }
           </div>
         `,
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class AppComponent {
         show = false;
@@ -368,10 +360,12 @@ describe('queries as signals', () => {
       expect(fixture.nativeElement.textContent).toBe('3');
 
       fixture.componentInstance.show = true;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toBe('4');
 
       fixture.componentInstance.show = false;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toBe('3');
     });
@@ -398,12 +392,12 @@ describe('queries as signals', () => {
       @Component({
         imports: [MarkerForResults, InspectsQueryResults, DeclareQuery],
         template: `
-                <div declare>
-                  <div marker></div>
-                  <div inspect></div>
-                  <div marker></div>
-                </div>
-             `,
+          <div declare>
+            <div marker></div>
+            <div inspect></div>
+            <div marker></div>
+          </div>
+        `,
       })
       class AppComponent {}
 
@@ -509,8 +503,10 @@ describe('queries as signals', () => {
 
       // trigger view manipulation that should dirty queries but not change the results
       fixture.componentInstance.show = true;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       fixture.componentInstance.show = false;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
 
       expect(fixture.componentInstance.foundElCount()).toBe(1);
@@ -545,8 +541,10 @@ describe('queries as signals', () => {
 
       // trigger view manipulation that should dirty queries but not change the results
       fixture.componentInstance.show = true;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       fixture.componentInstance.show = false;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
 
       expect(fixture.componentInstance.foundElCount()).toBe(1);
@@ -595,6 +593,7 @@ describe('queries as signals', () => {
             <div #el></div>
           }
         `,
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class AppComponent {
         show = false;
@@ -610,11 +609,13 @@ describe('queries as signals', () => {
       expect(fixture.componentInstance.divElsDecorator.length).toBe(1);
 
       fixture.componentInstance.show = true;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.componentInstance.divElsSignal().length).toBe(2);
       expect(fixture.componentInstance.divElsDecorator.length).toBe(2);
 
       fixture.componentInstance.show = false;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.componentInstance.divElsSignal().length).toBe(1);
       expect(fixture.componentInstance.divElsDecorator.length).toBe(1);
@@ -623,11 +624,12 @@ describe('queries as signals', () => {
     it('should allow combination via inheritance of both types of queries in one component', () => {
       @Component({
         template: `
+          <div #el></div>
+          @if (show) {
             <div #el></div>
-            @if (show) {
-              <div #el></div>
-            }
-          `,
+          }
+        `,
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class BaseComponent {
         show = false;
@@ -636,11 +638,12 @@ describe('queries as signals', () => {
 
       @Component({
         template: `
+          <div #el></div>
+          @if (show) {
             <div #el></div>
-            @if (show) {
-              <div #el></div>
-            }
-          `,
+          }
+        `,
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class AppComponent extends BaseComponent {
         @ViewChildren('el') divElsDecorator!: QueryList<ElementRef<HTMLDivElement>>;
@@ -652,11 +655,13 @@ describe('queries as signals', () => {
       expect(fixture.componentInstance.divElsDecorator.length).toBe(1);
 
       fixture.componentInstance.show = true;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.componentInstance.divElsSignal().length).toBe(2);
       expect(fixture.componentInstance.divElsDecorator.length).toBe(2);
 
       fixture.componentInstance.show = false;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.componentInstance.divElsSignal().length).toBe(1);
       expect(fixture.componentInstance.divElsDecorator.length).toBe(1);

@@ -16,7 +16,7 @@ import {
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
 import {RuntimeError, RuntimeErrorCode} from '../errors';
-import {Type, Writable} from '../interface/type';
+import {Type} from '../interface/type';
 import {
   ComponentFactory as AbstractComponentFactory,
   ComponentRef as AbstractComponentRef,
@@ -29,7 +29,7 @@ import {Sanitizer} from '../sanitization/sanitizer';
 
 import {assertComponentType} from './assert';
 import {attachPatchData} from './context_discovery';
-import {getComponentDef, getDirectiveDef} from './def_getters';
+import {getComponentDef, getDirectiveDef, getDirectiveDefOrThrow} from './def_getters';
 import {depsTracker} from './deps_tracker/deps_tracker';
 import {NodeInjector} from './di';
 import {reportUnknownPropertyError} from './instructions/element_validation';
@@ -42,7 +42,13 @@ import {
 } from './instructions/shared';
 import {ComponentDef, ComponentTemplate, DirectiveDef, RenderFlags} from './interfaces/definition';
 import {InputFlags} from './interfaces/input_flags';
-import {TContainerNode, TElementContainerNode, TElementNode, TNode} from './interfaces/node';
+import {
+  TContainerNode,
+  TElementContainerNode,
+  TElementNode,
+  TNode,
+  TNodeType,
+} from './interfaces/node';
 import {RElement, RNode} from './interfaces/renderer_dom';
 import {
   CONTEXT,
@@ -66,15 +72,18 @@ import {
   stringifyCSSSelectorList,
 } from './node_selector_matcher';
 import {profiler} from './profiler';
-import {ProfilerEvent} from './profiler_types';
+import {ProfilerEvent} from '../../primitives/devtools';
 import {executeContentQueries} from './queries/query_execution';
 import {enterView, leaveView} from './state';
 import {debugStringifyTypeForError, stringifyForError} from './util/stringify_utils';
 import {getComponentLViewByIndex, getTNode} from './util/view_utils';
-import {elementEndFirstCreatePass, elementStartFirstCreatePass} from './view/elements';
+import {directiveHostEndFirstCreatePass, directiveHostFirstCreatePass} from './view/elements';
 import {ViewRef} from './view_ref';
 import {createLView, createTView, getInitialLViewFlagsFromDef} from './view/construction';
-import {BINDING, Binding, DirectiveWithBindings} from './dynamic_bindings';
+import {BINDING, Binding, BindingInternal, DirectiveWithBindings} from './dynamic_bindings';
+import {NG_REFLECT_ATTRS_FLAG, NG_REFLECT_ATTRS_FLAG_DEFAULT} from '../ng_reflect';
+import {TracingService} from '../application/tracing';
+import {getComponentName} from '../internal/get_closest_component_name';
 
 export class ComponentFactoryResolver extends AbstractComponentFactoryResolver {
   /**
@@ -162,22 +171,40 @@ function createRootLViewEnvironment(rootLViewInjector: Injector): LViewEnvironme
 
   const sanitizer = rootLViewInjector.get(Sanitizer, null);
   const changeDetectionScheduler = rootLViewInjector.get(ChangeDetectionScheduler, null);
+  const tracingService = rootLViewInjector.get(TracingService, null, {optional: true});
+
+  let ngReflect = false;
+  if (typeof ngDevMode === 'undefined' || ngDevMode) {
+    ngReflect = rootLViewInjector.get(NG_REFLECT_ATTRS_FLAG, NG_REFLECT_ATTRS_FLAG_DEFAULT);
+  }
 
   return {
     rendererFactory,
     sanitizer,
     changeDetectionScheduler,
+    ngReflect,
+    tracingService,
   };
 }
 
-function createHostElement(componentDef: ComponentDef<unknown>, render: Renderer): RElement {
+function createHostElement(componentDef: ComponentDef<unknown>, renderer: Renderer): RElement {
   // Determine a tag name used for creating host elements when this component is created
   // dynamically. Default to 'div' if this component did not specify any tag name in its
   // selector.
-  const tagName = ((componentDef.selectors[0][0] as string) || 'div').toLowerCase();
+  const tagName = inferTagNameFromDefinition(componentDef);
   const namespace =
     tagName === 'svg' ? SVG_NAMESPACE : tagName === 'math' ? MATH_ML_NAMESPACE : null;
-  return createElementNode(render, tagName, namespace);
+  return createElementNode(renderer, tagName, namespace);
+}
+
+/**
+ * Infers the tag name that should be used for a component based on its definition.
+ * @param componentDef Definition for which to resolve the tag name.
+ */
+export function inferTagNameFromDefinition(componentDef: ComponentDef<unknown>): string {
+  // Take the tag name from the first selector in the
+  // definition. If there is none, fall back to `div`.
+  return ((componentDef.selectors[0][0] as string) || 'div').toLowerCase();
 }
 
 /**
@@ -242,107 +269,128 @@ export class ComponentFactory<T> extends AbstractComponentFactory<T> {
     try {
       const cmpDef = this.componentDef;
       ngDevMode && verifyNotAnOrphanComponent(cmpDef);
-
-      const rootTView = createRootTView(rootSelectorOrNode, cmpDef, componentBindings, directives);
       const rootViewInjector = createRootViewInjector(
         cmpDef,
         environmentInjector || this.ngModule,
         injector,
       );
-
       const environment = createRootLViewEnvironment(rootViewInjector);
-      const hostRenderer = environment.rendererFactory.createRenderer(null, cmpDef);
-      const hostElement = rootSelectorOrNode
-        ? locateHostElement(
-            hostRenderer,
-            rootSelectorOrNode,
-            cmpDef.encapsulation,
+      const tracingService = environment.tracingService;
+
+      if (tracingService && tracingService.componentCreate) {
+        return tracingService.componentCreate(getComponentName(cmpDef), () =>
+          this.createComponentRef(
+            environment,
             rootViewInjector,
-          )
-        : createHostElement(cmpDef, hostRenderer);
-      const hasInputBindings =
-        componentBindings?.some(isInputBinding) ||
-        directives?.some((d) => typeof d !== 'function' && d.bindings.some(isInputBinding));
-
-      const rootLView = createLView<T>(
-        null,
-        rootTView,
-        null,
-        LViewFlags.IsRoot | getInitialLViewFlagsFromDef(cmpDef),
-        null,
-        null,
-        environment,
-        hostRenderer,
-        rootViewInjector,
-        null,
-        retrieveHydrationInfo(hostElement, rootViewInjector, true /* isRootView */),
-      );
-
-      rootLView[HEADER_OFFSET] = hostElement;
-
-      // rootView is the parent when bootstrapping
-      // TODO(misko): it looks like we are entering view here but we don't really need to as
-      // `renderView` does that. However as the code is written it is needed because
-      // `createRootComponentView` and `createRootComponent` both read global state. Fixing those
-      // issues would allow us to drop this.
-      enterView(rootLView);
-
-      let componentView: LView | null = null;
-
-      try {
-        const hostTNode = elementStartFirstCreatePass(
-          HEADER_OFFSET,
-          rootTView,
-          rootLView,
-          '#host',
-          () => rootTView.directiveRegistry,
-          true,
-          0,
+            projectableNodes,
+            rootSelectorOrNode,
+            directives,
+            componentBindings,
+          ),
         );
-
-        // ---- element instruction
-
-        // TODO(crisbeto): in practice `hostElement` should always be defined, but there are some
-        // tests where the renderer is mocked out and `undefined` is returned. We should update the
-        // tests so that this check can be removed.
-        if (hostElement) {
-          setupStaticAttributes(hostRenderer, hostElement, hostTNode);
-          attachPatchData(hostElement, rootLView);
-        }
-
-        // TODO(pk): this logic is similar to the instruction code where a node can have directives
-        createDirectivesInstances(rootTView, rootLView, hostTNode);
-        executeContentQueries(rootTView, hostTNode, rootLView);
-
-        elementEndFirstCreatePass(rootTView, hostTNode);
-
-        if (projectableNodes !== undefined) {
-          projectNodes(hostTNode, this.ngContentSelectors, projectableNodes);
-        }
-
-        componentView = getComponentLViewByIndex(hostTNode.index, rootLView);
-
-        // TODO(pk): why do we need this logic?
-        rootLView[CONTEXT] = componentView[CONTEXT] as T;
-
-        renderView(rootTView, rootLView, null);
-      } catch (e) {
-        // Stop tracking the views if creation failed since
-        // the consumer won't have a way to dereference them.
-        if (componentView !== null) {
-          unregisterLView(componentView);
-        }
-        unregisterLView(rootLView);
-        throw e;
-      } finally {
-        profiler(ProfilerEvent.DynamicComponentEnd);
-        leaveView();
+      } else {
+        return this.createComponentRef(
+          environment,
+          rootViewInjector,
+          projectableNodes,
+          rootSelectorOrNode,
+          directives,
+          componentBindings,
+        );
       }
-
-      return new ComponentRef(this.componentType, rootLView, !!hasInputBindings);
     } finally {
       setActiveConsumer(prevConsumer);
     }
+  }
+
+  private createComponentRef(
+    environment: LViewEnvironment,
+    rootViewInjector: Injector,
+    projectableNodes?: any[][] | undefined,
+    rootSelectorOrNode?: any,
+    directives?: (Type<unknown> | DirectiveWithBindings<unknown>)[],
+    componentBindings?: Binding[],
+  ) {
+    const cmpDef = this.componentDef;
+    const rootTView = createRootTView(rootSelectorOrNode, cmpDef, componentBindings, directives);
+
+    const hostRenderer = environment.rendererFactory.createRenderer(null, cmpDef);
+    const hostElement = rootSelectorOrNode
+      ? locateHostElement(hostRenderer, rootSelectorOrNode, cmpDef.encapsulation, rootViewInjector)
+      : createHostElement(cmpDef, hostRenderer);
+    const hasInputBindings =
+      componentBindings?.some(isInputBinding) ||
+      directives?.some((d) => typeof d !== 'function' && d.bindings.some(isInputBinding));
+
+    const rootLView = createLView<T>(
+      null,
+      rootTView,
+      null,
+      LViewFlags.IsRoot | getInitialLViewFlagsFromDef(cmpDef),
+      null,
+      null,
+      environment,
+      hostRenderer,
+      rootViewInjector,
+      null,
+      retrieveHydrationInfo(hostElement, rootViewInjector, true /* isRootView */),
+    );
+
+    rootLView[HEADER_OFFSET] = hostElement;
+
+    // rootView is the parent when bootstrapping
+    // TODO(misko): it looks like we are entering view here but we don't really need to as
+    // `renderView` does that. However as the code is written it is needed because
+    // `createRootComponentView` and `createRootComponent` both read global state. Fixing those
+    // issues would allow us to drop this.
+    enterView(rootLView);
+
+    let componentView: LView | null = null;
+
+    try {
+      const hostTNode = directiveHostFirstCreatePass(
+        HEADER_OFFSET,
+        rootLView,
+        TNodeType.Element,
+        '#host',
+        () => rootTView.directiveRegistry,
+        true,
+        0,
+      );
+
+      // ---- element instruction
+      setupStaticAttributes(hostRenderer, hostElement, hostTNode);
+      attachPatchData(hostElement, rootLView);
+
+      // TODO(pk): this logic is similar to the instruction code where a node can have directives
+      createDirectivesInstances(rootTView, rootLView, hostTNode);
+      executeContentQueries(rootTView, hostTNode, rootLView);
+      directiveHostEndFirstCreatePass(rootTView, hostTNode);
+
+      if (projectableNodes !== undefined) {
+        projectNodes(hostTNode, this.ngContentSelectors, projectableNodes);
+      }
+
+      componentView = getComponentLViewByIndex(hostTNode.index, rootLView);
+
+      // TODO(pk): why do we need this logic?
+      rootLView[CONTEXT] = componentView[CONTEXT] as T;
+
+      renderView(rootTView, rootLView, null);
+    } catch (e) {
+      // Stop tracking the views if creation failed since
+      // the consumer won't have a way to dereference them.
+      if (componentView !== null) {
+        unregisterLView(componentView);
+      }
+      unregisterLView(rootLView);
+      throw e;
+    } finally {
+      profiler(ProfilerEvent.DynamicComponentEnd);
+      leaveView();
+    }
+
+    return new ComponentRef(this.componentType, rootLView, !!hasInputBindings);
   }
 }
 
@@ -361,16 +409,16 @@ function createRootTView(
   let varsToAllocate = 0;
 
   if (componentBindings) {
-    for (const binding of componentBindings) {
+    for (const binding of componentBindings as BindingInternal[]) {
       varsToAllocate += binding[BINDING].requiredVars;
 
       if (binding.create) {
-        (binding as Writable<Binding>).targetIdx = 0;
+        (binding as BindingInternal).targetIdx = 0;
         (creationBindings ??= []).push(binding);
       }
 
       if (binding.update) {
-        (binding as Writable<Binding>).targetIdx = 0;
+        (binding as BindingInternal).targetIdx = 0;
         (updateBindings ??= []).push(binding);
       }
     }
@@ -380,18 +428,16 @@ function createRootTView(
     for (let i = 0; i < directives.length; i++) {
       const directive = directives[i];
       if (typeof directive !== 'function') {
-        const def: DirectiveDef<unknown> = getDirectiveDef(directive.type, true);
-
-        for (const binding of directive.bindings) {
+        for (const binding of directive.bindings as BindingInternal[]) {
           varsToAllocate += binding[BINDING].requiredVars;
           const targetDirectiveIdx = i + 1;
           if (binding.create) {
-            (binding as Writable<Binding>).targetIdx = targetDirectiveIdx;
+            (binding as BindingInternal).targetIdx = targetDirectiveIdx;
             (creationBindings ??= []).push(binding);
           }
 
           if (binding.update) {
-            (binding as Writable<Binding>).targetIdx = targetDirectiveIdx;
+            (binding as BindingInternal).targetIdx = targetDirectiveIdx;
             (updateBindings ??= []).push(binding);
           }
         }
@@ -403,7 +449,9 @@ function createRootTView(
   if (directives) {
     for (const directive of directives) {
       const directiveType = typeof directive === 'function' ? directive : directive.type;
-      const directiveDef = getDirectiveDef(directiveType, true);
+      const directiveDef = ngDevMode
+        ? getDirectiveDefOrThrow(directiveType)
+        : getDirectiveDef(directiveType)!;
 
       if (ngDevMode && !directiveDef.standalone) {
         throw new RuntimeError(
@@ -444,13 +492,13 @@ function getRootTViewTemplate(
 
   return (flags) => {
     if (flags & RenderFlags.Create && creationBindings) {
-      for (const binding of creationBindings) {
+      for (const binding of creationBindings as BindingInternal[]) {
         binding.create!();
       }
     }
 
     if (flags & RenderFlags.Update && updateBindings) {
-      for (const binding of updateBindings) {
+      for (const binding of updateBindings as BindingInternal[]) {
         binding.update!();
       }
     }
@@ -458,7 +506,7 @@ function getRootTViewTemplate(
 }
 
 function isInputBinding(binding: Binding): boolean {
-  const kind = binding[BINDING].kind;
+  const kind = (binding as BindingInternal)[BINDING].kind;
   return kind === 'input' || kind === 'twoWay';
 }
 
@@ -523,7 +571,7 @@ export class ComponentRef<T> extends AbstractComponentRef<T> {
     if (ngDevMode && !hasSetInput) {
       const cmpNameForError = stringifyForError(this.componentType);
       let message = `Can't set value of the '${name}' input on the '${cmpNameForError}' component. `;
-      message += `Make sure that the '${name}' property is annotated with @Input() or a mapped @Input('${name}') exists.`;
+      message += `Make sure that the '${name}' property is declared as an input using the input() or model() function or the @Input() decorator.`;
       reportUnknownPropertyError(message);
     }
   }

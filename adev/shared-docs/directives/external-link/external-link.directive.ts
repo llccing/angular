@@ -7,9 +7,8 @@
  */
 
 import {isPlatformBrowser} from '@angular/common';
-import {Directive, ElementRef, OnInit, PLATFORM_ID, inject} from '@angular/core';
+import {Directive, ElementRef, PLATFORM_ID, inject} from '@angular/core';
 import {isExternalLink} from '../../utils/index';
-import {WINDOW} from '../../providers/index';
 
 /**
  * The directive will set target of anchor elements to '_blank' for the external links.
@@ -19,15 +18,17 @@ import {WINDOW} from '../../providers/index';
   selector: 'a[href]:not([noBlankForExternalLink])',
   host: {
     '[attr.target]': 'target',
+    '[attr.rel]': 'rel',
   },
 })
-export class ExternalLink implements OnInit {
+export class ExternalLink {
   private readonly anchor: ElementRef<HTMLAnchorElement> = inject(ElementRef);
   private readonly platformId = inject(PLATFORM_ID);
 
   target?: '_blank' | '_self' | '_parent' | '_top' | '';
+  rel?: string;
 
-  ngOnInit(): void {
+  constructor() {
     this.setAnchorTarget();
   }
 
@@ -38,6 +39,7 @@ export class ExternalLink implements OnInit {
 
     if (isExternalLink(this.anchor.nativeElement.href)) {
       this.target = '_blank';
+      this.rel = 'noopener';
     }
   }
 }

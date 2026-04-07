@@ -11,6 +11,7 @@ import {BoundTarget} from '@angular/compiler';
 import {
   AbsoluteSourceSpan,
   AttributeIdentifier,
+  DirectiveHostIdentifier,
   ElementIdentifier,
   IdentifierKind,
   LetDeclarationIdentifier,
@@ -25,10 +26,11 @@ import {getTemplateIdentifiers as getTemplateIdentifiersAndErrors} from '../src/
 
 import * as util from './util';
 
-function bind(template: string) {
+function bind(template: string, enableSelectorless = false) {
   return util.getBoundTemplate(template, {
     preserveWhitespaces: true,
     leadingTriviaChars: [],
+    enableSelectorless,
   });
 }
 
@@ -297,7 +299,7 @@ runInEachFileSystem(() => {
         );
       });
 
-      it('should discover properties in template expressions', () => {
+      it('should discover properties in structural directive', () => {
         const template = '<div *ngFor="let foo of foos"></div>';
         const refs = getTemplateIdentifiers(bind(template));
 
@@ -340,7 +342,7 @@ runInEachFileSystem(() => {
       });
     });
 
-    describe('generates identifiers for PropertyWrites', () => {
+    describe('generates identifiers for property writes', () => {
       it('should discover property writes in bound events', () => {
         const template = '<div (click)="foo=bar"></div>';
         const refs = getTemplateIdentifiers(bind(template));
@@ -505,7 +507,7 @@ runInEachFileSystem(() => {
       );
     });
 
-    it('should discover references to references', () => {
+    it('should discover references used in an interpolation', () => {
       const template = `<div #foo>{{foo.className}}</div>`;
       const refs = getTemplateIdentifiers(bind(template));
       const elementIdentifier: ElementIdentifier = {
@@ -590,7 +592,7 @@ runInEachFileSystem(() => {
       expect(fooRef.target!.directive).toEqual(declB);
     });
 
-    it('should discover references to references', () => {
+    it('should discover references used in an event binding', () => {
       const template = `<div #foo (ngSubmit)="do(foo)"></div>`;
       const refs = getTemplateIdentifiers(bind(template));
       const elementIdentifier: ElementIdentifier = {
@@ -707,7 +709,7 @@ runInEachFileSystem(() => {
       );
     });
 
-    it('should discover references to variables', () => {
+    it('should discover references to variables used in an event binding', () => {
       const template = `<div *ngFor="let foo of foos" (click)="do(foo)"></div>`;
       const refs = getTemplateIdentifiers(bind(template));
       const variableIdentifier: VariableIdentifier = {
@@ -998,6 +1000,197 @@ runInEachFileSystem(() => {
           name: 'foo',
           span: new AbsoluteSourceSpan(18, 21),
           target: null,
+        },
+      ]);
+    });
+  });
+
+  describe('selectorless', () => {
+    it('should generate information about selectorless component nodes', () => {
+      const compDecl = util.getComponentDeclaration('class Comp {}', 'Comp');
+      const fooDecl = util.getComponentDeclaration('class Foo {}', 'Foo');
+      const barDecl = util.getComponentDeclaration('class Bar {}', 'Bar');
+      const template = '<Comp @Foo @Bar([input]="value")/>';
+      const boundTemplate = util.getBoundTemplate(
+        template,
+        {
+          enableSelectorless: true,
+        },
+        [
+          {selector: null, declaration: compDecl},
+          {selector: null, declaration: fooDecl},
+          {selector: null, declaration: barDecl},
+        ],
+      );
+
+      const refs = getTemplateIdentifiers(boundTemplate);
+      expect(Array.from(refs)).toEqual([
+        {
+          name: 'Comp',
+          span: new AbsoluteSourceSpan(1, 5),
+          kind: IdentifierKind.Component,
+          attributes: new Set(),
+          usedDirectives: new Set([
+            {
+              node: compDecl,
+              selector: null,
+            },
+          ]),
+        },
+        {
+          name: 'Foo',
+          span: new AbsoluteSourceSpan(7, 10),
+          kind: IdentifierKind.Directive,
+          attributes: new Set(),
+          usedDirectives: new Set([
+            {
+              node: fooDecl,
+              selector: null,
+            },
+          ]),
+        },
+        {
+          name: 'Bar',
+          span: new AbsoluteSourceSpan(12, 15),
+          kind: IdentifierKind.Directive,
+          attributes: new Set(),
+          usedDirectives: new Set([
+            {
+              node: barDecl,
+              selector: null,
+            },
+          ]),
+        },
+        {
+          name: 'value',
+          span: new AbsoluteSourceSpan(25, 30),
+          kind: IdentifierKind.Property,
+          target: null,
+        },
+      ]);
+    });
+
+    it('should generate information about selectorless directives used on a plain element', () => {
+      const fooDecl = util.getComponentDeclaration('class Foo {}', 'Foo');
+      const barDecl = util.getComponentDeclaration('class Bar {}', 'Bar');
+      const template = '<div @Foo @Bar([input]="value")></div>';
+      const boundTemplate = util.getBoundTemplate(
+        template,
+        {
+          enableSelectorless: true,
+        },
+        [
+          {selector: null, declaration: fooDecl},
+          {selector: null, declaration: barDecl},
+        ],
+      );
+
+      const refs = getTemplateIdentifiers(boundTemplate);
+      expect(Array.from(refs)).toEqual([
+        {
+          name: 'div',
+          span: new AbsoluteSourceSpan(1, 4),
+          kind: IdentifierKind.Element,
+          attributes: new Set(),
+          usedDirectives: new Set(),
+        },
+        {
+          name: 'Foo',
+          span: new AbsoluteSourceSpan(6, 9),
+          kind: IdentifierKind.Directive,
+          attributes: new Set(),
+          usedDirectives: new Set([
+            {
+              node: fooDecl,
+              selector: null,
+            },
+          ]),
+        },
+        {
+          name: 'Bar',
+          span: new AbsoluteSourceSpan(11, 14),
+          kind: IdentifierKind.Directive,
+          attributes: new Set(),
+          usedDirectives: new Set([
+            {
+              node: barDecl,
+              selector: null,
+            },
+          ]),
+        },
+        {
+          name: 'value',
+          span: new AbsoluteSourceSpan(24, 29),
+          kind: IdentifierKind.Property,
+          target: null,
+        },
+      ]);
+    });
+
+    it('should discover references to selectorless components and directives', () => {
+      const compDecl = util.getComponentDeclaration('class Comp {}', 'Comp');
+      const fooDecl = util.getComponentDeclaration('class Foo {}', 'Foo');
+      const template = '<Comp #comp @Foo(#foo)/>';
+      const boundTemplate = util.getBoundTemplate(
+        template,
+        {
+          enableSelectorless: true,
+        },
+        [
+          {selector: null, declaration: compDecl},
+          {selector: null, declaration: fooDecl},
+        ],
+      );
+
+      const refs = Array.from(getTemplateIdentifiers(boundTemplate));
+      const [compRef, fooRef] = refs as [
+        DirectiveHostIdentifier,
+        DirectiveHostIdentifier,
+        ...unknown[],
+      ];
+
+      expect(refs).toEqual([
+        {
+          name: 'Comp',
+          span: new AbsoluteSourceSpan(1, 5),
+          kind: IdentifierKind.Component,
+          attributes: new Set(),
+          usedDirectives: new Set([
+            {
+              node: compDecl,
+              selector: null,
+            },
+          ]),
+        },
+        {
+          name: 'Foo',
+          span: new AbsoluteSourceSpan(13, 16),
+          kind: IdentifierKind.Directive,
+          attributes: new Set(),
+          usedDirectives: new Set([
+            {
+              node: fooDecl,
+              selector: null,
+            },
+          ]),
+        },
+        {
+          name: 'foo',
+          span: new AbsoluteSourceSpan(18, 21),
+          kind: IdentifierKind.Reference,
+          target: {
+            node: fooRef,
+            directive: fooDecl,
+          },
+        },
+        {
+          name: 'comp',
+          span: new AbsoluteSourceSpan(7, 11),
+          kind: IdentifierKind.Reference,
+          target: {
+            node: compRef,
+            directive: compDecl,
+          },
         },
       ]);
     });

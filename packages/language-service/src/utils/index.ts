@@ -16,9 +16,7 @@ import {
   ParseSourceSpan,
   ParseSpan,
   PropertyRead,
-  PropertyWrite,
   SelectorMatcher,
-  ThisReceiver,
   TmplAstBoundAttribute,
   TmplAstBoundEvent,
   TmplAstElement,
@@ -49,12 +47,8 @@ import {findTightestNode, getParentClassDeclaration} from './ts_utils';
 export function getTextSpanOfNode(node: TmplAstNode | AST): ts.TextSpan {
   if (isTemplateNodeWithKeyAndValue(node)) {
     return toTextSpan(node.keySpan);
-  } else if (
-    node instanceof PropertyWrite ||
-    node instanceof BindingPipe ||
-    node instanceof PropertyRead
-  ) {
-    // The `name` part of a `PropertyWrite` and `BindingPipe` does not have its own AST
+  } else if (node instanceof BindingPipe || node instanceof PropertyRead) {
+    // The `name` part of a `PropertyRead` and `BindingPipe` does not have its own AST
     // so there is no way to retrieve a `Symbol` for just the `name` via a specific node.
     return toTextSpan(node.nameSpan);
   } else {
@@ -133,7 +127,7 @@ function getInlineTypeCheckInfoAtPosition(
     return undefined;
   }
 
-  // Return `undefined` if the position is not on the template expression or the template resource
+  // Return `undefined` if the position is not within the template expression or the template resource
   // is not inline.
   const resources = compiler.getDirectiveResources(classDecl);
   if (resources === null) {
@@ -143,7 +137,8 @@ function getInlineTypeCheckInfoAtPosition(
   if (
     resources.template !== null &&
     !isExternalResource(resources.template) &&
-    expression === resources.template.node
+    position >= resources.template.node.getStart() &&
+    position <= resources.template.node.getEnd()
   ) {
     const template = compiler.getTemplateTypeChecker().getTemplate(classDecl);
     if (template === null) {
@@ -405,12 +400,7 @@ export function filterAliasImports(displayParts: ts.SymbolDisplayPart[]): ts.Sym
 }
 
 export function isDollarEvent(n: TmplAstNode | AST): n is PropertyRead {
-  return (
-    n instanceof PropertyRead &&
-    n.name === '$event' &&
-    n.receiver instanceof ImplicitReceiver &&
-    !(n.receiver instanceof ThisReceiver)
-  );
+  return n instanceof PropertyRead && n.name === '$event' && n.receiver instanceof ImplicitReceiver;
 }
 
 export function isTypeScriptFile(fileName: string): boolean {

@@ -7,15 +7,18 @@
  */
 
 import {AST} from '../../expression_parser/ast';
+import {ClassPropertyMapping} from '../../property_mapping';
 import {
   BoundAttribute,
   BoundEvent,
+  Component,
   Content,
   DeferredBlock,
   DeferredBlockError,
   DeferredBlockLoading,
   DeferredBlockPlaceholder,
   DeferredTrigger,
+  Directive,
   Element,
   ForLoopBlock,
   ForLoopBlockEmpty,
@@ -24,7 +27,7 @@ import {
   LetDeclaration,
   Node,
   Reference,
-  SwitchBlockCase,
+  SwitchBlockCaseGroup,
   Template,
   TextAttribute,
   Variable,
@@ -33,7 +36,7 @@ import {
 /** Node that has a `Scope` associated with it. */
 export type ScopedNode =
   | Template
-  | SwitchBlockCase
+  | SwitchBlockCaseGroup
   | IfBlockBranch
   | ForLoopBlock
   | ForLoopBlockEmpty
@@ -46,15 +49,27 @@ export type ScopedNode =
 
 /** Possible values that a reference can be resolved to. */
 export type ReferenceTarget<DirectiveT> =
-  | {
-      directive: DirectiveT;
-      node: Element | Template;
-    }
+  | {directive: DirectiveT; node: Exclude<DirectiveOwner, HostElement>}
   | Element
   | Template;
 
 /** Entity that is local to the template and defined within the template. */
 export type TemplateEntity = Reference | Variable | LetDeclaration;
+
+/** Nodes that can have directives applied to them. */
+export type DirectiveOwner = Element | Template | Component | Directive | HostElement;
+
+/** Information about a host directive binding that was exposed under conflicting aliases. */
+export interface ConflictingHostDirectiveBinding<DirectiveT> {
+  /** Metadata of the directive that the binding belongs to. */
+  directive: DirectiveT;
+  /** Name of the class member that the binding would write into. */
+  classPropertyName: string;
+  /** Aliases that caused the conflict. */
+  conflictingAliases: Set<string>;
+  /** Type of the binding. */
+  kind: 'input' | 'output';
+}
 
 /*
  * t2 is the replacement for the `TemplateDefinitionBuilder`. It handles the operations of
@@ -68,26 +83,19 @@ export type TemplateEntity = Reference | Variable | LetDeclaration;
 /**
  * A logical target for analysis, which could contain a template or other types of bindings.
  */
-export interface Target {
+export interface Target<DirectiveT> {
   template?: Node[];
-  host?: HostElement;
-}
-
-/**
- * A data structure which can indicate whether a given property name is present or not.
- *
- * This is used to represent the set of inputs or outputs present on a directive, and allows the
- * binder to query for the presence of a mapping for property names.
- */
-export interface InputOutputPropertySet {
-  hasBindingPropertyName(propertyName: string): boolean;
+  host?: {
+    node: HostElement;
+    directives: DirectiveT[];
+  };
 }
 
 /**
  * A data structure which captures the animation trigger names that are statically resolvable
  * and whether some names could not be statically evaluated.
  */
-export interface AnimationTriggerNames {
+export interface LegacyAnimationTriggerNames {
   includesDynamicAnimations: boolean;
   staticTriggerNames: string[];
 }
@@ -102,6 +110,14 @@ export interface DirectiveMeta {
    */
   name: string;
 
+  /** Reference to the directive declaration site. */
+  ref: {
+    /** Key that uniquely identifies the reference. */
+    key: string;
+
+    // Normally we have some more fields here depending on where the reference originated from.
+  };
+
   /** The selector for the directive or `null` if there isn't one. */
   selector: string | null;
 
@@ -115,14 +131,14 @@ export interface DirectiveMeta {
    *
    * Goes from property names to field names.
    */
-  inputs: InputOutputPropertySet;
+  inputs: ClassPropertyMapping;
 
   /**
    * Set of outputs which this directive claims.
    *
    * Goes from property names to field names.
    */
-  outputs: InputOutputPropertySet;
+  outputs: ClassPropertyMapping;
 
   /**
    * Name under which the directive is exported, if any (exportAs in Angular).
@@ -147,10 +163,24 @@ export interface DirectiveMeta {
   preserveWhitespaces: boolean;
 
   /**
-   * The name of animations that the user defines in the component.
-   * Only includes the animation names.
+   * The name of legacy animations that the user defines in the component.
+   * Only includes the legacy animation names.
    */
-  animationTriggerNames: AnimationTriggerNames | null;
+  animationTriggerNames: LegacyAnimationTriggerNames | null;
+
+  /** Tracks how the directive was matched. */
+  matchSource: MatchSource;
+}
+
+/**
+ * Possible ways that a directive can be matched.
+ */
+export enum MatchSource {
+  /** The directive was matched by its selector. */
+  Selector,
+
+  /** The directive was applied as a host directive. */
+  HostDirective,
 }
 
 /**
@@ -160,7 +190,7 @@ export interface DirectiveMeta {
  * The returned `BoundTarget` has an API for extracting information about the processed target.
  */
 export interface TargetBinder<D extends DirectiveMeta> {
-  bind(target: Target): BoundTarget<D>;
+  bind(target: Target<D>): BoundTarget<D>;
 }
 
 /**
@@ -175,13 +205,13 @@ export interface BoundTarget<DirectiveT extends DirectiveMeta> {
   /**
    * Get the original `Target` that was bound.
    */
-  readonly target: Target;
+  readonly target: Target<DirectiveT>;
 
   /**
    * For a given template node (either an `Element` or a `Template`), get the set of directives
    * which matched the node, if any.
    */
-  getDirectivesOfNode(node: Element | Template): DirectiveT[] | null;
+  getDirectivesOfNode(node: DirectiveOwner): DirectiveT[] | null;
 
   /**
    * For a given `Reference`, get the reference's target - either an `Element`, a `Template`, or
@@ -271,4 +301,18 @@ export interface BoundTarget<DirectiveT extends DirectiveMeta> {
    * Whether a given node is located in a `@defer` block.
    */
   isDeferred(node: Element): boolean;
+
+  /**
+   * Checks whether a component/directive that was referenced directly in the template exists.
+   * @param name Name of the component/directive.
+   */
+  referencedDirectiveExists(name: string): boolean;
+
+  /**
+   * Returns any cases of conflicting host bindings that were detected during directive matching.
+   * @param node Node for which to look up the conflicting bindings.
+   */
+  getConflictingHostDirectiveBindings(
+    node: DirectiveOwner,
+  ): ConflictingHostDirectiveBinding<DirectiveT>[] | null;
 }

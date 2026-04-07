@@ -7,7 +7,7 @@
  */
 
 import {Fragment, h} from 'preact';
-import {LinkEntryRenderable} from '../entities/renderables';
+import {LinkEntryRenderable} from '../entities/renderables.mjs';
 
 /** Component to render a function or method parameter reference doc fragment. */
 export function DocsPillRow(props: {links: LinkEntryRenderable[]}) {
@@ -16,9 +16,12 @@ export function DocsPillRow(props: {links: LinkEntryRenderable[]}) {
   return (
     <nav class="docs-pill-row">
       {props.links.map((link) => (
-        <a class="docs-pill" href={link.url} title={link.title}>
-          {link.label}
-        </a>
+        <a
+          class="docs-pill"
+          href={link.url}
+          title={link.title}
+          dangerouslySetInnerHTML={{__html: link.label}}
+        ></a>
       ))}
     </nav>
   );

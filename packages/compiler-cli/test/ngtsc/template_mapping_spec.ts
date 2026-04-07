@@ -7,7 +7,7 @@
  */
 
 /// <reference types="node" />
-import {inspect} from 'util';
+import {inspect} from 'node:util';
 import ts from 'typescript';
 
 import {runInEachFileSystem} from '../../src/ngtsc/file_system/testing';
@@ -110,7 +110,7 @@ runInEachFileSystem((os) => {
           });
           expectMapping(mappings, {
             source: 'id="{{name}}"',
-            generated: 'i0.ɵɵpropertyInterpolate("id", ctx.name)',
+            generated: 'i0.ɵɵinterpolate(ctx.name)',
             sourceUrl: '../test.ts',
           });
         });

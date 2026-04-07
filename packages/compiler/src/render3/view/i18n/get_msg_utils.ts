@@ -8,13 +8,11 @@
 import * as i18n from '../../../i18n/i18n_ast';
 import {mapLiteral} from '../../../output/map_util';
 import * as o from '../../../output/output_ast';
+import {tsIgnoreComment} from '../../util';
 
 import {serializeIcuNode} from './icu_serializer';
 import {i18nMetaToJSDoc} from './meta';
 import {formatI18nPlaceholderName, formatI18nPlaceholderNamesInMap} from './util';
-
-/** Closure uses `goog.getMsg(message)` to lookup translations */
-const GOOG_GET_MSG = 'goog.getMsg';
 
 /**
  * Generates a `goog.getMsg()` statement and reassignment. The template:
@@ -98,7 +96,14 @@ export function createGoogleGetMsgStatements(
   //  */
   // const MSG_... = goog.getMsg(..);
   // I18N_X = MSG_...;
-  const googGetMsgStmt = closureVar.set(o.variable(GOOG_GET_MSG).callFn(args)).toConstDecl();
+  const googGetMsgStmt = new o.DeclareVarStmt(
+    closureVar.name,
+    o.variable('goog').prop('getMsg').callFn(args, null, undefined, [
+      tsIgnoreComment(), // `goog` might not be available externally.
+    ]),
+    o.INFERRED_TYPE,
+    o.StmtModifier.Final,
+  );
   googGetMsgStmt.addLeadingComment(i18nMetaToJSDoc(message));
   const i18nAssignmentStmt = new o.ExpressionStatement(variable.set(closureVar));
   return [googGetMsgStmt, i18nAssignmentStmt];

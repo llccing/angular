@@ -6,68 +6,102 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
+import {CdkMenuModule} from '@angular/cdk/menu';
+import {KeyValuePipe} from '@angular/common';
 import {
-  ChangeDetectionStrategy,
   Component,
-  ElementRef,
-  computed,
-  inject,
-  model,
-  signal,
-  viewChild,
+  EnvironmentInjector,
   afterNextRender,
+  computed,
+  effect,
+  inject,
+  input,
+  linkedSignal,
 } from '@angular/core';
-import ApiItemsSection from '../api-items-section/api-items-section.component';
-import {FormsModule} from '@angular/forms';
-import {SlideToggle, TextField} from '@angular/docs';
+import {Select, SelectOption, TextField} from '@angular/docs';
+import {FormField, form} from '@angular/forms/signals';
+import {MatChipListbox, MatChipOption} from '@angular/material/chips';
 import {Params, Router} from '@angular/router';
-import {ApiItemType} from '../interfaces/api-item-type';
-import {ApiReferenceManager} from './api-reference-manager.service';
 import ApiItemLabel from '../api-item-label/api-item-label.component';
-import {ApiLabel} from '../pipes/api-label.pipe';
+import ApiItemsSection from '../api-items-section/api-items-section.component';
+import {ApiItemType} from '../interfaces/api-item-type';
 import {ApiItemsGroup} from '../interfaces/api-items-group';
+import {ApiLabel} from '../pipes/api-label.pipe';
+import {ApiReferenceManager} from './api-reference-manager.service';
 
 export const ALL_TYPES_KEY = 'All';
+export const ALL_PACKAGES = 'All';
+export const STATUSES = {
+  stable: 1,
+  developerPreview: 2,
+  experimental: 4,
+  deprecated: 8,
+} as const;
+export const DEFAULT_STATUS = STATUSES.stable | STATUSES.developerPreview | STATUSES.experimental;
 
 @Component({
   selector: 'adev-reference-list',
-  imports: [ApiItemsSection, ApiItemLabel, FormsModule, SlideToggle, TextField, ApiLabel],
+  imports: [
+    ApiItemsSection,
+    ApiItemLabel,
+    TextField,
+    ApiLabel,
+    CdkMenuModule,
+    MatChipListbox,
+    MatChipOption,
+    KeyValuePipe,
+    Select,
+    FormField,
+  ],
   templateUrl: './api-reference-list.component.html',
   styleUrls: ['./api-reference-list.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class ApiReferenceList {
   // services
   private readonly apiReferenceManager = inject(ApiReferenceManager);
   private readonly router = inject(Router);
+  private readonly injector = inject(EnvironmentInjector);
 
   // inputs
-  query = model<string | undefined>('');
-  type = model<string | undefined>(ALL_TYPES_KEY);
+  readonly queryInput = input<string | undefined>('', {alias: 'query'});
+  readonly typeInput = input<string | undefined>(ALL_TYPES_KEY, {alias: 'type'});
+  readonly statusInput = input<number | undefined>(DEFAULT_STATUS, {alias: 'status'});
+  protected selectedPackageInput = input<string | undefined>(ALL_PACKAGES, {alias: 'package'});
+
+  // inputs are route binded, they can reset to undefined
+  // also we want a writable state, so we use a linked signal
+  public form = form(
+    linkedSignal(() => ({
+      query: this.queryInput() ?? '',
+      status: this.statusInput() ?? DEFAULT_STATUS,
+      type: this.typeInput() ?? ALL_TYPES_KEY,
+      selectedPackage: this.selectedPackageInput() ?? ALL_PACKAGES,
+    })),
+  );
+
+  protected packageOptions = computed<SelectOption[]>(() => [
+    {label: 'All Packages', value: ALL_PACKAGES},
+    ...this.apiReferenceManager.apiGroups().map((group) => ({
+      label: group.title,
+      value: group.id,
+    })),
+  ]);
 
   // const state
-  itemTypes = Object.values(ApiItemType);
+  protected readonly itemTypes = Object.values(ApiItemType);
+  protected readonly statuses = STATUSES;
 
-  // state
-  includeDeprecated = signal(false);
+  protected readonly statusLabels = {
+    [STATUSES.stable]: 'Stable',
+    [STATUSES.developerPreview]: 'Developer Preview',
+    [STATUSES.experimental]: 'Experimental',
+    [STATUSES.deprecated]: 'Deprecated',
+  };
 
-  // queries
-  filterInput = viewChild.required(TextField, {read: ElementRef});
-
-  constructor() {
-    afterNextRender(() => {
-      // Lord forgive me for I have sinned
-      // Use the CVA to focus when https://github.com/angular/angular/issues/31133 is implemented
-      if (matchMedia('(hover: hover) and (pointer:fine)').matches) {
-        scheduleOnIdle(() => {
-          this.filterInput().nativeElement.querySelector('input').focus({preventScroll: true});
-        });
-      }
-    });
-  }
-
-  filteredGroups = computed((): ApiItemsGroup[] => {
-    const query = this.query()?.toLocaleLowerCase();
+  readonly filteredGroups = computed((): ApiItemsGroup[] => {
+    const query = this.form.query().value().toLocaleLowerCase();
+    const status = this.form.status().value();
+    const type = this.form.type().value();
     return this.apiReferenceManager
       .apiGroups()
       .map((group) => ({
@@ -75,39 +109,83 @@ export default class ApiReferenceList {
         id: group.id,
         items: group.items.filter((apiItem) => {
           return (
-            (query !== undefined ? apiItem.title.toLocaleLowerCase().includes(query) : true) &&
-            (this.includeDeprecated() ? true : apiItem.isDeprecated === this.includeDeprecated()) &&
-            (this.type() === undefined ||
-              this.type() === ALL_TYPES_KEY ||
-              apiItem.itemType === this.type())
+            (query == ''
+              ? true
+              : apiItem.title.toLocaleLowerCase().includes(query) ||
+                group.title.toLocaleLowerCase().includes(query)) &&
+            (type === ALL_TYPES_KEY || apiItem.itemType === type) &&
+            ((status & STATUSES.stable &&
+              !apiItem.developerPreview &&
+              !apiItem.deprecated &&
+              !apiItem.experimental) ||
+              (status & STATUSES.deprecated && apiItem.deprecated) ||
+              (status & STATUSES.developerPreview && apiItem.developerPreview) ||
+              (status & STATUSES.experimental && apiItem.experimental))
           );
         }),
       }))
-      .filter((group) => group.items.length > 0);
+      .filter(
+        (group) =>
+          group.items.length > 0 &&
+          (this.form.selectedPackage().value() === ALL_PACKAGES ||
+            group.id === this.form.selectedPackage().value()),
+      );
   });
 
-  filterByItemType(itemType: ApiItemType): void {
-    this.type.update((currentType) => (currentType === itemType ? ALL_TYPES_KEY : itemType));
-    this.syncUrlWithFilters();
+  constructor() {
+    effect(() => {
+      const filterInput = this.form.query();
+      afterNextRender(
+        {
+          write: () => {
+            if (matchMedia('(hover: hover) and (pointer:fine)').matches) {
+              scheduleOnIdle(() => filterInput.focusBoundControl());
+            }
+          },
+        },
+        {injector: this.injector},
+      );
+    });
+
+    effect(() => {
+      // We'll only set the params if we deviate from the default values
+      const params: Params = {
+        'query': this.form.query().value() || null,
+        'type': this.form.type().value() === ALL_TYPES_KEY ? null : this.form.type().value(),
+        'status': this.form.status().value() === DEFAULT_STATUS ? null : this.form.status().value(),
+        'package':
+          this.form.selectedPackage().value() === ALL_PACKAGES
+            ? null
+            : this.form.selectedPackage().value(),
+      };
+
+      this.router.navigate([], {
+        queryParams: params,
+        replaceUrl: true,
+        preserveFragment: true,
+        info: {
+          disableScrolling: true,
+        },
+      });
+    });
   }
 
-  // Avoid calling in an `effect`. The `navigate` call will replace the state in
-  // the history which will nullify the `Scroll` position which, respectively,
-  // will break the scroll position restoration. Not only that but `disableScrolling=true`.
-  syncUrlWithFilters() {
-    const params: Params = {
-      'query': this.query() ?? null,
-      'type': this.type() ?? null,
-    };
+  setItemType(itemType: ApiItemType): void {
+    this.form.type().value.update((type) => (type === itemType ? ALL_TYPES_KEY : itemType));
+  }
 
-    this.router.navigate([], {
-      queryParams: params,
-      replaceUrl: true,
-      preserveFragment: true,
-      info: {
-        disableScrolling: true,
-      },
+  setStatus(status: number): void {
+    this.form.status().value.update((previousStatus) => {
+      if (this.isStatusSelected(status)) {
+        return previousStatus & ~status; // Clear the bit
+      } else {
+        return previousStatus | status; // Set the bit
+      }
     });
+  }
+
+  isStatusSelected(status: number): boolean {
+    return (this.form.status().value() & status) === status;
   }
 }
 

@@ -6,15 +6,17 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
+import {Component, computed, input} from '@angular/core';
 import {DocContent, DocViewer} from '@angular/docs';
-import {ChangeDetectionStrategy, Component, input} from '@angular/core';
 
 @Component({
   selector: 'docs-docs',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DocViewer],
   styleUrls: ['./docs.component.scss'],
   templateUrl: './docs.component.html',
+  host: {
+    '[class.overview]': 'isOverview()',
+  },
 })
 export default class DocsComponent {
   // Based on current route, proper static content for doc page is fetched.
@@ -22,4 +24,5 @@ export default class DocsComponent {
   // components are going to be rendered.
 
   docContent = input<DocContent>();
+  isOverview = computed(() => this.docContent()?.id.includes('what-is-angular'));
 }

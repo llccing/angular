@@ -6,10 +6,11 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {CommonModule, SlicePipe} from '../../index';
+import {ChangeDetectionStrategy} from '@angular/compiler';
 import {Component} from '@angular/core';
-import {TestBed, waitForAsync} from '@angular/core/testing';
-import {expect} from '@angular/platform-browser/testing/src/matchers';
+import {TestBed} from '@angular/core/testing';
+import {expect} from '@angular/private/testing/matchers';
+import {CommonModule, SlicePipe} from '../../index';
 
 describe('SlicePipe', () => {
   let list: number[];
@@ -94,6 +95,7 @@ describe('SlicePipe', () => {
       selector: 'test-comp',
       template: '{{(data | slice:1).join(",") }}',
       standalone: false,
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestComp {
       data: any;
@@ -103,17 +105,19 @@ describe('SlicePipe', () => {
       TestBed.configureTestingModule({declarations: [TestComp], imports: [CommonModule]});
     });
 
-    it('should work with mutable arrays', waitForAsync(() => {
+    it('should work with mutable arrays', () => {
       const fixture = TestBed.createComponent(TestComp);
       const mutable: number[] = [1, 2];
       fixture.componentInstance.data = mutable;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.nativeElement).toHaveText('2');
 
       mutable.push(3);
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       expect(fixture.nativeElement).toHaveText('2,3');
-    }));
+    });
   });
 
   it('should be available as a standalone pipe', () => {
@@ -121,6 +125,7 @@ describe('SlicePipe', () => {
       selector: 'test-component',
       imports: [SlicePipe],
       template: '{{ title | slice:0:5 }}',
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestComponent {
       title = 'Hello World!';

@@ -39,7 +39,17 @@ function addBody<T>(
     reportProgress?: boolean;
     responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
     withCredentials?: boolean;
+    credentials?: RequestCredentials;
+    keepalive?: boolean;
+    priority?: RequestPriority;
+    cache?: RequestCache;
+    mode?: RequestMode;
+    redirect?: RequestRedirect;
+    referrer?: string;
+    integrity?: string;
+    referrerPolicy?: ReferrerPolicy;
     transferCache?: {includeHeaders?: string[]} | boolean;
+    timeout?: number;
   },
   body: T | null,
 ): any {
@@ -52,7 +62,17 @@ function addBody<T>(
     reportProgress: options.reportProgress,
     responseType: options.responseType,
     withCredentials: options.withCredentials,
+    credentials: options.credentials,
     transferCache: options.transferCache,
+    timeout: options.timeout,
+    keepalive: options.keepalive,
+    priority: options.priority,
+    cache: options.cache,
+    mode: options.mode,
+    redirect: options.redirect,
+    integrity: options.integrity,
+    referrer: options.referrer,
+    referrerPolicy: options.referrerPolicy,
   };
 }
 
@@ -109,7 +129,7 @@ function addBody<T>(
  *
  * @publicApi
  */
-@Injectable()
+@Injectable({providedIn: 'root'})
 export class HttpClient {
   constructor(private handler: HttpHandler) {}
 
@@ -145,7 +165,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<ArrayBuffer>;
 
@@ -173,7 +202,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<Blob>;
 
@@ -201,7 +240,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<string>;
 
@@ -230,7 +279,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<ArrayBuffer>>;
 
@@ -259,7 +318,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Blob>>;
 
@@ -288,7 +357,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<string>>;
 
@@ -317,7 +396,17 @@ export class HttpClient {
         | Record<string, string | number | boolean | ReadonlyArray<string | number | boolean>>;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<any>>;
 
@@ -346,7 +435,17 @@ export class HttpClient {
         | Record<string, string | number | boolean | ReadonlyArray<string | number | boolean>>;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<R>>;
 
@@ -374,7 +473,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<ArrayBuffer>>;
 
@@ -401,7 +510,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Blob>>;
 
@@ -429,7 +548,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<string>>;
 
@@ -458,6 +587,17 @@ export class HttpClient {
         | Record<string, string | number | boolean | ReadonlyArray<string | number | boolean>>;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Object>>;
 
@@ -485,6 +625,15 @@ export class HttpClient {
         | Record<string, string | number | boolean | ReadonlyArray<string | number | boolean>>;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
     },
   ): Observable<HttpResponse<R>>;
@@ -513,7 +662,17 @@ export class HttpClient {
       responseType?: 'json';
       reportProgress?: boolean;
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<Object>;
 
@@ -541,7 +700,17 @@ export class HttpClient {
       responseType?: 'json';
       reportProgress?: boolean;
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<R>;
 
@@ -568,7 +737,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<any>;
 
@@ -612,7 +791,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     } = {},
   ): Observable<any> {
     let req: HttpRequest<any>;
@@ -643,7 +832,6 @@ export class HttpClient {
           params = new HttpParams({fromObject: options.params} as HttpParamsOptions);
         }
       }
-
       // Construct the request.
       req = new HttpRequest(first, url!, options.body !== undefined ? options.body : null, {
         headers,
@@ -654,9 +842,18 @@ export class HttpClient {
         responseType: options.responseType || 'json',
         withCredentials: options.withCredentials,
         transferCache: options.transferCache,
+        keepalive: options.keepalive,
+        priority: options.priority,
+        cache: options.cache,
+        mode: options.mode,
+        redirect: options.redirect,
+        credentials: options.credentials,
+        referrer: options.referrer,
+        referrerPolicy: options.referrerPolicy,
+        integrity: options.integrity,
+        timeout: options.timeout,
       });
     }
-
     // Start with an Observable.of() the initial request, and run the handler (which
     // includes all interceptors) inside a concatMap(). This way, the handler runs
     // inside an Observable chain, which causes interceptors to be re-run on every
@@ -765,6 +962,15 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       body?: any | null;
     },
   ): Observable<ArrayBuffer>;
@@ -790,6 +996,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<Blob>;
@@ -815,6 +1031,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<string>;
@@ -841,6 +1067,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<HttpEvent<ArrayBuffer>>;
@@ -867,6 +1103,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<HttpEvent<Blob>>;
@@ -893,6 +1139,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<HttpEvent<string>>;
@@ -919,6 +1175,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<HttpEvent<Object>>;
@@ -945,6 +1211,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<HttpEvent<T>>;
@@ -970,6 +1246,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<HttpResponse<ArrayBuffer>>;
@@ -995,6 +1281,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<HttpResponse<Blob>>;
@@ -1020,6 +1316,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<HttpResponse<string>>;
@@ -1046,6 +1352,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<HttpResponse<Object>>;
@@ -1071,6 +1387,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<HttpResponse<T>>;
@@ -1096,6 +1422,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<Object>;
@@ -1121,6 +1457,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     },
   ): Observable<T>;
@@ -1146,6 +1492,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
       body?: any | null;
     } = {},
   ): Observable<any> {
@@ -1173,7 +1529,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<ArrayBuffer>;
 
@@ -1198,7 +1564,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<Blob>;
 
@@ -1223,7 +1599,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<string>;
 
@@ -1249,7 +1635,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<ArrayBuffer>>;
 
@@ -1274,7 +1670,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Blob>>;
 
@@ -1299,7 +1705,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<string>>;
 
@@ -1324,7 +1740,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Object>>;
 
@@ -1349,7 +1775,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<T>>;
 
@@ -1375,7 +1811,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<ArrayBuffer>>;
 
@@ -1401,7 +1847,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Blob>>;
 
@@ -1427,7 +1883,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<string>>;
 
@@ -1453,7 +1919,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Object>>;
 
@@ -1479,7 +1955,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<T>>;
 
@@ -1505,7 +1991,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<Object>;
 
@@ -1530,7 +2026,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<T>;
 
@@ -1551,7 +2057,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     } = {},
   ): Observable<any> {
     return this.request<any>('GET', url, options as any);
@@ -1578,7 +2094,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<ArrayBuffer>;
 
@@ -1604,7 +2130,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<Blob>;
 
@@ -1629,7 +2165,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<string>;
 
@@ -1655,7 +2201,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<ArrayBuffer>>;
 
@@ -1681,7 +2237,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Blob>>;
 
@@ -1707,7 +2273,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<string>>;
 
@@ -1733,7 +2309,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Object>>;
 
@@ -1759,7 +2345,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<T>>;
 
@@ -1785,7 +2381,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<ArrayBuffer>>;
 
@@ -1811,7 +2417,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Blob>>;
 
@@ -1837,7 +2453,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<string>>;
 
@@ -1863,7 +2489,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Object>>;
 
@@ -1889,7 +2525,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<T>>;
 
@@ -1915,7 +2561,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<Object>;
 
@@ -1941,7 +2597,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<T>;
 
@@ -1964,7 +2630,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     } = {},
   ): Observable<any> {
     return this.request<any>('HEAD', url, options as any);
@@ -2041,6 +2717,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<ArrayBuffer>;
 
@@ -2065,6 +2751,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<Blob>;
 
@@ -2089,6 +2785,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<string>;
 
@@ -2114,6 +2820,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<ArrayBuffer>>;
 
@@ -2139,6 +2855,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Blob>>;
 
@@ -2164,6 +2890,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<string>>;
 
@@ -2189,6 +2925,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Object>>;
 
@@ -2214,6 +2960,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<T>>;
 
@@ -2239,6 +2995,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<ArrayBuffer>>;
 
@@ -2264,6 +3030,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Blob>>;
 
@@ -2289,6 +3065,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<string>>;
 
@@ -2314,6 +3100,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Object>>;
 
@@ -2339,6 +3135,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<T>>;
 
@@ -2364,6 +3170,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<Object>;
 
@@ -2388,6 +3204,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<T>;
 
@@ -2410,6 +3236,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     } = {},
   ): Observable<any> {
     return this.request<any>('OPTIONS', url, options as any);
@@ -2438,6 +3274,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<ArrayBuffer>;
 
@@ -2464,6 +3310,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<Blob>;
 
@@ -2490,6 +3346,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<string>;
 
@@ -2518,6 +3384,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<ArrayBuffer>>;
 
@@ -2545,6 +3421,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Blob>>;
 
@@ -2572,6 +3458,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<string>>;
 
@@ -2599,6 +3495,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Object>>;
 
@@ -2626,6 +3532,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<T>>;
 
@@ -2653,6 +3569,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<ArrayBuffer>>;
 
@@ -2680,6 +3606,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Blob>>;
 
@@ -2707,6 +3643,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<string>>;
 
@@ -2734,6 +3680,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Object>>;
 
@@ -2761,6 +3717,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<T>>;
 
@@ -2788,6 +3754,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<Object>;
 
@@ -2815,6 +3791,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<T>;
 
@@ -2836,6 +3822,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     } = {},
   ): Observable<any> {
     return this.request<any>('PATCH', url, addBody(options, body));
@@ -2864,7 +3860,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<ArrayBuffer>;
 
@@ -2891,7 +3897,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<Blob>;
 
@@ -2918,7 +3934,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<string>;
 
@@ -2946,7 +3972,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<ArrayBuffer>>;
 
@@ -2973,7 +4009,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Blob>>;
 
@@ -3001,7 +4047,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<string>>;
 
@@ -3029,7 +4085,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Object>>;
 
@@ -3057,7 +4123,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpEvent<T>>;
 
@@ -3085,7 +4161,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<ArrayBuffer>>;
 
@@ -3113,7 +4199,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Blob>>;
 
@@ -3141,7 +4237,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<string>>;
 
@@ -3169,7 +4275,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Object>>;
 
@@ -3198,7 +4314,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<HttpResponse<T>>;
 
@@ -3225,7 +4351,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<Object>;
 
@@ -3253,7 +4389,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     },
   ): Observable<T>;
 
@@ -3276,7 +4422,17 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
       transferCache?: {includeHeaders?: string[]} | boolean;
+      timeout?: number;
     } = {},
   ): Observable<any> {
     return this.request<any>('POST', url, addBody(options, body));
@@ -3305,6 +4461,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<ArrayBuffer>;
 
@@ -3331,6 +4497,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<Blob>;
 
@@ -3357,6 +4533,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<string>;
 
@@ -3384,6 +4570,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<ArrayBuffer>>;
 
@@ -3411,6 +4607,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Blob>>;
 
@@ -3438,6 +4644,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<string>>;
 
@@ -3465,6 +4681,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<Object>>;
 
@@ -3492,6 +4718,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpEvent<T>>;
 
@@ -3519,6 +4755,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'arraybuffer';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<ArrayBuffer>>;
 
@@ -3546,6 +4792,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'blob';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Blob>>;
 
@@ -3573,6 +4829,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType: 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<string>>;
 
@@ -3600,6 +4866,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<Object>>;
 
@@ -3627,6 +4903,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<HttpResponse<T>>;
 
@@ -3653,6 +4939,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<Object>;
 
@@ -3679,6 +4975,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'json';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     },
   ): Observable<T>;
 
@@ -3701,6 +5007,16 @@ export class HttpClient {
       reportProgress?: boolean;
       responseType?: 'arraybuffer' | 'blob' | 'json' | 'text';
       withCredentials?: boolean;
+      credentials?: RequestCredentials;
+      keepalive?: boolean;
+      priority?: RequestPriority;
+      cache?: RequestCache;
+      mode?: RequestMode;
+      redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
+      referrerPolicy?: ReferrerPolicy;
+      timeout?: number;
     } = {},
   ): Observable<any> {
     return this.request<any>('PUT', url, addBody(options, body));

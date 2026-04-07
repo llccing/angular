@@ -6,13 +6,20 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {DirectiveMeta as T2DirectiveMeta, Expression, SchemaMetadata} from '@angular/compiler';
+import {
+  DirectiveMeta as T2DirectiveMeta,
+  Expression,
+  SchemaMetadata,
+  ExternalReference,
+  MatchSource,
+  ClassPropertyName,
+  InputOrOutput,
+  ClassPropertyMapping,
+} from '@angular/compiler';
 import ts from 'typescript';
 
 import {Reference} from '../../imports';
 import {ClassDeclaration} from '../../reflection';
-
-import {ClassPropertyMapping, ClassPropertyName, InputOrOutput} from './property_mapping';
 
 /**
  * Metadata collected for an `NgModule`.
@@ -111,6 +118,9 @@ export interface DirectiveTypeCheckMeta {
    */
   undeclaredInputFields: Set<ClassPropertyName>;
 
+  /** Names of the public methods of the class. */
+  publicMethods: Set<string>;
+
   /**
    * Whether the Directive's class is generic, i.e. `class MyDir<T> {...}`.
    */
@@ -124,17 +134,6 @@ export enum MetaKind {
   Directive,
   Pipe,
   NgModule,
-}
-
-/**
- * Possible ways that a directive can be matched.
- */
-export enum MatchSource {
-  /** The directive was matched by its selector. */
-  Selector,
-
-  /** The directive was applied as a host directive. */
-  HostDirective,
 }
 
 /** Metadata for a single input mapping. */
@@ -286,6 +285,14 @@ export interface DirectiveMeta extends T2DirectiveMeta, DirectiveTypeCheckMeta {
    * scope via `@Component.deferredImports` field.
    */
   isExplicitlyDeferred: boolean;
+
+  /** Whether selectorless is enabled for the specific component. */
+  selectorlessEnabled: boolean;
+
+  /**
+   * Names of the symbols within the source file that are referenced directly inside the template.
+   */
+  localReferencedSymbols: Set<string> | null;
 }
 
 /** Metadata collected about an additional directive that is being applied to a directive host. */
@@ -297,7 +304,7 @@ export interface HostDirectiveMeta {
    * which indicates the expression could not be resolved due to being imported from some external
    * file. In this case, the expression is the raw expression as appears in the decorator.
    */
-  directive: Reference<ClassDeclaration> | Expression;
+  directive: Reference<ClassDeclaration> | Expression | ExternalReference;
 
   /** Whether the reference to the host directive is a forward reference. */
   isForwardReference: boolean;
@@ -350,9 +357,10 @@ export interface TemplateGuardMeta {
 export interface PipeMeta {
   kind: MetaKind.Pipe;
   ref: Reference<ClassDeclaration>;
-  name: string;
+  name: string | null;
   nameExpr: ts.Expression | null;
   isStandalone: boolean;
+  isPure: boolean;
   decorator: ts.Decorator | null;
   isExplicitlyDeferred: boolean;
 }

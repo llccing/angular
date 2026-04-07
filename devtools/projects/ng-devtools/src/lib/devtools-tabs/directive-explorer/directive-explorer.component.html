@@ -1,7 +1,13 @@
 <as-split unit="percent" [direction]="splitDirection()" [gutterSize]="9">
   <as-split-area #directiveForestSplitArea size="60">
-    <as-split direction="vertical" [gutterSize]="9" unit="pixel" [disabled]="true">
-      <as-split-area size="*">
+    <as-split
+      [ngResponsiveSplit]="responsiveSplitConfig"
+      (directionChange)="onResponsiveSplitDirChange($event)"
+      direction="vertical"
+      [gutterSize]="9"
+      unit="percent"
+    >
+      <as-split-area class="forest-breadcrumbs" [size]="forestSplitSize()">
         <ng-directive-forest
           (selectNode)="handleNodeSelection($event)"
           (selectDomElement)="handleSelectDomElement($event)"
@@ -13,8 +19,16 @@
           [currentSelectedElement]="currentSelectedElement()!"
           [showCommentNodes]="showCommentNodes()"
         />
-      </as-split-area>
-      <as-split-area size="22">
+        @if (appData().hydration) {
+          <div class="hydration">
+            <input
+              id="show-hydration-overlays"
+              type="checkbox"
+              (change)="toggleHydrationNodesHighlights($event.target.checked)"
+            />
+            <label for="show-hydration-overlays">Show hydration overlays</label>
+          </div>
+        }
         @if (parents()) {
           <ng-breadcrumbs
             (mouseLeaveNode)="unhighlight()"
@@ -24,24 +38,28 @@
           />
         }
       </as-split-area>
+      @if (signalsOpen() && signalGraph.element()) {
+        <as-split-area [size]="signalGraphSplitSize()">
+          <ng-signal-graph-pane
+            [externallySelectedNodeId]="externallySelectedSignalNodeId()"
+            (close)="signalsOpen.set(false)"
+          />
+        </as-split-area>
+      }
     </as-split>
   </as-split-area>
   <as-split-area size="40" minSize="25" class="prop-split">
     <div class="property-tab-wrapper">
-      <ng-property-tab
-        [currentSelectedElement]="currentSelectedElement()!"
-        (inspect)="inspect($event)"
-        (viewSource)="viewSource($event)"
-      />
+      @if (currentSelectedElement(); as currentSelectedElement) {
+        <ng-property-pane
+          [currentSelectedElement]="currentSelectedElement"
+          (showSignalGraph)="showSignalGraph($event)"
+          (inspect)="inspect($event)"
+          (viewSource)="viewSource($event)"
+        />
+      } @else {
+        <p class="no-selected-element">No selected element</p>
+      }
     </div>
-    @if (isHydrationEnabled) {
-      <div class="hydration">
-        <mat-slide-toggle
-          [(ngModel)]="showHydrationNodeHighlights"
-          (change)="showHydrationNodeHighlights() ? hightlightHydrationNodes() : removeHydrationNodesHightlights()"
-          >Show hydration overlays</mat-slide-toggle
-        >
-      </div>
-    }
   </as-split-area>
 </as-split>

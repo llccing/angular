@@ -8,7 +8,7 @@
 
 import {Rule} from '@angular-devkit/schematics';
 import {SignalInputMigration} from '../../migrations/signal-migration/src';
-import {runMigrationInDevkit} from '../../utils/tsurge/helpers/angular_devkit';
+import {MigrationStage, runMigrationInDevkit} from '../../utils/tsurge/helpers/angular_devkit';
 
 interface Options {
   path: string;
@@ -32,8 +32,12 @@ export function migrate(options: Options): Rule {
             );
           },
         }),
-      beforeProgramCreation: (tsconfigPath) => {
-        context.logger.info(`Preparing analysis for: ${tsconfigPath}...`);
+      beforeProgramCreation: (tsconfigPath, stage) => {
+        if (stage === MigrationStage.Analysis) {
+          context.logger.info(`Preparing analysis for: ${tsconfigPath}...`);
+        } else {
+          context.logger.info(`Running migration for: ${tsconfigPath}...`);
+        }
       },
       afterProgramCreation: (info, fs) => {
         const analysisPath = fs.resolve(options.analysisDir);
@@ -57,8 +61,7 @@ export function migrate(options: Options): Rule {
       afterAnalysisFailure: () => {
         context.logger.error('Migration failed unexpectedly with no analysis data');
       },
-      whenDone: ({counters}) => {
-        const {sourceInputs, incompatibleInputs} = counters;
+      whenDone: ({sourceInputs, incompatibleInputs}) => {
         const migratedInputs = sourceInputs - incompatibleInputs;
 
         context.logger.info('');

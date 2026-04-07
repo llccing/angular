@@ -5,7 +5,7 @@
   "author": "angular",
   "license": "MIT",
   "engines": {
-    "node": "^20.11.1 || >=22.11.0"
+    "node": "^22.22.0 || >=24.13.1"
   },
   "exports": {
     "./schematics/*": {
@@ -21,10 +21,13 @@
   "peerDependencies": {
     "@angular/compiler": "0.0.0-PLACEHOLDER",
     "rxjs": "^6.5.3 || ^7.4.0",
-    "zone.js": "~0.15.0"
+    "zone.js": "~0.15.0 || ~0.16.0"
   },
   "peerDependenciesMeta": {
     "@angular/compiler": {
+      "optional": true
+    },
+    "zone.js": {
       "optional": true
     }
   },
@@ -36,6 +39,12 @@
   "ng-update": {
     "migrations": "./schematics/migrations.json",
     "packageGroup": "NG_UPDATE_PACKAGE_GROUP"
+  },
+  "angular": {
+    "bestPractices": {
+      "format": "markdown",
+      "path": "./resources/best-practices.md"
+    }
   },
   "schematics": "./schematics/collection.json",
   "sideEffects": false

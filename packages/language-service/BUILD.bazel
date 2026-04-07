@@ -1,31 +1,50 @@
-load("//tools:defaults.bzl", "esbuild", "extract_types", "pkg_npm", "ts_library")
+load("@aspect_rules_esbuild//esbuild:defs.bzl", "esbuild")
+load("//tools:defaults.bzl", "extract_types", "npm_package", "ts_config", "ts_project")
 
 package(default_visibility = ["//visibility:public"])
 
-ts_library(
+ts_config(
+    name = "tsconfig_build",
+    src = "tsconfig.json",
+    deps = [
+        "//:node_modules/@types/node",
+        "//packages:tsconfig_build",
+    ],
+)
+
+ts_project(
     name = "api",
     srcs = [
         "api.ts",
     ],
     deps = [
-        "@npm//typescript",
+        "//:node_modules/typescript",
     ],
 )
 
-ts_library(
+ts_project(
+    name = "private",
+    srcs = [
+        "private.ts",
+    ],
+    deps = [
+        "//packages/language-service/src",
+    ],
+)
+
+ts_project(
     name = "factory_lib",
     srcs = ["plugin-factory.ts"],
     deps = [
         ":api",
-        "@npm//@types/node",
-        "@npm//typescript",
+        "//:node_modules/typescript",
     ],
 )
 
 esbuild(
     name = "factory_bundle",
     entry_point = ":plugin-factory.ts",
-    external = ["./bundles/language-service.js"],
+    external = ["@angular/language-service/bundles/language-service.js"],
     format = "cjs",
     deps = [":factory_lib"],
 )
@@ -37,35 +56,43 @@ esbuild(
     deps = [":api"],
 )
 
-extract_types(
-    name = "types",
-    deps = [
-        ":api",
-        ":factory_lib",
+esbuild(
+    name = "private_bundle",
+    entry_point = ":private.ts",
+    external = [
+        "typescript",
+        "@angular/compiler",
+        "@angular/compiler-cli",
+        "@angular/compiler-cli/*",
     ],
+    format = "cjs",
+    platform = "node",
+    deps = [":private"],
 )
 
-pkg_npm(
-    name = "npm_package",
-    package_name = "@angular/language-service",
+extract_types(
+    name = "private_type_definitions",
+    deps = [":private"],
+)
+
+npm_package(
     srcs = [
         "index.d.ts",
         "index.js",
         "package.json",
+        ":api_bundle",
+        ":api_types",
+        ":factory_bundle",
+        ":factory_lib_types",
+        ":private_bundle",
+        ":private_type_definitions",
+        "//packages/language-service/bundles:language-service.js",
     ],
+    package = "@angular/language-service",
     tags = [
         "release-with-framework",
     ],
     # Do not add more to this list.
     # Dependencies on the full npm_package cause long re-builds.
-    visibility = [
-        "//integration:__subpackages__",
-        "//modules/ssr-benchmarks:__subpackages__",
-    ],
-    deps = [
-        ":api_bundle",
-        ":factory_bundle",
-        ":types",
-        "//packages/language-service/bundles:language-service.js",
-    ],
+    visibility = [],
 )

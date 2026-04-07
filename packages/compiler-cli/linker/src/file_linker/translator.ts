@@ -6,21 +6,20 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 import * as o from '@angular/compiler';
-
 import {
-  AstFactory,
-  Context,
   ExpressionTranslatorVisitor,
-  ImportGenerator,
   TranslatorOptions,
-} from '../../../src/ngtsc/translator';
+} from '../../../src/ngtsc/translator/src/translator';
+import {Context} from '../../../src/ngtsc/translator/src/context';
+import {ImportGenerator} from '../../../src/ngtsc/translator/src/api/import_generator';
+import {AstFactory} from '../../../src/ngtsc/translator/src/api/ast_factory';
 
 /**
  * Generic translator helper class, which exposes methods for translating expressions and
  * statements.
  */
-export class Translator<TStatement, TExpression> {
-  constructor(private factory: AstFactory<TStatement, TExpression>) {}
+export class Translator<TStatement, TExpression, TType> {
+  constructor(private factory: AstFactory<TStatement, TExpression, TType>) {}
 
   /**
    * Translate the given output AST in the context of an expression.
@@ -31,7 +30,7 @@ export class Translator<TStatement, TExpression> {
     options: TranslatorOptions<TExpression> = {},
   ): TExpression {
     return expression.visitExpression(
-      new ExpressionTranslatorVisitor<null, TStatement, TExpression>(
+      new ExpressionTranslatorVisitor<null, TStatement, TExpression, TType>(
         this.factory,
         imports,
         null,
@@ -50,7 +49,7 @@ export class Translator<TStatement, TExpression> {
     options: TranslatorOptions<TExpression> = {},
   ): TStatement {
     return statement.visitStatement(
-      new ExpressionTranslatorVisitor<null, TStatement, TExpression>(
+      new ExpressionTranslatorVisitor<null, TStatement, TExpression, TType>(
         this.factory,
         imports,
         null,

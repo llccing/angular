@@ -279,6 +279,39 @@ export enum OpKind {
    * Creation op that attaches the location at which an element was defined in a template to it.
    */
   SourceLocation,
+
+  /**
+   * An operation to bind animation css classes to an element.
+   */
+  Animation,
+
+  /**
+   * An operation to bind animation css classes to an element.
+   */
+  AnimationString,
+
+  /**
+   * An operation to bind animation css classes to an element.
+   */
+  AnimationBinding,
+
+  /**
+   * An operation to bind animation events to an element.
+   */
+  AnimationListener,
+
+  /**
+   * An operation to bind an expression to a `field` property of an element.
+   */
+  Control,
+
+  /**
+   * An operation to set up a corresponding {@link Control} operation.
+   *
+   * This is responsible for setting up event listeners on a native or custom form control when
+   * bound to a specialized field directive.
+   */
+  ControlCreate,
 }
 
 /**
@@ -414,6 +447,11 @@ export enum ExpressionKind {
    * Operation that sets the value of a two-way binding.
    */
   TwoWayBindingSet,
+
+  /**
+   * Definition of an arrow function inside of an expression.
+   */
+  ArrowFunction,
 }
 
 export enum VariableFlags {
@@ -452,16 +490,6 @@ export enum SemanticVariableKind {
 }
 
 /**
- * Whether to compile in compatibilty mode. In compatibility mode, the template pipeline will
- * attempt to match the output of `TemplateDefinitionBuilder` as exactly as possible, at the cost
- * of producing quirky or larger code in some cases.
- */
-export enum CompatibilityMode {
-  Normal,
-  TemplateDefinitionBuilder,
-}
-
-/**
  * Enumeration of the types of attributes which can be applied to an element.
  */
 export enum BindingKind {
@@ -496,14 +524,19 @@ export enum BindingKind {
   I18n,
 
   /**
-   * Animation property bindings.
+   * Legacy animation property bindings.
    */
-  Animation,
+  LegacyAnimation,
 
   /**
    * Property side of a two-way binding.
    */
   TwoWayProperty,
+
+  /**
+   * Property side of an animation binding.
+   */
+  Animation,
 }
 
 /**
@@ -606,6 +639,22 @@ export enum TemplateKind {
   NgTemplate,
   Structural,
   Block,
+}
+
+/**
+ * Kinds of animations
+ */
+export const enum AnimationKind {
+  ENTER = 'enter',
+  LEAVE = 'leave',
+}
+
+/**
+ * Kinds of animations
+ */
+export const enum AnimationBindingKind {
+  STRING,
+  VALUE,
 }
 
 /**

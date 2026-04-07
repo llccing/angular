@@ -22,6 +22,8 @@ import {
   DirectiveSymbol,
   DomBindingSymbol,
   ElementSymbol,
+  SelectorlessComponentSymbol,
+  SelectorlessDirectiveSymbol,
   Symbol,
   SymbolKind,
   TcbLocation,
@@ -118,6 +120,8 @@ export class DefinitionBuilder {
       case SymbolKind.Element:
       case SymbolKind.Template:
       case SymbolKind.DomBinding:
+      case SymbolKind.SelectorlessComponent:
+      case SymbolKind.SelectorlessDirective:
         // Though it is generally more appropriate for the above symbol definitions to be
         // associated with "type definitions" since the location in the template is the
         // actual definition location, the better user experience would be to allow
@@ -125,7 +129,7 @@ export class DefinitionBuilder {
         // taken to the directive or HTML class.
         return this.getTypeDefinitionsForTemplateInstance(symbol, node);
       case SymbolKind.Pipe: {
-        if (symbol.tsSymbol !== null) {
+        if (this.ttc.getTsSymbolOfSymbol(symbol) !== null) {
           return this.getDefinitionsForSymbols(symbol);
         } else {
           // If there is no `ts.Symbol` for the pipe transform, we want to return the
@@ -167,11 +171,6 @@ export class DefinitionBuilder {
               fileName: mapping.templateUrl,
             });
           }
-        }
-        if (symbol.kind === SymbolKind.Variable || symbol.kind === SymbolKind.LetDeclaration) {
-          definitions.push(
-            ...this.getDefinitionsForSymbols({tcbLocation: symbol.initializerLocation}),
-          );
         }
         return definitions;
       }
@@ -238,6 +237,8 @@ export class DefinitionBuilder {
         case SymbolKind.DomBinding:
         case SymbolKind.Element:
         case SymbolKind.Template:
+        case SymbolKind.SelectorlessComponent:
+        case SymbolKind.SelectorlessDirective:
           definitions.push(...this.getTypeDefinitionsForTemplateInstance(symbol, node));
           break;
         case SymbolKind.Output:
@@ -255,7 +256,7 @@ export class DefinitionBuilder {
           break;
         }
         case SymbolKind.Pipe: {
-          if (symbol.tsSymbol !== null) {
+          if (this.ttc.getTsSymbolOfSymbol(symbol) !== null) {
             definitions.push(...this.getTypeDefinitionsForSymbols(symbol));
           } else {
             // If there is no `ts.Symbol` for the pipe transform, we want to return the
@@ -275,7 +276,7 @@ export class DefinitionBuilder {
         case SymbolKind.Variable:
         case SymbolKind.LetDeclaration: {
           definitions.push(
-            ...this.getTypeDefinitionsForSymbols({tcbLocation: symbol.initializerLocation}),
+            ...this.getTypeDefinitionsForSymbols({tcbLocation: symbol.localVarLocation}),
           );
           break;
         }
@@ -286,7 +287,13 @@ export class DefinitionBuilder {
   }
 
   private getTypeDefinitionsForTemplateInstance(
-    symbol: TemplateSymbol | ElementSymbol | DomBindingSymbol | DirectiveSymbol,
+    symbol:
+      | TemplateSymbol
+      | ElementSymbol
+      | DomBindingSymbol
+      | DirectiveSymbol
+      | SelectorlessComponentSymbol
+      | SelectorlessDirectiveSymbol,
     node: AST | TmplAstNode,
   ): ts.DefinitionInfo[] {
     switch (symbol.kind) {
@@ -313,6 +320,8 @@ export class DefinitionBuilder {
         );
         return this.getTypeDefinitionsForSymbols(...dirs);
       }
+      case SymbolKind.SelectorlessComponent:
+      case SymbolKind.SelectorlessDirective:
       case SymbolKind.Directive:
         return this.getTypeDefinitionsForSymbols(symbol);
     }

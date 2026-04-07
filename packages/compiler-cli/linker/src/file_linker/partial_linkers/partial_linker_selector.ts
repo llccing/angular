@@ -7,7 +7,6 @@
  */
 import semver from 'semver';
 
-import {AbsoluteFsPath} from '../../../../src/ngtsc/file_system';
 import {Logger} from '../../../../src/ngtsc/logging';
 import {createGetSourceFile} from '../get_source_file';
 import {LinkerEnvironment} from '../linker_environment';
@@ -23,6 +22,7 @@ import {PartialLinker} from './partial_linker';
 import {PartialNgModuleLinkerVersion1} from './partial_ng_module_linker_1';
 import {PartialPipeLinkerVersion1} from './partial_pipe_linker_1';
 import {PLACEHOLDER_VERSION} from './util';
+import {AbsoluteFsPath} from '../../../../src/ngtsc/file_system/src/types';
 
 export const ɵɵngDeclareDirective = 'ɵɵngDeclareDirective';
 export const ɵɵngDeclareClassMetadata = 'ɵɵngDeclareClassMetadata';
@@ -74,8 +74,8 @@ export interface LinkerRange<TExpression> {
  * `minVersion` of the partial-declaration should be updated, the new linker implementation should
  * be added to the end of the collection, and the version of the previous linker should be updated.
  */
-export function createLinkerMap<TStatement, TExpression>(
-  environment: LinkerEnvironment<TStatement, TExpression>,
+export function createLinkerMap<TStatement, TExpression, TType>(
+  environment: LinkerEnvironment<TStatement, TExpression, TType>,
   sourceUrl: AbsoluteFsPath,
   code: string,
 ): Map<string, LinkerRange<TExpression>[]> {

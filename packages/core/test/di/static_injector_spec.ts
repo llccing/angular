@@ -7,6 +7,7 @@
  */
 
 import {forwardRef, Inject, Injector, Self, SkipSelf} from '../../src/core';
+import {ERROR_DETAILS_PAGE_BASE_URL} from '../../src/error_details_base_url';
 
 import {stringify} from '../../src/util/stringify';
 
@@ -104,8 +105,9 @@ describe('dependency resolution', () => {
       });
 
       expect(() => child.get(Car)).toThrowError(
-        `R3InjectorError[${stringify(Car)} -> ${stringify(Engine)}]: \n` +
-          '  NullInjectorError: No provider for Engine!',
+        'NG0201: No provider found for `Engine`. ' +
+          'Path: Car -> Engine. ' +
+          `Find more at ${ERROR_DETAILS_PAGE_BASE_URL}/NG0201`,
       );
     });
 
@@ -130,8 +132,8 @@ describe('dependency resolution', () => {
     it('should throw error when not requested provider on self', () => {
       const injector = Injector.create({providers: []});
       expect(() => injector.get(Car, undefined, {self: true})).toThrowError(
-        `R3InjectorError[${stringify(Car)}]: \n` +
-          `  NullInjectorError: No provider for ${stringify(Car)}!`,
+        'NG0201: No provider found for `Car`. ' +
+          `Find more at ${ERROR_DETAILS_PAGE_BASE_URL}/NG0201`,
       );
     });
   });

@@ -15,14 +15,19 @@ import {
   makeEnvironmentProviders,
   NgZone,
   provideAppInitializer,
+  ɵRuntimeError as RuntimeError,
+  ɵformatRuntimeError as formatRuntimeError,
 } from '@angular/core';
 import type {Observable} from 'rxjs';
 
 import {NgswCommChannel} from './low_level';
 import {SwPush} from './push';
 import {SwUpdate} from './update';
+import {RuntimeErrorCode} from './errors';
 
-export const SCRIPT = new InjectionToken<string>(ngDevMode ? 'NGSW_REGISTER_SCRIPT' : '');
+export const SCRIPT = new InjectionToken<string>(
+  typeof ngDevMode !== 'undefined' && ngDevMode ? 'NGSW_REGISTER_SCRIPT' : '',
+);
 
 export function ngswAppInitializer(): void {
   if (typeof ngServerMode !== 'undefined' && ngServerMode) {
@@ -79,19 +84,40 @@ export function ngswAppInitializer(): void {
           break;
         default:
           // Unknown strategy.
-          throw new Error(
-            `Unknown ServiceWorker registration strategy: ${options.registrationStrategy}`,
+          throw new RuntimeError(
+            RuntimeErrorCode.UNKNOWN_REGISTRATION_STRATEGY,
+            (typeof ngDevMode === 'undefined' || ngDevMode) &&
+              `Unknown ServiceWorker registration strategy: ${options.registrationStrategy}`,
           );
       }
     }
 
     // Don't return anything to avoid blocking the application until the SW is registered.
     // Catch and log the error if SW registration fails to avoid uncaught rejection warning.
-    readyToRegister.then(() =>
+    readyToRegister.then(() => {
+      // If the registration strategy has resolved after the application has
+      // been explicitly destroyed by the user (e.g., by navigating away to
+      // another application), we simply should not register the worker.
+      if (appRef.destroyed) {
+        return;
+      }
+
       navigator.serviceWorker
-        .register(script, {scope: options.scope})
-        .catch((err) => console.error('Service worker registration failed with:', err)),
-    );
+        .register(script, {
+          scope: options.scope,
+          updateViaCache: options.updateViaCache,
+          type: options.type,
+        })
+        .catch((err) =>
+          console.error(
+            formatRuntimeError(
+              RuntimeErrorCode.SERVICE_WORKER_REGISTRATION_FAILED,
+              (typeof ngDevMode === 'undefined' || ngDevMode) &&
+                'Service worker registration failed with: ' + err,
+            ),
+          ),
+        );
+    });
   });
 }
 
@@ -99,10 +125,9 @@ function delayWithTimeout(timeout: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, timeout));
 }
 
-export function ngswCommChannelFactory(
-  opts: SwRegistrationOptions,
-  injector: Injector,
-): NgswCommChannel {
+export function ngswCommChannelFactory(): NgswCommChannel {
+  const opts = inject(SwRegistrationOptions);
+  const injector = inject(Injector);
   const isBrowser = !(typeof ngServerMode !== 'undefined' && ngServerMode);
 
   return new NgswCommChannel(
@@ -121,6 +146,8 @@ export function ngswCommChannelFactory(
  * {@example service-worker/registration-options/module.ts region="registration-options"
  *     header="app.module.ts"}
  *
+ * @see [Service worker configuration](ecosystem/service-workers/getting-started#service-worker-configuration)
+ *
  * @publicApi
  */
 export abstract class SwRegistrationOptions {
@@ -131,6 +158,23 @@ export abstract class SwRegistrationOptions {
    * Default: true
    */
   enabled?: boolean;
+
+  /**
+   * The value of the setting used to determine the circumstances in which the browser
+   * will consult the HTTP cache when it tries to update the service worker or any scripts that are imported via importScripts().
+   * [ServiceWorkerRegistration.updateViaCache](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration/updateViaCache)
+   */
+  updateViaCache?: ServiceWorkerUpdateViaCache;
+
+  /**
+   * The type of the ServiceWorker script to register.
+   * [ServiceWorkerRegistration#type](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/register#type)
+   * - `classic`: Registers the script as a classic worker. ES module features such as `import` and `export` are NOT allowed in the script.
+   * - `module`: Registers the script as an ES module. Allows use of `import`/`export` syntax and module features.
+   *
+   * @default 'classic'
+   */
+  type?: WorkerType;
 
   /**
    * A URL that defines the ServiceWorker's registration scope; that is, what range of URLs it can
@@ -187,6 +231,11 @@ export abstract class SwRegistrationOptions {
  *   ],
  * });
  * ```
+ *
+ * @see [Custom service worker script](ecosystem/service-workers/custom-service-worker-scripts)
+ *
+ * @see [Service worker configuration](ecosystem/service-workers/getting-started#service-worker-configuration)
+ *
  */
 export function provideServiceWorker(
   script: string,
@@ -200,7 +249,6 @@ export function provideServiceWorker(
     {
       provide: NgswCommChannel,
       useFactory: ngswCommChannelFactory,
-      deps: [SwRegistrationOptions, Injector],
     },
     provideAppInitializer(ngswAppInitializer),
   ]);

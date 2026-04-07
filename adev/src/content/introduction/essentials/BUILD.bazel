@@ -1,3 +1,4 @@
+load("//adev/shared-docs:defaults.bzl", "js_library")
 load("//adev/shared-docs:index.bzl", "generate_guides")
 
 generate_guides(
@@ -14,7 +15,14 @@ generate_guides(
         "//adev/src/assets/images:signals.svg",
         "//adev/src/assets/images:templates.svg",
         "//adev/src/assets/images:what_is_angular.svg",
+        "//adev/src/content/examples",
     ],
     mermaid_blocks = True,
+    visibility = ["//adev:__subpackages__"],
+)
+
+js_library(
+    name = "guide_files",
+    srcs = glob(["**/*.md"]),
     visibility = ["//adev:__subpackages__"],
 )

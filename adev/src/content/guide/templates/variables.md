@@ -8,17 +8,18 @@ Angular's `@let` syntax allows you to define a local variable and re-use it acro
 
 ### Using `@let`
 
-Use `@let` to declare a variable whose value is based on the result of a template expression. Angular automatically keeps the variable's value up-to-date with the given expression, similar to [bindings](./templates/bindings).
+Use `@let` to declare a variable whose value is based on the result of a template expression. Angular automatically keeps the variable's value up-to-date with the given expression, similar to [bindings](/guide/templates/binding).
 
 ```angular-html
 @let name = user.name;
 @let greeting = 'Hello, ' + name;
 @let data = data$ | async;
-@let pi = 3.1459;
+@let pi = 3.14159;
 @let coordinates = {x: 50, y: 100};
-@let longExpression = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit ' +
-                      'sed do eiusmod tempor incididunt ut labore et dolore magna ' +
-                      'Ut enim ad minim veniam...';
+@let longExpression =
+  'Lorem ipsum dolor sit amet, consectetur adipiscing elit ' +
+  'sed do eiusmod tempor incididunt ut labore et dolore magna ' +
+  'Ut enim ad minim veniam...';
 ```
 
 Each `@let` block can declare exactly one variable. You cannot declare multiple variables in the same block with a comma.
@@ -31,12 +32,12 @@ Once you've declared a variable with `@let`, you can reuse it in the same templa
 @let user = user$ | async;
 
 @if (user) {
-  <h1>Hello, {{user.name}}</h1>
-  <user-avatar [photo]="user.photo"/>
+  <h1>Hello, {{ user.name }}</h1>
+  <user-avatar [photo]="user.photo" />
 
   <ul>
     @for (snack of user.favoriteSnacks; track snack.id) {
-      <li>{{snack.name}}</li>
+      <li>{{ snack.name }}</li>
     }
   </ul>
 
@@ -68,31 +69,25 @@ Since `@let` declarations are not hoisted, they **cannot** be accessed by parent
   @let insideDiv = value;
 </div>
 
-{{topLevel}} <!-- Valid -->
-{{insideDiv}} <!-- Valid -->
+<!-- Valid -->
+{{ topLevel }}
+<!-- Valid -->
+{{ insideDiv }}
 
 @if (condition) {
-  {{topLevel + insideDiv}} <!-- Valid -->
+  <!-- Valid -->
+  {{ topLevel + insideDiv }}
 
   @let nested = value;
 
   @if (condition) {
-    {{topLevel + insideDiv + nested}} <!-- Valid -->
+    <!-- Valid -->
+    {{ topLevel + insideDiv + nested }}
   }
 }
 
-<div *ngIf="condition">
-  {{topLevel + insideDiv}} <!-- Valid -->
-
-  @let nestedNgIf = value;
-
-  <div *ngIf="condition">
-     {{topLevel + insideDiv + nestedNgIf}} <!-- Valid -->
-  </div>
-</div>
-
-{{nested}} <!-- Error, not hoisted from @if -->
-{{nestedNgIf}} <!-- Error, not hoisted from *ngIf -->
+<!-- Error, not hoisted from @if -->
+{{ nested }}
 ```
 
 ### Full syntax
@@ -124,7 +119,7 @@ You can declare a variable on an element in a template by adding an attribute th
 
 ```angular-html
 <!-- Create a template reference variable named "taskInput", referring to the HTMLInputElement. -->
-<input #taskInput placeholder="Enter task name">
+<input #taskInput placeholder="Enter task name" />
 ```
 
 ### Assigning values to template reference variables
@@ -138,7 +133,7 @@ If you declare the variable on a Angular component, the variable refers to the c
 <my-datepicker #startDate />
 ```
 
-If you declare the variable on an `<ng-template>` element, the variable refers to a TemplateRef instance which represents the template. For more information, see [How Angular uses the asterisk, \*, syntax](/guide/directives/structural-directives#asterisk) in [Structural directives](/guide/directives/structural-directives).
+If you declare the variable on an `<ng-template>` element, the variable refers to a TemplateRef instance which represents the template. For more information, see [How Angular uses the asterisk, \*, syntax](/guide/directives/structural-directives#structural-directive-shorthand) in [Structural directives](/guide/directives/structural-directives).
 
 ```angular-html
 <!-- The `myFragment` variable is assigned the `TemplateRef` instance corresponding to this template fragment. -->
@@ -151,7 +146,7 @@ If you declare the variable on any other displayed element, the variable refers 
 
 ```angular-html
 <!-- The "taskInput" variable refers to the HTMLInputElement instance. -->
-<input #taskInput placeholder="Enter task name">
+<input #taskInput placeholder="Enter task name" />
 ```
 
 #### Assigning a reference to an Angular directive
@@ -163,14 +158,16 @@ Angular directives may have an `exportAs` property that defines a name by which 
   selector: '[dropZone]',
   exportAs: 'dropZone',
 })
-export class DropZone { /* ... */ }
+export class DropZone {
+  /* ... */
+}
 ```
 
 When you declare a template variable on an element, you can assign that variable a directive instance by specifying this `exportAs` name:
 
 ```angular-html
 <!-- The `firstZone` variable refers to the `DropZone` directive instance. -->
-<section dropZone #firstZone="dropZone"> ... </section>
+<section dropZone #firstZone="dropZone">...</section>
 ```
 
 You cannot refer to a directive that does not specify an `exportAs` name.
@@ -182,7 +179,7 @@ In addition to using template variables to read values from another part of the 
 When you want to query for a specific element in a template, you can declare a template variable on that element and then query for the element based on the variable name.
 
 ```angular-html
- <input #description value="Original description">
+<input #description value="Original description" />
 ```
 
 ```angular-ts

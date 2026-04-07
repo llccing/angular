@@ -12,33 +12,31 @@ import {Breadcrumb} from './breadcrumb.component';
 import {NavigationState} from '../../services';
 import {NavigationItem} from '../../interfaces';
 import {By} from '@angular/platform-browser';
-import {RouterTestingModule} from '@angular/router/testing';
-import {provideExperimentalZonelessChangeDetection} from '@angular/core';
+import {provideRouter} from '@angular/router';
 
 describe('Breadcrumb', () => {
-  let fixture: ComponentFixture<Breadcrumb>;
   let navigationStateSpy: jasmine.SpyObj<NavigationState>;
 
   beforeEach(() => {
     navigationStateSpy = jasmine.createSpyObj('NavigationState', ['activeNavigationItem']);
 
     TestBed.configureTestingModule({
-      imports: [Breadcrumb, RouterTestingModule],
+      imports: [Breadcrumb],
       providers: [
-        provideExperimentalZonelessChangeDetection(),
+        provideRouter([]),
         {
           provide: NavigationState,
           useValue: navigationStateSpy,
         },
       ],
     });
-    fixture = TestBed.createComponent(Breadcrumb);
   });
 
-  it('should display proper breadcrumb structure based on navigation state', () => {
+  it('should display proper breadcrumb structure based on navigation state', async () => {
     navigationStateSpy.activeNavigationItem.and.returnValue(item);
+    const fixture = TestBed.createComponent(Breadcrumb);
+    await fixture.whenStable();
 
-    fixture.detectChanges();
     const breadcrumbs = fixture.debugElement.queryAll(By.css('.docs-breadcrumb span'));
 
     expect(breadcrumbs.length).toBe(2);
@@ -46,10 +44,11 @@ describe('Breadcrumb', () => {
     expect(breadcrumbs[1].nativeElement.innerText).toEqual('Parent');
   });
 
-  it('should display breadcrumb links when navigation item has got path', () => {
+  it('should display breadcrumb links when navigation item has got path', async () => {
     navigationStateSpy.activeNavigationItem.and.returnValue(exampleItemWithPath);
 
-    fixture.detectChanges();
+    const fixture = TestBed.createComponent(Breadcrumb);
+    await fixture.whenStable();
     const breadcrumbs = fixture.debugElement.queryAll(By.css('.docs-breadcrumb a'));
 
     expect(breadcrumbs.length).toBe(1);

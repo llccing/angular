@@ -6,10 +6,15 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import 'zone.js/lib/browser/rollup-main';
+import 'zone.js';
 
-import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
+import {bootstrapApplication, provideProtractorTestingSupport} from '@angular/platform-browser';
+import {ApplicationConfig, provideZoneChangeDetection} from '@angular/core';
+import {provideRouter} from '@angular/router';
+import {ActivatedRouteComponent} from './activated_route_component';
 
-import {AppModule} from './module';
+const appConfig: ApplicationConfig = {
+  providers: [provideRouter([]), provideZoneChangeDetection(), provideProtractorTestingSupport()],
+};
 
-platformBrowserDynamic().bootstrapModule(AppModule);
+bootstrapApplication(ActivatedRouteComponent, appConfig).catch((err) => console.error(err));

@@ -322,7 +322,7 @@ runInEachFileSystem(() => {
       expect(getBirthdayMember.memberTags).toContain(MemberTags.Optional);
     });
 
-    it('should extract member tags', () => {
+    it('should not extract internal member tags', () => {
       // Test both properties and methods with zero, one, and multiple tags.
       env.write(
         'index.ts',
@@ -721,6 +721,25 @@ runInEachFileSystem(() => {
       expect(fooEntry.name).toBe('foo');
       expect(fooEntry.memberType).toBe(MemberType.Property);
       expect((fooEntry as PropertyEntry).type).toBe('string');
+    });
+
+    it('should not extract a constructor without parameters', () => {
+      env.write(
+        'index.ts',
+        `
+        export class MyClass {
+          constructor() {}
+
+          foo: string;
+        }`,
+      );
+
+      const docs: DocEntry[] = env.driveDocsExtraction('index.ts');
+      expect(docs.length).toBe(1);
+      const classEntry = docs[0] as ClassEntry;
+      expect(classEntry.members.length).toBe(1); // only foo, no constructor
+      const [fooEntry] = classEntry.members as PropertyEntry[];
+      expect(fooEntry.name).toBe('foo');
     });
 
     it('should extract members of a class from .d.ts', () => {

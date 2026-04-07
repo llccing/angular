@@ -76,7 +76,6 @@
     background-color 0.3s ease,
     border-color 0.3s ease;
   height: 100dvh;
-  padding-block-start: 1rem;
   padding-block-end: 2rem;
   box-sizing: border-box;
   // Add a subtle border for the home page
@@ -108,11 +107,24 @@
       color-mix(in srgb, var(--electric-violet), transparent 70%) 25%,
       color-mix(in srgb, var(--bright-blue), transparent 60%) 90%
     );
+
+    &::before {
+      content: '';
+      position: absolute;
+      opacity: 0.8;
+      width: 100%;
+      height: 100%;
+      background-color: var(--octonary-contrast);
+      z-index: -1;
+    }
+    .adev-version-button {
+      border: 1px solid var(--quinary-contrast);
+    }
   }
 
   &.adev-nav-primary--deprecated {
     // change nav background to indicate this is an outdated version of the docs
-    background-color: color-mix(in srgb, var(--symbolic-gray), transparent 30%);
+    background-color: var(--deprecated-docs-bg);
   }
 
   // div containing mobile close button and adev-nav_top
@@ -153,6 +165,7 @@
     list-style: none;
     display: flex;
     flex-direction: column;
+    padding-block-start: 1rem;
 
     @include mq.for-tablet {
       flex-direction: row;

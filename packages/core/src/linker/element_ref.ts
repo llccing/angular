@@ -42,6 +42,8 @@ export function createElementRef(tNode: TNode, lView: LView): ElementRef {
  * XSS attacks. Carefully review any use of `ElementRef` in your code. For more detail, see the
  * [Security Guide](https://g.co/ng/security).
  *
+ * @see [Using DOM APIs](guide/components/dom-apis)
+ *
  * @publicApi
  */
 // Note: We don't expose things like `Injector`, `ViewContainer`, ... here,
@@ -49,12 +51,13 @@ export function createElementRef(tNode: TNode, lView: LView): ElementRef {
 // and could do better codegen in the future.
 export class ElementRef<T = any> {
   /**
-   * <div class="callout is-critical">
+   * <div class="docs-alert docs-alert-important">
    *   <header>Use with caution</header>
    *   <p>
    *    Use this API as the last resort when direct access to DOM is needed. Use templating and
-   *    data-binding provided by Angular instead. Alternatively you can take a look at
-   *    {@link Renderer2} which provides an API that can be safely used.
+   *    data-binding provided by Angular instead. If used, it is recommended in combination with
+   *    {@link /best-practices/security#direct-use-of-the-dom-apis-and-explicit-sanitization-calls DomSanitizer}
+   *    for maxiumum security;
    *   </p>
    * </div>
    */

@@ -16,6 +16,8 @@ export enum TokenType {
   String,
   Operator,
   Number,
+  RegExpBody,
+  RegExpFlags,
   Error,
 }
 
@@ -38,6 +40,8 @@ const KEYWORDS = [
   'this',
   'typeof',
   'void',
+  'in',
+  'instanceof',
 ];
 
 export class Lexer {
@@ -119,8 +123,24 @@ export class Token {
     return this.type === TokenType.Keyword && this.strValue === 'void';
   }
 
+  isKeywordIn(): boolean {
+    return this.type === TokenType.Keyword && this.strValue === 'in';
+  }
+
+  isKeywordInstanceOf(): boolean {
+    return this.type === TokenType.Keyword && this.strValue === 'instanceof';
+  }
+
   isError(): boolean {
     return this.type === TokenType.Error;
+  }
+
+  isRegExpBody(): boolean {
+    return this.type === TokenType.RegExpBody;
+  }
+
+  isRegExpFlags(): boolean {
+    return this.type === TokenType.RegExpFlags;
   }
 
   toNumber(): number {
@@ -128,19 +148,17 @@ export class Token {
   }
 
   isTemplateLiteralPart(): this is StringToken {
-    return this.isString() && this.kind === StringTokenKind.TemplateLiteralPart;
+    // Note: Explicit type is needed for Closure.
+    return this.isString() && (this as StringToken).kind === StringTokenKind.TemplateLiteralPart;
   }
 
   isTemplateLiteralEnd(): this is StringToken {
-    return this.isString() && this.kind === StringTokenKind.TemplateLiteralEnd;
+    // Note: Explicit type is needed for Closure.
+    return this.isString() && (this as StringToken).kind === StringTokenKind.TemplateLiteralEnd;
   }
 
   isTemplateLiteralInterpolationStart(): boolean {
     return this.isOperator('${');
-  }
-
-  isTemplateLiteralInterpolationEnd(): boolean {
-    return this.isOperator('}');
   }
 
   toString(): string | null {
@@ -152,6 +170,8 @@ export class Token {
       case TokenType.PrivateIdentifier:
       case TokenType.String:
       case TokenType.Error:
+      case TokenType.RegExpBody:
+      case TokenType.RegExpFlags:
         return this.strValue;
       case TokenType.Number:
         return this.numValue.toString();
@@ -200,6 +220,14 @@ function newErrorToken(index: number, end: number, message: string): Token {
   return new Token(index, end, TokenType.Error, 0, message);
 }
 
+function newRegExpBodyToken(index: number, end: number, text: string): Token {
+  return new Token(index, end, TokenType.RegExpBody, 0, text);
+}
+
+function newRegExpFlagsToken(index: number, end: number, text: string): Token {
+  return new Token(index, end, TokenType.RegExpFlags, 0, text);
+}
+
 export const EOF: Token = new Token(-1, -1, TokenType.Character, 0, '');
 
 class _Scanner {
@@ -207,8 +235,7 @@ class _Scanner {
   private readonly length: number;
   private peek = 0;
   private index = -1;
-  private literalInterpolationDepth = 0;
-  private braceDepth = 0;
+  private braceStack: ('interpolation' | 'expression')[] = [];
 
   constructor(private readonly input: string) {
     this.length = input.length;
@@ -266,9 +293,21 @@ class _Scanner {
     switch (peek) {
       case chars.$PERIOD:
         this.advance();
-        return chars.isDigit(this.peek)
-          ? this.scanNumber(start)
-          : newCharacterToken(start, this.index, chars.$PERIOD);
+
+        if (chars.isDigit(this.peek)) {
+          return this.scanNumber(start);
+        }
+
+        if (this.peek !== chars.$PERIOD) {
+          return newCharacterToken(start, this.index, chars.$PERIOD);
+        }
+
+        this.advance();
+        if (this.peek === chars.$PERIOD) {
+          this.advance();
+          return newOperatorToken(start, this.index, '...');
+        }
+        return this.error(`Unexpected character [${String.fromCharCode(peek)}]`, 0);
       case chars.$LPAREN:
       case chars.$RPAREN:
       case chars.$LBRACKET:
@@ -290,32 +329,32 @@ class _Scanner {
       case chars.$HASH:
         return this.scanPrivateIdentifier();
       case chars.$PLUS:
+        return this.scanComplexOperator(start, '+', chars.$EQ, '=');
       case chars.$MINUS:
+        return this.scanComplexOperator(start, '-', chars.$EQ, '=');
       case chars.$SLASH:
+        return this.isStartOfRegex()
+          ? this.scanRegex(index)
+          : this.scanComplexOperator(start, '/', chars.$EQ, '=');
       case chars.$PERCENT:
+        return this.scanComplexOperator(start, '%', chars.$EQ, '=');
       case chars.$CARET:
-        return this.scanOperator(start, String.fromCharCode(peek));
+        return this.scanOperator(start, '^');
       case chars.$STAR:
-        return this.scanComplexOperator(start, '*', chars.$STAR, '*');
+        return this.scanStar(start);
       case chars.$QUESTION:
         return this.scanQuestion(start);
       case chars.$LT:
       case chars.$GT:
         return this.scanComplexOperator(start, String.fromCharCode(peek), chars.$EQ, '=');
       case chars.$BANG:
+        return this.scanComplexOperator(start, '!', chars.$EQ, '=', chars.$EQ, '=');
       case chars.$EQ:
-        return this.scanComplexOperator(
-          start,
-          String.fromCharCode(peek),
-          chars.$EQ,
-          '=',
-          chars.$EQ,
-          '=',
-        );
+        return this.scanEquals(start);
       case chars.$AMPERSAND:
-        return this.scanComplexOperator(start, '&', chars.$AMPERSAND, '&');
+        return this.scanComplexOperator(start, '&', chars.$AMPERSAND, '&', chars.$EQ, '=');
       case chars.$BAR:
-        return this.scanComplexOperator(start, '|', chars.$BAR, '|');
+        return this.scanComplexOperator(start, '|', chars.$BAR, '|', chars.$EQ, '=');
       case chars.$NBSP:
         while (chars.isWhitespace(this.peek)) this.advance();
         return this.scanToken();
@@ -336,7 +375,7 @@ class _Scanner {
   }
 
   private scanOpenBrace(start: number, code: number): Token {
-    this.braceDepth++;
+    this.braceStack.push('expression');
     this.advance();
     return newCharacterToken(start, this.index, code);
   }
@@ -344,13 +383,12 @@ class _Scanner {
   private scanCloseBrace(start: number, code: number): Token {
     this.advance();
 
-    if (this.braceDepth === 0 && this.literalInterpolationDepth > 0) {
-      this.literalInterpolationDepth--;
-      this.tokens.push(newOperatorToken(start, this.index, '}'));
+    const currentBrace = this.braceStack.pop();
+    if (currentBrace === 'interpolation') {
+      this.tokens.push(newCharacterToken(start, this.index, chars.$RBRACE));
       return this.scanTemplateLiteralPart(this.index);
     }
 
-    this.braceDepth--;
     return newCharacterToken(start, this.index, code);
   }
 
@@ -381,6 +419,24 @@ class _Scanner {
     if (threeCode != null && this.peek == threeCode) {
       this.advance();
       str += three;
+    }
+    return newOperatorToken(start, this.index, str);
+  }
+
+  private scanEquals(start: number): Token {
+    this.advance();
+    let str: string = '=';
+    if (this.peek === chars.$EQ) {
+      this.advance();
+      str += '=';
+    } else if (this.peek === chars.$GT) {
+      this.advance();
+      str += '>';
+      return newOperatorToken(start, this.index, str);
+    }
+    if (this.peek === chars.$EQ) {
+      this.advance();
+      str += '=';
     }
     return newOperatorToken(start, this.index, str);
   }
@@ -480,13 +536,23 @@ class _Scanner {
 
   private scanQuestion(start: number): Token {
     this.advance();
-    let str: string = '?';
-    // Either `a ?? b` or 'a?.b'.
-    if (this.peek === chars.$QUESTION || this.peek === chars.$PERIOD) {
-      str += this.peek === chars.$PERIOD ? '.' : '?';
+    let operator = '?';
+    // `a ?? b` or `a ??= b`.
+    if (this.peek === chars.$QUESTION) {
+      operator += '?';
+      this.advance();
+
+      // @ts-expect-error
+      if (this.peek === chars.$EQ) {
+        operator += '=';
+        this.advance();
+      }
+    } else if (this.peek === chars.$PERIOD) {
+      // `a?.b`
+      operator += '.';
       this.advance();
     }
-    return newOperatorToken(start, this.index, str);
+    return newOperatorToken(start, this.index, operator);
   }
 
   private scanTemplateLiteralPart(start: number): Token {
@@ -507,7 +573,7 @@ class _Scanner {
 
         // @ts-expect-error
         if (this.peek === chars.$LBRACE) {
-          this.literalInterpolationDepth++;
+          this.braceStack.push('interpolation');
           this.tokens.push(
             new StringToken(
               start,
@@ -564,6 +630,117 @@ class _Scanner {
     }
     buffer += String.fromCharCode(unescapedCode);
     return buffer;
+  }
+
+  private scanStar(start: number): Token {
+    this.advance();
+    // `*`, `**`, `**=` or `*=`
+    let operator = '*';
+
+    if (this.peek === chars.$STAR) {
+      operator += '*';
+      this.advance();
+
+      // @ts-expect-error
+      if (this.peek === chars.$EQ) {
+        operator += '=';
+        this.advance();
+      }
+    } else if (this.peek === chars.$EQ) {
+      operator += '=';
+      this.advance();
+    }
+
+    return newOperatorToken(start, this.index, operator);
+  }
+
+  private isStartOfRegex(): boolean {
+    if (this.tokens.length === 0) {
+      return true;
+    }
+
+    const prevToken = this.tokens[this.tokens.length - 1];
+
+    // If a slash is preceded by a `!` operator, we need to distinguish whether it's a
+    // negation or a non-null assertion. Regexes can only be precded by negations.
+    if (prevToken.isOperator('!')) {
+      const beforePrevToken = this.tokens.length > 1 ? this.tokens[this.tokens.length - 2] : null;
+      const isNegation =
+        beforePrevToken === null ||
+        (beforePrevToken.type !== TokenType.Identifier &&
+          !beforePrevToken.isCharacter(chars.$RPAREN) &&
+          !beforePrevToken.isCharacter(chars.$RBRACKET));
+
+      return isNegation;
+    }
+
+    // Only consider the slash a regex if it's preceded either by:
+    // - Any operator, aside from `!` which is special-cased above.
+    // - Opening paren (e.g. `(/a/)`).
+    // - Opening bracket (e.g. `[/a/]`).
+    // - A comma (e.g. `[1, /a/]`).
+    // - A colon (e.g. `{foo: /a/}`).
+    return (
+      prevToken.type === TokenType.Operator ||
+      prevToken.isCharacter(chars.$LPAREN) ||
+      prevToken.isCharacter(chars.$LBRACKET) ||
+      prevToken.isCharacter(chars.$COMMA) ||
+      prevToken.isCharacter(chars.$COLON)
+    );
+  }
+
+  private scanRegex(tokenStart: number): Token {
+    this.advance();
+    const textStart = this.index;
+    let inEscape = false;
+    let inCharacterClass = false;
+
+    while (true) {
+      const peek = this.peek;
+
+      if (peek === chars.$EOF) {
+        return this.error('Unterminated regular expression', 0);
+      }
+
+      if (inEscape) {
+        inEscape = false;
+      } else if (peek === chars.$BACKSLASH) {
+        inEscape = true;
+      } else if (peek === chars.$LBRACKET) {
+        inCharacterClass = true;
+      } else if (peek === chars.$RBRACKET) {
+        inCharacterClass = false;
+      } else if (peek === chars.$SLASH && !inCharacterClass) {
+        break;
+      }
+      this.advance();
+    }
+
+    // Note that we want the text without the slashes,
+    // but we still want the slashes to be part of the span.
+    const value = this.input.substring(textStart, this.index);
+    this.advance();
+    const bodyToken = newRegExpBodyToken(tokenStart, this.index, value);
+    const flagsToken = this.scanRegexFlags(this.index);
+
+    if (flagsToken !== null) {
+      this.tokens.push(bodyToken);
+      return flagsToken;
+    }
+
+    return bodyToken;
+  }
+
+  private scanRegexFlags(start: number): Token | null {
+    if (!chars.isAsciiLetter(this.peek)) {
+      return null;
+    }
+
+    while (chars.isAsciiLetter(this.peek)) {
+      this.advance();
+    }
+
+    return newRegExpFlagsToken(start, this.index, this.input.substring(start, this.index));
   }
 }
 

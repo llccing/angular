@@ -23,9 +23,20 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["full compile", "linked compile", "local compile"]
+              "enum": [
+                "full compile",
+                "linked compile",
+                "local compile",
+                "declaration-only emit",
+                "instruction compile"
+              ]
             },
-            "default": ["full compile", "linked compile"]
+            "default": [
+              "full compile",
+              "linked compile",
+              "declaration-only emit",
+              "instruction compile"
+            ]
           },
           "inputFiles": {
             "title": "A collection of source files to compile",

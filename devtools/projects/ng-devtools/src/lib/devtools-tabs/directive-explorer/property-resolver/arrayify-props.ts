@@ -6,9 +6,8 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Descriptor} from 'protocol';
-
-import {Property} from './element-property-resolver';
+import {Descriptor} from '../../../../../../protocol';
+import {Property} from '../../../shared/object-tree-explorer/object-tree-types';
 
 export const arrayifyProps = (
   props: {[prop: string]: Descriptor} | Descriptor[],

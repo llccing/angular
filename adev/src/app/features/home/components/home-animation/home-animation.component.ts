@@ -8,23 +8,22 @@
 
 import {
   afterNextRender,
-  ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   inject,
   Injector,
   input,
-  OnDestroy,
   output,
   signal,
   viewChildren,
 } from '@angular/core';
+import {isIos, shouldReduceMotion, WINDOW} from '@angular/docs';
 import {RouterLink} from '@angular/router';
-import {WINDOW, isIos, shouldReduceMotion} from '@angular/docs';
 
-import {Animation, AnimationCreatorService, AnimationLayerDirective} from '../../animation';
+import {AnimationCreatorService, AnimationLayerDirective} from '../../animation';
 import {AnimationScrollHandler} from '../../animation/plugins/animation-scroll-handler';
-import {generateHomeAnimationDefinition, ANIM_TIMESTEP} from './animation-definition';
+import {ANIM_TIMESTEP, generateHomeAnimationDefinition} from './animation-definition';
 
 export const METEOR_HW_RATIO = 1.42; // Height to width ratio
 export const METEOR_GAP_RATIO = 1.33; // Use 0.7 for WebGL-like field. Renders a lot of elements though.
@@ -58,15 +57,13 @@ type MeteorFieldData = {
   imports: [AnimationLayerDirective, RouterLink],
   templateUrl: './home-animation.component.html',
   styleUrl: './home-animation.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [AnimationCreatorService],
 })
-export class HomeAnimationComponent implements OnDestroy {
+export class HomeAnimationComponent {
   private readonly win = inject(WINDOW);
   private readonly animCreator = inject(AnimationCreatorService);
   private readonly injector = inject(Injector);
   private readonly elementRef = inject(ElementRef);
-  private animation?: Animation;
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly animationLayers = viewChildren(AnimationLayerDirective);
 
@@ -87,10 +84,6 @@ export class HomeAnimationComponent implements OnDestroy {
     }
   }
 
-  ngOnDestroy() {
-    this.animation?.dispose();
-  }
-
   private initAnimation() {
     // Limitation: Meteor dimensions won't change on page resize
     const meteorDimensions = this.calculateMeteorDimensions();
@@ -103,19 +96,18 @@ export class HomeAnimationComponent implements OnDestroy {
 
     afterNextRender({
       read: () => {
-        this.animation = this.animCreator
-          .createAnimation(this.animationLayers(), {
-            timestep: ANIM_TIMESTEP,
-          })
+        const animation = this.animCreator
+          .createAnimation(this.animationLayers(), {timestep: ANIM_TIMESTEP})
           .define(generateHomeAnimationDefinition(this.isUwu(), this.meteors().length))
           .addPlugin(new AnimationScrollHandler(this.elementRef, this.injector));
 
         this.ready.emit(true);
+        this.destroyRef.onDestroy(() => animation.dispose());
       },
     });
   }
 
-  /** Calculte the dimensions and sizes of a meteor – width, height, tail, tilt angle, etc. */
+  /** Calculate the dimensions and sizes of a meteor – width, height, tail, tilt angle, etc. */
   private calculateMeteorDimensions(): MeteorDimensions {
     let width = METEOR_WIDTH_DEFAULT;
 

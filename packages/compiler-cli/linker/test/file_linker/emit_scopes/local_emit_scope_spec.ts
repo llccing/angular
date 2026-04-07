@@ -5,8 +5,7 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.dev/license
  */
-import {ConstantPool} from '@angular/compiler';
-import * as o from '@angular/compiler/src/output/output_ast';
+import {ConstantPool, outputAst as o} from '@angular/compiler';
 import ts from 'typescript';
 
 import {TypeScriptAstFactory} from '../../../../src/ngtsc/translator';
@@ -18,9 +17,9 @@ describe('LocalEmitScope', () => {
   describe('translateDefinition()', () => {
     it('should translate the given output AST into a TExpression, wrapped in an IIFE', () => {
       const factory = new TypeScriptAstFactory(/* annotateForClosureCompiler */ false);
-      const translator = new Translator<ts.Statement, ts.Expression>(factory);
+      const translator = new Translator<ts.Statement, ts.Expression, ts.TypeNode>(factory);
       const ngImport = factory.createIdentifier('core');
-      const emitScope = new LocalEmitScope<ts.Statement, ts.Expression>(
+      const emitScope = new LocalEmitScope<ts.Statement, ts.Expression, ts.TypeNode>(
         ngImport,
         translator,
         factory,
@@ -38,9 +37,9 @@ describe('LocalEmitScope', () => {
 
     it('should use the `ngImport` identifier for imports when translating', () => {
       const factory = new TypeScriptAstFactory(/* annotateForClosureCompiler */ false);
-      const translator = new Translator<ts.Statement, ts.Expression>(factory);
+      const translator = new Translator<ts.Statement, ts.Expression, ts.TypeNode>(factory);
       const ngImport = factory.createIdentifier('core');
-      const emitScope = new LocalEmitScope<ts.Statement, ts.Expression>(
+      const emitScope = new LocalEmitScope<ts.Statement, ts.Expression, ts.TypeNode>(
         ngImport,
         translator,
         factory,
@@ -59,9 +58,9 @@ describe('LocalEmitScope', () => {
 
     it('should not emit an IIFE if there are no shared constants', () => {
       const factory = new TypeScriptAstFactory(/* annotateForClosureCompiler */ false);
-      const translator = new Translator<ts.Statement, ts.Expression>(factory);
+      const translator = new Translator<ts.Statement, ts.Expression, ts.TypeNode>(factory);
       const ngImport = factory.createIdentifier('core');
-      const emitScope = new LocalEmitScope<ts.Statement, ts.Expression>(
+      const emitScope = new LocalEmitScope<ts.Statement, ts.Expression, ts.TypeNode>(
         ngImport,
         translator,
         factory,
@@ -78,9 +77,9 @@ describe('LocalEmitScope', () => {
   describe('getConstantStatements()', () => {
     it('should throw an error', () => {
       const factory = new TypeScriptAstFactory(/* annotateForClosureCompiler */ false);
-      const translator = new Translator<ts.Statement, ts.Expression>(factory);
+      const translator = new Translator<ts.Statement, ts.Expression, ts.TypeNode>(factory);
       const ngImport = factory.createIdentifier('core');
-      const emitScope = new LocalEmitScope<ts.Statement, ts.Expression>(
+      const emitScope = new LocalEmitScope<ts.Statement, ts.Expression, ts.TypeNode>(
         ngImport,
         translator,
         factory,

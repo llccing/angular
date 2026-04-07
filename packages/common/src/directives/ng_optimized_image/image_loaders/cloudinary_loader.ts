@@ -6,7 +6,9 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
+import {Provider} from '@angular/core';
 import {createImageLoader, ImageLoaderConfig, ImageLoaderInfo} from './image_loader';
+import {normalizeLoaderTransform} from './normalized_options';
 
 /**
  * Name and URL tester for Cloudinary.
@@ -34,9 +36,10 @@ function isCloudinaryUrl(url: string): boolean {
  * https://subdomain.mysite.com
  * @returns Set of providers to configure the Cloudinary loader.
  *
+ * @see [Image Optimization Guide](guide/image-optimization)
  * @publicApi
  */
-export const provideCloudinaryLoader = createImageLoader(
+export const provideCloudinaryLoader: (path: string) => Provider[] = createImageLoader(
   createCloudinaryUrl,
   ngDevMode
     ? [
@@ -62,8 +65,18 @@ function createCloudinaryUrl(path: string, config: ImageLoaderConfig) {
     params += `,w_${config.width}`;
   }
 
+  if (config.height) {
+    params += `,h_${config.height}`;
+  }
+
   if (config.loaderParams?.['rounded']) {
     params += `,r_max`;
+  }
+
+  // Allows users to add any Cloudinary transformation parameters as a string or object
+  if (config.loaderParams?.['transform']) {
+    const transformStr = normalizeLoaderTransform(config.loaderParams['transform'], '_');
+    params += `,${transformStr}`;
   }
 
   return `${path}/image/upload/${params}/${config.src}`;

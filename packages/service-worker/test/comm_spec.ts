@@ -237,7 +237,7 @@ describe('ServiceWorker library', () => {
           await push.unsubscribe();
           throw new Error('`unsubscribe()` should fail');
         } catch (err) {
-          expect((err as Error).message).toBe('Not subscribed to push notifications.');
+          expect((err as Error).message).toContain('Not subscribed to push notifications.');
         }
       });
 
@@ -270,7 +270,7 @@ describe('ServiceWorker library', () => {
           await push.unsubscribe();
           throw new Error('`unsubscribe()` should fail');
         } catch (err) {
-          expect((err as Error).message).toBe('Unsubscribe failed!');
+          expect((err as Error).message).toContain('Unsubscribe failed!');
         }
       });
 
@@ -350,6 +350,22 @@ describe('ServiceWorker library', () => {
         sendMessage('KCILC_NOITACIFITON', 'this was a KCILC_NOITACIFITON message');
 
         expect(receivedMessages).toEqual(['this was a click', 'this was a click too']);
+      });
+    });
+
+    describe('notificationCloses', () => {
+      it('receives notification closes messages', () => {
+        const sendMessage = (type: string, action: string) =>
+          mock.sendMessage({type, data: {action}});
+
+        const receivedMessages: string[] = [];
+        push.notificationCloses.subscribe((msg: {action: string}) =>
+          receivedMessages.push(msg.action),
+        );
+
+        sendMessage('NOTIFICATION_CLOSE', 'empty_string');
+
+        expect(receivedMessages).toEqual(['empty_string']);
       });
     });
 

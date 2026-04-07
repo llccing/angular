@@ -7,13 +7,13 @@
  */
 
 import {absoluteFrom} from '@angular/compiler-cli';
-import {runTsurgeMigration} from '../../utils/tsurge/testing';
-import {SignalQueriesMigration} from './migration';
-import {initMockFileSystem} from '@angular/compiler-cli/src/ngtsc/file_system/testing';
-import {diffText} from '../../utils/tsurge/testing/diff';
-import {dedent} from '../../utils/tsurge/testing/dedent';
-import {setupTsurgeJasmineHelpers} from '../../utils/tsurge/testing/jasmine';
+import {initMockFileSystem} from '@angular/compiler-cli/private/testing';
 import ts from 'typescript';
+import {runTsurgeMigration} from '../../utils/tsurge/testing';
+import {dedent} from '../../utils/tsurge/testing/dedent';
+import {diffText} from '../../utils/tsurge/testing/diff';
+import {setupTsurgeJasmineHelpers} from '../../utils/tsurge/testing/jasmine';
+import {SignalQueriesMigration} from './migration';
 
 interface TestCase {
   id: string;
@@ -92,11 +92,6 @@ const declarationTestCases: TestCase[] = [
     after: `readonly buttonEl = contentChild.required('myBtn', { read: ElementRef });`,
   },
   {
-    id: 'contentChild with string locator and read option, required',
-    before: `@ContentChild('myBtn', {read: ElementRef}) buttonEl!: ElementRef;`,
-    after: `readonly buttonEl = contentChild.required('myBtn', { read: ElementRef });`,
-  },
-  {
     id: 'contentChild with descendants option',
     before: `@ContentChild('myBtn', {descendants: false}) buttonEl!: ElementRef;`,
     after: `readonly buttonEl = contentChild.required<ElementRef>('myBtn', { descendants: false });`,
@@ -118,7 +113,7 @@ const declarationTestCases: TestCase[] = [
     after: `readonly button = viewChildren(MyButton);`,
   },
   {
-    id: 'viewChild with string locator and read option, nullable shorthand',
+    id: 'viewChildren with string locator and read option, nullable shorthand',
     before: `@ViewChildren('myBtn', {read: ElementRef}) buttonEl?: QueryList<ElementRef>;`,
     after: `readonly buttonEl = viewChildren('myBtn', { read: ElementRef });`,
   },
@@ -200,7 +195,7 @@ const declarationTestCases: TestCase[] = [
     after: `readonly buttonEl = contentChild('myBtn', { read: ButtonEl });`,
   },
   {
-    id: 'query with explicit ReadT',
+    id: 'query with explicit read ElementRef',
     before: `@ContentChild(SomeDir, {read: ElementRef}) buttonEl!: ElementRef`,
     after: `readonly buttonEl = contentChild.required(SomeDir, { read: ElementRef });`,
   },
@@ -1586,14 +1581,14 @@ describe('signal queries migration', () => {
       ],
     );
 
-    expect(await getStatistics()).toEqual({
-      counters: {
-        queriesCount: 3,
-        multiQueries: 2,
-        incompatibleQueries: 2,
-        'incompat-field-Accessor': 1,
-        'incompat-field-WriteAssignment': 1,
-      },
+    // Cast as we dynamically add fields to the stats. This can be improved in follow-ups
+    // when stats for this migration are leveraging more complex data structures.
+    expect((await getStatistics()) as object).toEqual({
+      queriesCount: 3,
+      multiQueries: 2,
+      incompatibleQueries: 2,
+      'incompat-field-Accessor': 1,
+      'incompat-field-WriteAssignment': 1,
     });
   });
 

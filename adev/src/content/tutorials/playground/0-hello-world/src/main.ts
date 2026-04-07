@@ -3,10 +3,8 @@ import {bootstrapApplication} from '@angular/platform-browser';
 
 @Component({
   selector: 'app-root',
-  template: `
-    Hello world!
-  `,
+  template: ` Hello world! `,
 })
-export class PlaygroundComponent {}
+export class Playground {}
 
-bootstrapApplication(PlaygroundComponent);
+bootstrapApplication(Playground);

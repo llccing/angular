@@ -31,7 +31,7 @@ import {PRIMARY_OUTLET} from '../shared';
 export function getOrCreateRouteInjectorIfNeeded(
   route: Route,
   currentInjector: EnvironmentInjector,
-) {
+): EnvironmentInjector {
   if (route.providers && !route._injector) {
     route._injector = createEnvironmentInjector(
       route.providers,
@@ -70,7 +70,7 @@ export function validateConfig(
   }
 }
 
-export function assertStandalone(fullPath: string, component: Type<unknown> | undefined) {
+export function assertStandalone(fullPath: string, component: Type<unknown> | undefined): void {
   if (component && isNgModule(component)) {
     throw new RuntimeError(
       RuntimeErrorCode.INVALID_ROUTE_CONFIG,
@@ -141,25 +141,29 @@ function validateNode(route: Route, fullPath: string, requireStandaloneComponent
         `Invalid configuration of route '${fullPath}': children and loadChildren cannot be used together`,
       );
     }
-    if (route.redirectTo && (route.component || route.loadComponent)) {
-      throw new RuntimeError(
-        RuntimeErrorCode.INVALID_ROUTE_CONFIG,
-        `Invalid configuration of route '${fullPath}': redirectTo and component/loadComponent cannot be used together`,
-      );
-    }
     if (route.component && route.loadComponent) {
       throw new RuntimeError(
         RuntimeErrorCode.INVALID_ROUTE_CONFIG,
         `Invalid configuration of route '${fullPath}': component and loadComponent cannot be used together`,
       );
     }
-    if (route.redirectTo && route.canActivate) {
-      throw new RuntimeError(
-        RuntimeErrorCode.INVALID_ROUTE_CONFIG,
-        `Invalid configuration of route '${fullPath}': redirectTo and canActivate cannot be used together. Redirects happen before activation ` +
-          `so canActivate will never be executed.`,
-      );
+
+    if (route.redirectTo) {
+      if (route.component || route.loadComponent) {
+        throw new RuntimeError(
+          RuntimeErrorCode.INVALID_ROUTE_CONFIG,
+          `Invalid configuration of route '${fullPath}': redirectTo and component/loadComponent cannot be used together`,
+        );
+      }
+      if (route.canMatch || route.canActivate) {
+        throw new RuntimeError(
+          RuntimeErrorCode.INVALID_ROUTE_CONFIG,
+          `Invalid configuration of route '${fullPath}': redirectTo and ${route.canMatch ? 'canMatch' : 'canActivate'} cannot be used together.` +
+            `Redirects happen before guards are executed.`,
+        );
+      }
     }
+
     if (route.path && route.matcher) {
       throw new RuntimeError(
         RuntimeErrorCode.INVALID_ROUTE_CONFIG,
@@ -234,41 +238,4 @@ export function sortByMatchingOutlets(routes: Routes, outletName: string): Route
   const sortedConfig = routes.filter((r) => getOutlet(r) === outletName);
   sortedConfig.push(...routes.filter((r) => getOutlet(r) !== outletName));
   return sortedConfig;
-}
-
-/**
- * Gets the first injector in the snapshot's parent tree.
- *
- * If the `Route` has a static list of providers, the returned injector will be the one created from
- * those. If it does not exist, the returned injector may come from the parents, which may be from a
- * loaded config or their static providers.
- *
- * Returns `null` if there is neither this nor any parents have a stored injector.
- *
- * Generally used for retrieving the injector to use for getting tokens for guards/resolvers and
- * also used for getting the correct injector to use for creating components.
- */
-export function getClosestRouteInjector(
-  snapshot: ActivatedRouteSnapshot | undefined,
-): EnvironmentInjector | null {
-  if (!snapshot) return null;
-
-  // If the current route has its own injector, which is created from the static providers on the
-  // route itself, we should use that. Otherwise, we start at the parent since we do not want to
-  // include the lazy loaded injector from this route.
-  if (snapshot.routeConfig?._injector) {
-    return snapshot.routeConfig._injector;
-  }
-
-  for (let s = snapshot.parent; s; s = s.parent) {
-    const route = s.routeConfig;
-    // Note that the order here is important. `_loadedInjector` stored on the route with
-    // `loadChildren: () => NgModule` so it applies to child routes with priority. The `_injector`
-    // is created from the static providers on that parent route, so it applies to the children as
-    // well, but only if there is no lazy loaded NgModuleRef injector.
-    if (route?._loadedInjector) return route._loadedInjector;
-    if (route?._injector) return route._injector;
-  }
-
-  return null;
 }

@@ -26,29 +26,29 @@ export interface AfterContentInit {
 }
 
 // @public
+export function afterEveryRender<E = never, W = never, M = never>(spec: {
+    earlyRead?: () => E;
+    write?: (...args: ɵFirstAvailable<[E]>) => W;
+    mixedReadWrite?: (...args: ɵFirstAvailable<[W, E]>) => M;
+    read?: (...args: ɵFirstAvailable<[M, W, E]>) => void;
+}, options?: AfterRenderOptions): AfterRenderRef;
+
+// @public
+export function afterEveryRender(callback: VoidFunction, options?: AfterRenderOptions): AfterRenderRef;
+
+// @public
 export function afterNextRender<E = never, W = never, M = never>(spec: {
     earlyRead?: () => E;
     write?: (...args: ɵFirstAvailable<[E]>) => W;
     mixedReadWrite?: (...args: ɵFirstAvailable<[W, E]>) => M;
     read?: (...args: ɵFirstAvailable<[M, W, E]>) => void;
-}, options?: Omit<AfterRenderOptions, 'phase'>): AfterRenderRef;
+}, options?: AfterRenderOptions): AfterRenderRef;
 
 // @public
 export function afterNextRender(callback: VoidFunction, options?: AfterRenderOptions): AfterRenderRef;
 
 // @public
-export function afterRender<E = never, W = never, M = never>(spec: {
-    earlyRead?: () => E;
-    write?: (...args: ɵFirstAvailable<[E]>) => W;
-    mixedReadWrite?: (...args: ɵFirstAvailable<[W, E]>) => M;
-    read?: (...args: ɵFirstAvailable<[M, W, E]>) => void;
-}, options?: Omit<AfterRenderOptions, 'phase'>): AfterRenderRef;
-
-// @public
-export function afterRender(callback: VoidFunction, options?: AfterRenderOptions): AfterRenderRef;
-
-// @public
-export function afterRenderEffect(callback: (onCleanup: EffectCleanupRegisterFn) => void, options?: Omit<AfterRenderOptions, 'phase'>): AfterRenderRef;
+export function afterRenderEffect(callback: (onCleanup: EffectCleanupRegisterFn) => void, options?: AfterRenderOptions): AfterRenderRef;
 
 // @public
 export function afterRenderEffect<E = never, W = never, M = never>(spec: {
@@ -56,22 +56,12 @@ export function afterRenderEffect<E = never, W = never, M = never>(spec: {
     write?: (...args: [...ɵFirstAvailableSignal<[E]>, EffectCleanupRegisterFn]) => W;
     mixedReadWrite?: (...args: [...ɵFirstAvailableSignal<[W, E]>, EffectCleanupRegisterFn]) => M;
     read?: (...args: [...ɵFirstAvailableSignal<[M, W, E]>, EffectCleanupRegisterFn]) => void;
-}, options?: Omit<AfterRenderOptions, 'phase'>): AfterRenderRef;
+}, options?: AfterRenderOptions): AfterRenderRef;
 
 // @public
 export interface AfterRenderOptions {
     injector?: Injector;
     manualCleanup?: boolean;
-    // @deprecated
-    phase?: AfterRenderPhase;
-}
-
-// @public @deprecated
-export enum AfterRenderPhase {
-    EarlyRead = 0,
-    MixedReadWrite = 2,
-    Read = 3,
-    Write = 1
 }
 
 // @public
@@ -91,6 +81,15 @@ export interface AfterViewInit {
 
 // @public
 export const ANIMATION_MODULE_TYPE: InjectionToken<"NoopAnimations" | "BrowserAnimations">;
+
+// @public
+export type AnimationCallbackEvent = {
+    target: Element;
+    animationComplete: VoidFunction;
+};
+
+// @public
+export type AnimationFunction = (event: AnimationCallbackEvent) => void;
 
 // @public
 export const APP_BOOTSTRAP_LISTENER: InjectionToken<readonly ((compRef: ComponentRef<any>) => void)[]>;
@@ -187,31 +186,38 @@ export interface BaseResourceOptions<T, R> {
     defaultValue?: NoInfer<T>;
     equal?: ValueEqualityFn<T>;
     injector?: Injector;
-    request?: () => R;
+    params?: (ctx: ResourceParamsContext) => R;
+}
+
+// @public
+export interface Binding {
+    // (undocumented)
+    readonly [BINDING]: unknown;
 }
 
 // @public
 export function booleanAttribute(value: unknown): boolean;
 
-// @public
+// @public @deprecated
 export interface BootstrapOptions {
     // @deprecated
-    ignoreChangesOutsideZone?: boolean;
     ngZone?: NgZone | 'zone.js' | 'noop';
+    // @deprecated
     ngZoneEventCoalescing?: boolean;
+    // @deprecated
     ngZoneRunCoalescing?: boolean;
 }
 
 // @public
 export enum ChangeDetectionStrategy {
+    // @deprecated
     Default = 1,
+    Eager = 1,
     OnPush = 0
 }
 
 // @public
 export abstract class ChangeDetectorRef {
-    // @deprecated
-    abstract checkNoChanges(): void;
     abstract detach(): void;
     abstract detectChanges(): void;
     abstract markForCheck(): void;
@@ -262,14 +268,11 @@ export type CompilerOptions = {
 
 // @public
 export interface Component extends Directive {
+    // @deprecated
     animations?: any[];
     changeDetection?: ChangeDetectionStrategy;
     encapsulation?: ViewEncapsulation;
     imports?: (Type<any> | ReadonlyArray<any>)[];
-    // @deprecated
-    interpolation?: [string, string];
-    // @deprecated
-    moduleId?: string;
     preserveWhitespaces?: boolean;
     schemas?: SchemaMetadata[];
     standalone?: boolean;
@@ -477,9 +480,6 @@ export function createEnvironmentInjector(providers: Array<Provider | Environmen
 // @public
 export function createNgModule<T>(ngModule: Type<T>, parentInjector?: Injector): NgModuleRef<T>;
 
-// @public @deprecated
-export const createNgModuleRef: typeof createNgModule;
-
 // @public
 export function createPlatform(injector: Injector): PlatformRef;
 
@@ -497,6 +497,18 @@ export const CSP_NONCE: InjectionToken<string | null>;
 
 // @public
 export const CUSTOM_ELEMENTS_SCHEMA: SchemaMetadata;
+
+// @public
+export function debounced<T>(source: () => T, wait: NoInfer<DebounceTimer<T>>, options?: NoInfer<DebouncedOptions<T>>): Resource<T>;
+
+// @public
+export interface DebouncedOptions<T> {
+    equal?: ValueEqualityFn<T>;
+    injector?: Injector;
+}
+
+// @public
+export type DebounceTimer<T> = number | ((value: T, lastValue: ResourceSnapshot<T>) => Promise<void> | void);
 
 // @public (undocumented)
 export class DebugElement extends DebugNode {
@@ -584,9 +596,6 @@ export class DefaultIterableDiffer<V> implements IterableDiffer<V>, IterableChan
     onDestroy(): void;
 }
 
-// @public @deprecated (undocumented)
-export const defineInjectable: typeof ɵɵdefineInjectable;
-
 // @public
 export interface DestroyableInjector extends Injector {
     // (undocumented)
@@ -598,6 +607,7 @@ export function destroyPlatform(): void;
 
 // @public
 export abstract class DestroyRef {
+    abstract get destroyed(): boolean;
     abstract onDestroy(callback: () => void): () => void;
 }
 
@@ -635,6 +645,12 @@ export const Directive: DirectiveDecorator;
 export interface DirectiveDecorator {
     (obj?: Directive): TypeDecorator;
     new (obj?: Directive): Directive;
+}
+
+// @public
+export interface DirectiveWithBindings<T> {
+    bindings: Binding[];
+    type: Type<T>;
 }
 
 // @public
@@ -680,6 +696,9 @@ export abstract class EmbeddedViewRef<C> extends ViewRef {
 // @public
 export function enableProdMode(): void;
 
+// @public
+export function enableProfiling(): () => void;
+
 // @public @deprecated
 export const ENVIRONMENT_INITIALIZER: InjectionToken<readonly (() => void)[]>;
 
@@ -687,6 +706,7 @@ export const ENVIRONMENT_INITIALIZER: InjectionToken<readonly (() => void)[]>;
 export abstract class EnvironmentInjector implements Injector {
     // (undocumented)
     abstract destroy(): void;
+    abstract get destroyed(): boolean;
     abstract get<T>(token: ProviderToken<T>, notFoundValue: undefined, options: InjectOptions & {
         optional?: false;
     }): T;
@@ -831,8 +851,11 @@ export interface HostListenerDecorator {
     new (eventName: string, args?: string[]): any;
 }
 
-// @public @deprecated
-export type ImportedNgModuleProviders = EnvironmentProviders;
+// @public
+export interface IdleService {
+    cancelOnIdle(id: number): void;
+    requestOnIdle(callback: (deadline?: IdleDeadline) => void, options?: IdleRequestOptions): number;
+}
 
 // @public
 export function importProvidersFrom(...sources: ImportProvidersSource[]): EnvironmentProviders;
@@ -883,9 +906,13 @@ export const Injectable: InjectableDecorator;
 // @public
 export interface InjectableDecorator {
     (): TypeDecorator;
+    // @deprecated (undocumented)
+    (options?: {
+        providedIn: Type<any> | 'any';
+    } & InjectableProvider): TypeDecorator;
     // (undocumented)
     (options?: {
-        providedIn: Type<any> | 'root' | 'platform' | 'any' | null;
+        providedIn: 'root' | 'platform' | null;
     } & InjectableProvider): TypeDecorator;
     // (undocumented)
     new (): Injectable;
@@ -915,6 +942,11 @@ export interface InjectDecorator {
 
 // @public
 export class InjectionToken<T> {
+    // @deprecated
+    constructor(_desc: string, options: {
+        providedIn: Type<any> | 'any';
+        factory: () => T;
+    });
     constructor(_desc: string, options?: {
         providedIn?: Type<any> | 'root' | 'platform' | 'any' | null;
         factory: () => T;
@@ -959,7 +991,7 @@ export abstract class Injector {
     // (undocumented)
     static THROW_IF_NOT_FOUND: {};
     // (undocumented)
-    static ɵprov: unknown;
+    static ɵprov: _angular_core.ɵɵInjectableDeclaration<Injector>;
 }
 
 // @public
@@ -1006,7 +1038,7 @@ export interface InputFunction {
     };
 }
 
-// @public
+// @public (undocumented)
 export interface InputOptions<T, TransformT> {
     alias?: string;
     debugName?: string;
@@ -1043,6 +1075,9 @@ export function isSignal(value: unknown): value is Signal<unknown>;
 
 // @public
 export function isStandalone(type: Type<unknown>): boolean;
+
+// @public
+export function isWritableSignal(value: unknown): value is WritableSignal<unknown>;
 
 // @public
 export interface IterableChangeRecord<V> {
@@ -1085,7 +1120,7 @@ export class IterableDiffers {
     // (undocumented)
     find(iterable: any): IterableDifferFactory;
     // (undocumented)
-    static ɵprov: unknown;
+    static ɵprov: _angular_core.ɵɵInjectableDeclaration<IterableDiffers>;
 }
 
 // @public
@@ -1122,17 +1157,18 @@ export interface KeyValueDifferFactory {
 export class KeyValueDiffers {
     constructor(factories: KeyValueDifferFactory[]);
     // (undocumented)
-    static create<S>(factories: KeyValueDifferFactory[], parent?: KeyValueDiffers): KeyValueDiffers;
-    static extend<S>(factories: KeyValueDifferFactory[]): StaticProvider;
+    static create(factories: KeyValueDifferFactory[], parent?: KeyValueDiffers): KeyValueDiffers;
+    static extend(factories: KeyValueDifferFactory[]): StaticProvider;
     // (undocumented)
     find(kv: any): KeyValueDifferFactory;
     // (undocumented)
-    static ɵprov: unknown;
+    static ɵprov: _angular_core.ɵɵInjectableDeclaration<KeyValueDiffers>;
 }
 
 // @public
 export function linkedSignal<D>(computation: () => D, options?: {
     equal?: ValueEqualityFn<NoInfer<D>>;
+    debugName?: string;
 }): WritableSignal<D>;
 
 // @public
@@ -1143,6 +1179,7 @@ export function linkedSignal<S, D>(options: {
         value: NoInfer<D>;
     }) => D;
     equal?: ValueEqualityFn<NoInfer<D>>;
+    debugName?: string;
 }): WritableSignal<D>;
 
 // @public
@@ -1163,6 +1200,9 @@ export function makeEnvironmentProviders(providers: (Provider | EnvironmentProvi
 
 // @public
 export function makeStateKey<T = void>(key: string): StateKey<T>;
+
+// @public
+export const MAX_ANIMATION_TIMEOUT: InjectionToken<number>;
 
 // @public
 export function mergeApplicationConfig(...configs: ApplicationConfig[]): ApplicationConfig;
@@ -1262,15 +1302,6 @@ export abstract class NgModuleRef<T> {
     abstract onDestroy(callback: () => void): void;
 }
 
-// @public @deprecated
-export class NgProbeToken {
-    constructor(name: string, token: any);
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    token: any;
-}
-
 // @public
 export class NgZone {
     constructor(options: {
@@ -1299,8 +1330,6 @@ export class NgZone {
 // @public
 export interface NgZoneOptions {
     eventCoalescing?: boolean;
-    // @deprecated
-    ignoreChangesOutsideZone?: boolean;
     runCoalescing?: boolean;
 }
 
@@ -1385,15 +1414,12 @@ export interface OutputRefSubscription {
     unsubscribe(): void;
 }
 
-// @public @deprecated
-export const PACKAGE_ROOT_URL: InjectionToken<string>;
-
 // @public
 export class PendingTasks {
     add(): () => void;
     run(fn: () => Promise<unknown>): void;
     // (undocumented)
-    static ɵprov: unknown;
+    static ɵprov: _angular_core.ɵɵInjectableDeclaration<PendingTasks>;
 }
 
 // @public
@@ -1429,9 +1455,15 @@ export const platformCore: (extraProviders?: StaticProvider[] | undefined) => Pl
 
 // @public
 export class PlatformRef {
-    bootstrapModule<M>(moduleType: Type<M>, compilerOptions?: (CompilerOptions & BootstrapOptions) | Array<CompilerOptions & BootstrapOptions>): Promise<NgModuleRef<M>>;
+    bootstrapModule<M>(moduleType: Type<M>, compilerOptions?: (CompilerOptions & BootstrapOptions & {
+        applicationProviders?: Array<Provider | EnvironmentProviders>;
+    }) | Array<CompilerOptions & BootstrapOptions & {
+        applicationProviders?: Array<Provider | EnvironmentProviders>;
+    }>): Promise<NgModuleRef<M>>;
     // @deprecated
-    bootstrapModuleFactory<M>(moduleFactory: NgModuleFactory<M>, options?: BootstrapOptions): Promise<NgModuleRef<M>>;
+    bootstrapModuleFactory<M>(moduleFactory: NgModuleFactory<M>, options?: BootstrapOptions & {
+        applicationProviders?: Array<Provider | EnvironmentProviders>;
+    }): Promise<NgModuleRef<M>>;
     destroy(): void;
     get destroyed(): boolean;
     get injector(): Injector;
@@ -1455,20 +1487,30 @@ export interface PromiseResourceOptions<T, R> extends BaseResourceOptions<T, R> 
 export function provideAppInitializer(initializerFn: () => Observable<unknown> | Promise<unknown> | void): EnvironmentProviders;
 
 // @public
+export function provideBrowserGlobalErrorListeners(): EnvironmentProviders;
+
+// @public
+export function provideCheckNoChangesConfig(options: {
+    exhaustive: false;
+}): EnvironmentProviders;
+
+// @public
+export function provideCheckNoChangesConfig(options: {
+    interval?: number;
+    exhaustive: true;
+}): EnvironmentProviders;
+
+// @public
 export function provideEnvironmentInitializer(initializerFn: () => void): EnvironmentProviders;
 
 // @public
-export function provideExperimentalCheckNoChangesForDebug(options: {
-    interval?: number;
-    useNgZoneOnStable?: boolean;
-    exhaustive?: boolean;
-}): _angular_core.EnvironmentProviders;
+export function provideIdleServiceWith(useExisting: AbstractType<IdleService> | InjectionToken<IdleService>): EnvironmentProviders;
 
 // @public
-export function provideExperimentalZonelessChangeDetection(): EnvironmentProviders;
+export function provideNgReflectAttributes(): EnvironmentProviders;
 
 // @public
-export function providePlatformInitializer(initializerFn: () => void): EnvironmentProviders;
+export function providePlatformInitializer(initializerFn: () => void): StaticProvider;
 
 // @public
 export type Provider = TypeProvider | ValueProvider | ClassProvider | ConstructorProvider | ExistingProvider | FactoryProvider | any[];
@@ -1477,7 +1519,13 @@ export type Provider = TypeProvider | ValueProvider | ClassProvider | Constructo
 export type ProviderToken<T> = Type<T> | AbstractType<T> | InjectionToken<T>;
 
 // @public
+export function provideStabilityDebugging(): EnvironmentProviders;
+
+// @public
 export function provideZoneChangeDetection(options?: NgZoneOptions): EnvironmentProviders;
+
+// @public
+export function provideZonelessChangeDetection(): EnvironmentProviders;
 
 // @public
 export interface Query {
@@ -1553,7 +1601,7 @@ export abstract class Renderer2 {
     abstract nextSibling(node: any): any;
     abstract parentNode(node: any): any;
     abstract removeAttribute(el: any, name: string, namespace?: string | null): void;
-    abstract removeChild(parent: any, oldChild: any, isHostElement?: boolean): void;
+    abstract removeChild(parent: any, oldChild: any, isHostElement?: boolean, requireSynchronousElementRemoval?: boolean): void;
     abstract removeClass(el: any, name: string): void;
     abstract removeStyle(el: any, style: string, flags?: RendererStyleFlags2): void;
     abstract selectRootElement(selectorOrNode: string | any, preserveContent?: boolean): any;
@@ -1599,10 +1647,12 @@ export function resolveForwardRef<T>(type: T): T;
 
 // @public
 export interface Resource<T> {
-    readonly error: Signal<unknown>;
-    hasValue(): this is Resource<Exclude<T, undefined>>;
+    readonly error: Signal<Error | undefined>;
+    hasValue(this: T extends undefined ? this : never): this is Resource<Exclude<T, undefined>>;
+    // (undocumented)
+    hasValue(): boolean;
     readonly isLoading: Signal<boolean>;
-    reload(): boolean;
+    readonly snapshot: Signal<ResourceSnapshot<T>>;
     readonly status: Signal<ResourceStatus>;
     readonly value: Signal<T>;
 }
@@ -1616,6 +1666,15 @@ export function resource<T, R>(options: ResourceOptions<T, R> & {
 export function resource<T, R>(options: ResourceOptions<T, R>): ResourceRef<T | undefined>;
 
 // @public
+export class ResourceDependencyError extends Error {
+    constructor(dependency: Resource<unknown>);
+    readonly dependency: Resource<unknown>;
+}
+
+// @public
+export function resourceFromSnapshots<T>(source: () => ResourceSnapshot<T>): Resource<T>;
+
+// @public
 export type ResourceLoader<T, R> = (param: ResourceLoaderParams<R>) => PromiseLike<T>;
 
 // @public
@@ -1623,32 +1682,55 @@ export interface ResourceLoaderParams<R> {
     // (undocumented)
     abortSignal: AbortSignal;
     // (undocumented)
+    params: NoInfer<Exclude<R, undefined>>;
+    // (undocumented)
     previous: {
         status: ResourceStatus;
     };
-    // (undocumented)
-    request: Exclude<NoInfer<R>, undefined>;
 }
 
 // @public (undocumented)
-export type ResourceOptions<T, R> = PromiseResourceOptions<T, R> | StreamingResourceOptions<T, R>;
+export type ResourceOptions<T, R> = (PromiseResourceOptions<T, R> | StreamingResourceOptions<T, R>) & {
+    debugName?: string;
+};
+
+// @public
+export interface ResourceParamsContext {
+    readonly chain: <T>(resource: Resource<T>) => T;
+}
+
+// @public
+export class ResourceParamsStatus extends Error {
+    static readonly IDLE: ResourceParamsStatus;
+    static readonly LOADING: ResourceParamsStatus;
+}
 
 // @public
 export interface ResourceRef<T> extends WritableResource<T> {
     destroy(): void;
     // (undocumented)
-    hasValue(): this is ResourceRef<Exclude<T, undefined>>;
+    hasValue(this: T extends undefined ? this : never): this is ResourceRef<Exclude<T, undefined>>;
+    // (undocumented)
+    hasValue(): boolean;
 }
 
 // @public
-export enum ResourceStatus {
-    Error = 1,
-    Idle = 0,
-    Loading = 2,
-    Local = 5,
-    Reloading = 3,
-    Resolved = 4
-}
+export type ResourceSnapshot<T> = {
+    readonly status: 'idle';
+    readonly value: T;
+} | {
+    readonly status: 'loading' | 'reloading';
+    readonly value: T;
+} | {
+    readonly status: 'resolved' | 'local';
+    readonly value: T;
+} | {
+    readonly status: 'error';
+    readonly error: Error;
+};
+
+// @public
+export type ResourceStatus = 'idle' | 'error' | 'loading' | 'reloading' | 'resolved' | 'local';
 
 // @public
 export type ResourceStreamingLoader<T, R> = (param: ResourceLoaderParams<R>) => PromiseLike<Signal<ResourceStreamItem<T>>>;
@@ -1657,11 +1739,17 @@ export type ResourceStreamingLoader<T, R> = (param: ResourceLoaderParams<R>) => 
 export type ResourceStreamItem<T> = {
     value: T;
 } | {
-    error: unknown;
+    error: Error;
 };
 
 // @public
-export const RESPONSE_INIT: InjectionToken<ResponseInit | null>;
+export const RESPONSE_INIT: InjectionToken<ResponseInit_2 | null>;
+
+// @public
+type ResponseInit_2 = {
+    -readonly [P in keyof globalThis.ResponseInit]: globalThis.ResponseInit[P];
+};
+export { ResponseInit_2 as ResponseInit }
 
 // @public
 export function runInInjectionContext<ReturnT>(injector: Injector, fn: () => ReturnT): ReturnT;
@@ -1671,7 +1759,7 @@ export abstract class Sanitizer {
     // (undocumented)
     abstract sanitize(context: SecurityContext, value: {} | string | null): string | null;
     // (undocumented)
-    static ɵprov: unknown;
+    static ɵprov: _angular_core.ɵɵInjectableDeclaration<null>;
 }
 
 // @public
@@ -1722,22 +1810,25 @@ export type Signal<T> = (() => T) & {
 export function signal<T>(initialValue: T, options?: CreateSignalOptions<T>): WritableSignal<T>;
 
 // @public
-export class SimpleChange {
-    constructor(previousValue: any, currentValue: any, firstChange: boolean);
+export class SimpleChange<T = any> {
+    constructor(previousValue: T, currentValue: T, firstChange: boolean);
     // (undocumented)
-    currentValue: any;
+    currentValue: T;
     // (undocumented)
     firstChange: boolean;
     isFirstChange(): boolean;
     // (undocumented)
-    previousValue: any;
+    previousValue: T;
 }
 
 // @public
-export interface SimpleChanges {
-    // (undocumented)
+export type SimpleChanges<T = unknown> = T extends object ? {
+    [Key in keyof T]?: SimpleChange<T[Key] extends {
+        [ɵINPUT_SIGNAL_BRAND_READ_TYPE]: infer V;
+    } ? V : T[Key]>;
+} : {
     [propName: string]: SimpleChange;
-}
+};
 
 // @public
 export interface SkipSelf {
@@ -1781,9 +1872,9 @@ export interface StreamingResourceOptions<T, R> extends BaseResourceOptions<T, R
 }
 
 // @public
-export abstract class TemplateRef<C> {
-    abstract createEmbeddedView(context: C, injector?: Injector): EmbeddedViewRef<C>;
-    abstract readonly elementRef: ElementRef;
+export class TemplateRef<C> {
+    createEmbeddedView(context: C, injector?: Injector): EmbeddedViewRef<C>;
+    readonly elementRef: ElementRef;
 }
 
 // @public
@@ -1829,7 +1920,7 @@ export class TransferState {
     set<T>(key: StateKey<T>, value: T): void;
     toJson(): string;
     // (undocumented)
-    static ɵprov: unknown;
+    static ɵprov: _angular_core.ɵɵInjectableDeclaration<TransferState>;
 }
 
 // @public
@@ -2004,6 +2095,7 @@ export abstract class ViewContainerRef {
 // @public
 export enum ViewEncapsulation {
     Emulated = 0,
+    ExperimentalIsolatedShadowDom = 4,
     None = 2,
     ShadowDom = 3
 }
@@ -2020,7 +2112,10 @@ export interface WritableResource<T> extends Resource<T> {
     // (undocumented)
     asReadonly(): Resource<T>;
     // (undocumented)
-    hasValue(): this is WritableResource<Exclude<T, undefined>>;
+    hasValue(this: T extends undefined ? this : never): this is WritableResource<Exclude<T, undefined>>;
+    // (undocumented)
+    hasValue(): boolean;
+    reload(): boolean;
     set(value: T): void;
     update(updater: (value: T) => T): void;
     // (undocumented)

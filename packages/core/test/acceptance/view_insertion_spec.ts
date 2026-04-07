@@ -15,23 +15,32 @@ import {
   Injectable,
   Injector,
   Input,
+  provideZoneChangeDetection,
   TemplateRef,
   ViewChild,
   ViewContainerRef,
   ViewRef,
+  ChangeDetectionStrategy,
 } from '../../src/core';
 import {TestBed} from '../../testing';
 import {By} from '@angular/platform-browser';
 
 describe('view insertion', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideZoneChangeDetection()],
+    });
+  });
   describe('of a simple template', () => {
     it('should insert into an empty container, at the front, in the middle, and at the end', () => {
       let _counter = 0;
 
       @Component({
         selector: 'increment-comp',
-        template: `<span>created{{counter}}</span>`,
+        template: `<span>created{{ counter }}</span>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class IncrementComp {
         counter = _counter++;
@@ -39,10 +48,12 @@ describe('view insertion', () => {
 
       @Component({
         template: `
-              <ng-template #simple><increment-comp></increment-comp></ng-template>
-              <div #container></div>
-            `,
+          <ng-template #simple><increment-comp></increment-comp></ng-template>
+          <div #container></div>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         @ViewChild('container', {read: ViewContainerRef, static: true})
@@ -97,10 +108,12 @@ describe('view insertion', () => {
     it('should insert into an empty container, at the front, in the middle, and at the end', () => {
       @Component({
         template: `
-              <ng-template #empty></ng-template>
-              <div #container></div>
-            `,
+          <ng-template #empty></ng-template>
+          <div #container></div>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         @ViewChild('container', {read: ViewContainerRef}) container: ViewContainerRef = null!;
@@ -146,10 +159,12 @@ describe('view insertion', () => {
       @Component({
         selector: 'comp',
         template: `
-                  <ng-template #projection><ng-content></ng-content></ng-template>
-                  <div #container></div>
-                `,
+          <ng-template #projection><ng-content></ng-content></ng-template>
+          <div #container></div>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Comp {
         @ViewChild('container', {read: ViewContainerRef}) container: ViewContainerRef = null!;
@@ -177,10 +192,10 @@ describe('view insertion', () => {
       }
 
       @Component({
-        template: `
-          <comp>test</comp>
-        `,
+        template: ` <comp>test</comp> `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -206,10 +221,12 @@ describe('view insertion', () => {
     it('should insert into an empty container, at the front, in the middle, and at the end', () => {
       @Component({
         template: `
-                  <ng-template #subContainer><div class="dynamic" *ngIf="true">test</div></ng-template>
-                  <div #container></div>
-                `,
+          <ng-template #subContainer><div class="dynamic" *ngIf="true">test</div></ng-template>
+          <div #container></div>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         @ViewChild('container', {read: ViewContainerRef}) container: ViewContainerRef = null!;
@@ -280,6 +297,8 @@ describe('view insertion', () => {
         selector: 'test-cmpt',
         template: '',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmpt {
         @ViewChild('before', {static: true}) beforeTpl!: TemplateRef<{}>;
@@ -416,6 +435,8 @@ describe('view insertion', () => {
             <ng-template #tpl>test</ng-template>
           `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class AppComponent {
           insertTpl = false;
@@ -446,6 +467,8 @@ describe('view insertion', () => {
           <div><ng-template #vi="vi" viewInserting></ng-template></div>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class WithContentCmpt {
         @ViewChild('insert', {static: true}) insertTpl!: TemplateRef<{}>;
@@ -464,6 +487,8 @@ describe('view insertion', () => {
         selector: 'test-cmpt',
         template: '',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmpt {
         @ViewChild('wc', {static: true}) withContentCmpt!: WithContentCmpt;
@@ -522,6 +547,8 @@ describe('view insertion', () => {
         selector: 'dynamic-cmpt',
         template: '|before',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class DynamicComponent {}
 
@@ -529,10 +556,12 @@ describe('view insertion', () => {
         @Component({
           selector: 'test-cmpt',
           template: `
-                <ng-template #insert>insert</ng-template>
-                <div><ng-template #vi="vi" viewInserting></ng-template></div>
-              `,
+            <ng-template #insert>insert</ng-template>
+            <div><ng-template #vi="vi" viewInserting></ng-template></div>
+          `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class TestCmpt {
           @ViewChild('insert', {static: true}) insertTpl!: TemplateRef<{}>;
@@ -576,19 +605,23 @@ describe('view insertion', () => {
         selector: 'dynamic-cmpt',
         template: 'dynamic',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class DynamicComponent {}
 
       @Component({
         selector: 'app-root',
         template: `
-            <div>start|</div>
-            <ng-container #container></ng-container>
-            <div>|end</div>
+          <div>start|</div>
+          <ng-container #container></ng-container>
+          <div>|end</div>
 
-            <div (click)="click()" >|click</div>
+          <div (click)="click()">|click</div>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class AppComponent {
         @ViewChild('container', {read: ViewContainerRef, static: true}) vcr!: ViewContainerRef;
@@ -615,14 +648,16 @@ describe('view insertion', () => {
       @Component({
         selector: 'app-root',
         template: `
-        <div>container start|</div>
-        <ng-container #container></ng-container>
-        <div>|container end</div>
+          <div>container start|</div>
+          <ng-container #container></ng-container>
+          <div>|container end</div>
 
-        <ng-template #template >test</ng-template>
-        <div (click)="click()" >|click</div>
+          <ng-template #template>test</ng-template>
+          <div (click)="click()">|click</div>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class AppComponent {
         @ViewChild('container', {read: ViewContainerRef, static: true}) vcr!: ViewContainerRef;
@@ -651,14 +686,18 @@ describe('view insertion', () => {
         selector: 'app-root',
         template: `
           <ng-template #parameterListItem let-parameter="parameter">
-            {{parameter}}
+            {{ parameter }}
           </ng-template>
-          <ng-container *ngFor="let parameter of items;"
+          <ng-container
+            *ngFor="let parameter of items"
             [ngTemplateOutlet]="parameterListItem"
-            [ngTemplateOutletContext]="{parameter:parameter}">
+            [ngTemplateOutletContext]="{parameter: parameter}"
+          >
           </ng-container>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class AppComponent {
         items = [1];
@@ -695,6 +734,8 @@ describe('view insertion', () => {
       @Component({
         template: `<div failInConstructorAlways></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmpt {}
 
@@ -730,6 +771,8 @@ describe('view insertion', () => {
       @Component({
         template: `<div failInConstructorOnce>OK</div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmpt {}
 
@@ -760,6 +803,8 @@ describe('view insertion', () => {
       @Component({
         template: `<div failInInputAlways="static"></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmpt {}
 
@@ -786,6 +831,8 @@ describe('view insertion', () => {
       @Component({
         template: `<div someDir></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmpt {
         @ViewChild(SomeDirective, {static: true})
@@ -819,6 +866,8 @@ describe('view insertion', () => {
       @Component({
         template: `<div someDir></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmpt {
         @ViewChild(SomeDirective, {static: true})
@@ -857,6 +906,8 @@ describe('view insertion', () => {
         selector: 'test',
         template: `<ng-content></ng-content>OK`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmpt {
         constructor() {
@@ -868,8 +919,12 @@ describe('view insertion', () => {
       }
 
       @Component({
-        template: `<test><test><test></test></test></test>`,
+        template: `<test
+          ><test><test></test></test
+        ></test>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -902,8 +957,10 @@ describe('view insertion', () => {
       }
 
       @Component({
-        template: `<div failInConstructorOnce>{{value}}</div>`,
+        template: `<div failInConstructorOnce>{{ value }}</div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmpt {
         value = 0;
@@ -950,6 +1007,8 @@ describe('view insertion', () => {
           </ng-template>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         @ViewChild('broken') template!: TemplateRef<unknown>;
@@ -970,8 +1029,8 @@ describe('view insertion', () => {
       fixture.detectChanges();
 
       // We try to render the same template twice to ensure that we get consistent error messages.
-      expect(tryRender).toThrowError(/No provider for DoesNotExist/);
-      expect(tryRender).toThrowError(/No provider for DoesNotExist/);
+      expect(tryRender).toThrowError(/NG0201\: No provider found for `DoesNotExist`/);
+      expect(tryRender).toThrowError(/NG0201\: No provider found for `DoesNotExist`/);
     });
   });
 });

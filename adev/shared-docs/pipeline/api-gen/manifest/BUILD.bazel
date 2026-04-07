@@ -1,49 +1,40 @@
-load("@npm//@angular/build-tooling/bazel:defaults.bzl", "ts_library")
-load("@angular//tools/esm-interop:index.bzl", "nodejs_binary")
-load("@npm//@angular/build-tooling/bazel/esbuild:index.bzl", "esbuild_esm_bundle")
+load("//adev/shared-docs:defaults.bzl", "esbuild", "js_binary", "ts_project")
 
 package(default_visibility = ["//adev/shared-docs/pipeline/api-gen:__subpackages__"])
 
-esbuild_esm_bundle(
+esbuild(
     name = "bin",
-    entry_point = ":index.ts",
+    entry_point = ":index.mts",
     external = [
         "@angular/compiler-cli",
+        "typescript",
     ],
+    format = "esm",
     output = "bin.mjs",
     platform = "node",
     target = "es2022",
     deps = [
         ":generate_api_manifest_lib",
-        "@angular//packages/compiler-cli",
+        "//adev:node_modules/@angular/compiler-cli",
     ],
 )
 
-ts_library(
+ts_project(
     name = "generate_api_manifest_lib",
-    srcs = glob(["**/*.ts"]),
-    devmode_module = "commonjs",
-    tsconfig = "//adev:tsconfig.json",
+    srcs = glob(["**/*.mts"]),
     deps = [
-        "@angular//packages/compiler-cli",
-        "@npm//@bazel/runfiles",
-        "@npm//@types/node",
+        "//adev:node_modules/@angular/compiler-cli",
+        "//adev:node_modules/@types/node",
     ],
 )
 
-# Action binary for the api_gen bazel rule.
-nodejs_binary(
+js_binary(
     name = "generate_api_manifest",
     data = [
         ":bin",
         "@angular//packages/compiler-cli",
     ],
     entry_point = "bin.mjs",
-    # Note: Using the linker here as we need it for ESM. The linker is not
-    # super reliably when running concurrently on Windows- but we have existing
-    # actions using the linker. An alternative would be to:
-    #   - bundle the Angular compiler into a CommonJS bundle
-    #   - use the patched resolution- but also patch the ESM imports (similar to how FW does it).
     visibility = ["//visibility:public"],
 )
 

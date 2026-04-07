@@ -1,13 +1,32 @@
-load("//tools:defaults.bzl", "ng_module", "ng_package")
+load("//adev/shared-docs:defaults.bzl", "ng_package", "ng_project", "ts_config")
 
-package(default_visibility = ["//visibility:private"])
+package(default_visibility = ["//visibility:public"])
 
-ng_module(
+ts_config(
+    name = "tsconfig_build",
+    src = "tsconfig.json",
+    visibility = [
+        "//adev/shared-docs:__subpackages__",
+    ],
+)
+
+ts_config(
+    name = "tsconfig_test",
+    src = "tsconfig-test.json",
+    visibility = [
+        "//adev/shared-docs:__subpackages__",
+    ],
+    deps = [
+        ":tsconfig_build",
+        "//adev:node_modules/@types/jasmine",
+    ],
+)
+
+ng_project(
     name = "docs",
     srcs = [
         "index.ts",
     ],
-    module_name = "@angular/docs",
     deps = [
         "//adev/shared-docs/components",
         "//adev/shared-docs/directives",
@@ -21,7 +40,6 @@ ng_module(
 )
 
 ng_package(
-    name = "npm_package",
     srcs = [
         "package.json",
         "//adev/shared-docs/icons",
@@ -30,17 +48,18 @@ ng_package(
         "//adev/shared-docs/pipeline:_playground.bzl",
         "//adev/shared-docs/pipeline:_stackblitz.bzl",
         "//adev/shared-docs/pipeline:_tutorial.bzl",
-        "//adev/shared-docs/pipeline:guides.mjs",
-        "//adev/shared-docs/pipeline:guides-no-mermaid.mjs",
-        "//adev/shared-docs/pipeline:playground.mjs",
-        "//adev/shared-docs/pipeline:stackblitz.mjs",
-        "//adev/shared-docs/pipeline:tutorial.mjs",
+        "//adev/shared-docs/pipeline/examples/stackblitz:stackblitz.mjs",
         "//adev/shared-docs/pipeline/examples/template:files",
+        "//adev/shared-docs/pipeline/guides:guides.mjs",
+        "//adev/shared-docs/pipeline/guides:guides-no-mermaid.mjs",
+        "//adev/shared-docs/pipeline/tutorials:playground.mjs",
+        "//adev/shared-docs/pipeline/tutorials:tutorial.mjs",
         "//adev/shared-docs/pipeline/tutorials/common:files",
         "//adev/shared-docs/styles",
     ],
+    package = "@angular/docs",
     visibility = [
-        "//adev:__pkg__",
+        "//adev/shared-docs:__pkg__",
     ],
     deps = [
         ":docs",

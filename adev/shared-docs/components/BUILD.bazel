@@ -1,8 +1,8 @@
-load("//tools:defaults.bzl", "ts_library")
+load("//adev/shared-docs:defaults.bzl", "ts_project")
 
 package(default_visibility = ["//visibility:private"])
 
-ts_library(
+ts_project(
     name = "components",
     srcs = [
         "index.ts",
@@ -20,6 +20,7 @@ ts_library(
         "//adev/shared-docs/components/search-dialog",
         "//adev/shared-docs/components/select",
         "//adev/shared-docs/components/slide-toggle",
+        "//adev/shared-docs/components/tab-group",
         "//adev/shared-docs/components/table-of-contents",
         "//adev/shared-docs/components/text-field",
         "//adev/shared-docs/components/top-level-banner",

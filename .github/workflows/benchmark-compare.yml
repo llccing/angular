@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark-compare ')}}
     steps:
-      - uses: TheModdingInquisition/actions-team-membership@a69636a92bc927f32c3910baac06bacc949c984c # v1.0
+      - uses: TheModdingInquisition/actions-team-membership@057d91bb80f2976a1bc6dfab5b4ae1da9aebbd89 # v1.0
         with:
           team: 'team'
           organization: angular
@@ -19,7 +19,7 @@ jobs:
           exit: true
 
       # Indicate that the benchmark command was received.
-      - uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4
+      - uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5
         with:
           comment-id: ${{github.event.comment.id}}
           token: '${{secrets.BENCHMARK_POST_RESULTS_GITHUB_TOKEN}}'
@@ -28,17 +28,17 @@ jobs:
       - uses: alessbell/pull-request-comment-branch@aad01d65d6982b8eacabed5e9a684cd8ceb98da6 # v1.1
         id: comment-branch
 
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           # Specify repository as the PR branch might be from a fork.
           repository: ${{steps.comment-branch.outputs.head_owner}}/${{steps.comment-branch.outputs.head_repo}}
           # Checkout the pull request and assume it being trusted given we've checked
           # that the action was triggered by a team member.
-          ref: ${{steps.comment-branch.outputs.head_ref}}
+          ref: ${{steps.comment-branch.outputs.head_sha}}
 
-      - uses: ./.github/actions/yarn-install
+      - run: pnpm install --frozen-lockfile
 
-      - uses: angular/dev-infra/github-actions/bazel/configure-remote@f172f3f62ce52d6e91f63b8fd6f3ed83df157aa5
+      - uses: angular/dev-infra/github-actions/bazel/configure-remote@616a50d0b747031b7ea052733adf3771fa6cace9
         with:
           bazelrc: ./.bazelrc.user
 
@@ -47,13 +47,13 @@ jobs:
         env:
           # Untrusted input used in an executable code, must be wrapped as an env var to prevent injections
           COMMENT_BODY: ${{ github.event.comment.body }}
-        run: yarn benchmarks prepare-for-github-action "$COMMENT_BODY"
+        run: pnpm benchmarks prepare-for-github-action "$COMMENT_BODY"
 
-      - run: yarn benchmarks run-compare ${{steps.info.outputs.compareSha}} ${{steps.info.outputs.benchmarkTarget}}
+      - run: pnpm benchmarks run-compare ${{steps.info.outputs.compareSha}} ${{steps.info.outputs.benchmarkTarget}}
         id: benchmark
         name: Running benchmark
 
-      - uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4
+      - uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5
         with:
           issue-number: ${{github.event.issue.number}}
           token: '${{secrets.BENCHMARK_POST_RESULTS_GITHUB_TOKEN}}'

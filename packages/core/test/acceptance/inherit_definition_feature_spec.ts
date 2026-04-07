@@ -7,7 +7,10 @@
  */
 
 import {state, style, trigger} from '@angular/animations';
+import {By} from '@angular/platform-browser';
+import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 import {
+  ChangeDetectionStrategy,
   Component,
   ContentChildren,
   Directive,
@@ -17,20 +20,26 @@ import {
   Input,
   OnChanges,
   Output,
+  provideZoneChangeDetection,
   QueryList,
   ViewChildren,
 } from '../../src/core';
 import {getDirectiveDef} from '../../src/render3/def_getters';
 import {TestBed} from '../../testing';
-import {By} from '@angular/platform-browser';
-import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 
 describe('inheritance', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideZoneChangeDetection()],
+    });
+  });
   it('should throw when trying to inherit a component from a directive', () => {
     @Component({
       selector: 'my-comp',
       template: '<div></div>',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class MyComponent {}
 
@@ -43,6 +52,8 @@ describe('inheritance', () => {
     @Component({
       template: `<div my-dir></div>`,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {}
 
@@ -128,6 +139,8 @@ describe('inheritance', () => {
       @Component({
         template: `<div subDir1 subDir2></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -178,6 +191,8 @@ describe('inheritance', () => {
       @Component({
         template: `<div subDir [someInput]="1"></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -210,6 +225,8 @@ describe('inheritance', () => {
       @Component({
         template: `<div subDir [someInput]="1"></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -252,6 +269,8 @@ describe('inheritance', () => {
       @Component({
         template: `<div subDir [someInput]="1"></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -290,6 +309,8 @@ describe('inheritance', () => {
       @Component({
         template: `<div subDir [someInput]="1"></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -328,6 +349,8 @@ describe('inheritance', () => {
       @Component({
         template: `<div subDir [someInput]="1"></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -362,6 +385,8 @@ describe('inheritance', () => {
       @Component({
         template: `<div subDir [someInput]="1"></div>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -394,6 +419,8 @@ describe('inheritance', () => {
         selector: 'my-comp',
         template: '',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyComp extends UndecoratedBase {
         @Input() override input: any;
@@ -402,6 +429,8 @@ describe('inheritance', () => {
       @Component({
         template: '<my-comp [input]="value"></my-comp>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         value = 'hello';
@@ -462,6 +491,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -503,6 +534,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -544,6 +577,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -585,6 +620,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -626,6 +663,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -667,6 +706,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -708,6 +749,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -763,6 +806,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p sub-dir [foo]="a" [bar]="b" [baz]="c" [qux]="d"></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           a = 'a';
@@ -801,7 +846,9 @@ describe('inheritance', () => {
 
         @Component({
           imports: [ActualDir],
-          template: `<dir someInput="newValue">`,
+          template: `<dir someInput="newValue"></dir>`,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class TestCmp {}
 
@@ -829,7 +876,9 @@ describe('inheritance', () => {
 
         @Component({
           imports: [ActualDir],
-          template: `<dir publicName="newValue">`,
+          template: `<dir publicName="newValue"></dir>`,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class TestCmp {}
 
@@ -866,10 +915,10 @@ describe('inheritance', () => {
         }
 
         @Component({
-          template: `
-        <div sub-dir (foo)="handleFoo($event)"></div>
-      `,
+          template: ` <div sub-dir (foo)="handleFoo($event)"></div> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           foo = '';
@@ -907,10 +956,10 @@ describe('inheritance', () => {
         class SubDirective extends SuperDirective {}
 
         @Component({
-          template: `
-          <p sub-dir>test</p>
-        `,
+          template: ` <p sub-dir>test</p> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -946,10 +995,10 @@ describe('inheritance', () => {
         })
         class SubDirective extends SuperDirective {}
         @Component({
-          template: `
-        <p sub-dir superTitle="test">test</p>
-      `,
+          template: ` <p sub-dir superTitle="test">test</p> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -992,12 +1041,14 @@ describe('inheritance', () => {
 
         @Component({
           template: `
-        <ul sub-dir>
-          <li child-dir>one</li>
-          <li child-dir>two</li>
-        </ul>
-      `,
+            <ul sub-dir>
+              <li child-dir>one</li>
+              <li child-dir>two</li>
+            </ul>
+          `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -1085,6 +1136,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1126,6 +1179,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1167,6 +1222,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1208,6 +1265,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1249,6 +1308,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1290,6 +1351,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1331,6 +1394,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1390,6 +1455,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p sub-dir [foo]="a" [bar]="b" [baz]="c" [qux]="d"></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           a = 'a';
@@ -1441,10 +1508,10 @@ describe('inheritance', () => {
         }
 
         @Component({
-          template: `
-        <div sub-dir (foo)="handleFoo($event)"></div>
-      `,
+          template: ` <div sub-dir (foo)="handleFoo($event)"></div> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           foo = '';
@@ -1486,10 +1553,10 @@ describe('inheritance', () => {
         class SubDirective extends SuperDirective {}
 
         @Component({
-          template: `
-        <p sub-dir>test</p>
-      `,
+          template: ` <p sub-dir>test</p> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -1529,10 +1596,10 @@ describe('inheritance', () => {
         })
         class SubDirective extends SuperDirective {}
         @Component({
-          template: `
-        <p sub-dir superTitle="test">test</p>
-      `,
+          template: ` <p sub-dir superTitle="test">test</p> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -1576,12 +1643,14 @@ describe('inheritance', () => {
 
       @Component({
         template: `
-        <ul sub-dir>
-          <li child-dir>one</li>
-          <li child-dir>two</li>
-        </ul>
-      `,
+          <ul sub-dir>
+            <li child-dir>one</li>
+            <li child-dir>two</li>
+          </ul>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -1669,6 +1738,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1710,6 +1781,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1751,6 +1824,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1792,6 +1867,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1833,6 +1910,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1874,6 +1953,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1915,6 +1996,8 @@ describe('inheritance', () => {
         @Component({
           template: `<p *ngIf="showing" subDir></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -1977,6 +2060,8 @@ describe('inheritance', () => {
           selector: 'my-app',
           template: `<p sub-dir [foo]="a" [bar]="b" [baz]="c" [qux]="d"></p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           a = 'a';
@@ -2033,10 +2118,10 @@ describe('inheritance', () => {
         }
 
         @Component({
-          template: `
-          <div sub-dir (foo)="handleFoo($event)" (bar)="handleBar($event)"></div>
-        `,
+          template: ` <div sub-dir (foo)="handleFoo($event)" (bar)="handleBar($event)"></div> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           foo = '';
@@ -2087,10 +2172,10 @@ describe('inheritance', () => {
         class SubDirective extends SuperDirective {}
 
         @Component({
-          template: `
-          <p sub-dir>test</p>
-        `,
+          template: ` <p sub-dir>test</p> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -2139,10 +2224,10 @@ describe('inheritance', () => {
         })
         class SubDirective extends SuperDirective {}
         @Component({
-          template: `
-        <p sub-dir superTitle="test1" superAccessKey="test2">test</p>
-      `,
+          template: ` <p sub-dir superTitle="test1" superAccessKey="test2">test</p> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -2201,13 +2286,15 @@ describe('inheritance', () => {
 
       @Component({
         template: `
-        <ul sub-dir>
-          <li child-dir-one child-dir-two>one</li>
-          <li child-dir-one>two</li>
-          <li child-dir-two>three</li>
-        </ul>
-      `,
+          <ul sub-dir>
+            <li child-dir-one child-dir-two>one</li>
+            <li child-dir-one>two</li>
+            <li child-dir-two>three</li>
+          </ul>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -2281,6 +2368,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngOnInit() {
@@ -2291,6 +2379,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -2332,6 +2421,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -2364,6 +2454,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngAfterContentInit() {
@@ -2374,6 +2465,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -2406,6 +2498,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngAfterContentChecked() {
@@ -2416,6 +2509,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -2448,6 +2542,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngAfterViewInit() {
@@ -2458,6 +2553,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -2490,6 +2586,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngAfterViewChecked() {
@@ -2500,6 +2597,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -2532,6 +2630,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngOnDestroy() {
@@ -2542,6 +2641,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -2588,6 +2688,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           @Input() override baz = '';
@@ -2598,6 +2699,8 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp [foo]="a" [bar]="b" [baz]="c" [qux]="d"></my-comp>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           a = 'a';
@@ -2638,6 +2741,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           ngOnInit() {
@@ -2646,10 +2750,10 @@ describe('inheritance', () => {
         }
 
         @Component({
-          template: `
-          <my-comp (foo)="handleFoo($event)"></my-comp>
-        `,
+          template: ` <my-comp (foo)="handleFoo($event)"></my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           foo = '';
@@ -2684,14 +2788,15 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {}
 
         @Component({
-          template: `
-          <my-comp>test</my-comp>
-        `,
+          template: ` <my-comp>test</my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -2725,13 +2830,14 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {}
         @Component({
-          template: `
-        <my-comp superTitle="test">test</my-comp>
-      `,
+          template: ` <my-comp superTitle="test">test</my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -2761,8 +2867,12 @@ describe('inheritance', () => {
 
       @Component({
         selector: 'my-comp',
-        template: `<ul><ng-content></ng-content></ul>`,
+        template: `<ul>
+          <ng-content></ng-content>
+        </ul>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyComponent extends SuperComponent {
         ngAfterViewInit() {
@@ -2772,12 +2882,14 @@ describe('inheritance', () => {
 
       @Component({
         template: `
-        <my-comp>
-          <li child-dir>one</li>
-          <li child-dir>two</li>
-        </my-comp>
-      `,
+          <my-comp>
+            <li child-dir>one</li>
+            <li child-dir>two</li>
+          </my-comp>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -2854,6 +2966,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperDirective {
           override ngOnInit() {
@@ -2864,6 +2977,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -2896,6 +3010,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperDirective {
           override ngDoCheck() {
@@ -2906,6 +3021,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -2938,6 +3054,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperDirective {
           override ngAfterContentInit() {
@@ -2948,6 +3065,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -2980,6 +3098,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperDirective {
           override ngAfterContentChecked() {
@@ -2990,6 +3109,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -3022,6 +3142,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperDirective {
           override ngAfterViewInit() {
@@ -3032,6 +3153,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -3064,6 +3186,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperDirective {
           override ngAfterViewChecked() {
@@ -3074,6 +3197,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -3106,6 +3230,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperDirective {
           override ngOnDestroy() {
@@ -3116,6 +3241,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -3166,6 +3292,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperDirective {
           @Input() override baz = '';
@@ -3176,6 +3303,8 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp [foo]="a" [bar]="b" [baz]="c" [qux]="d"></my-comp>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           a = 'a';
@@ -3220,6 +3349,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperDirective {
           ngOnInit() {
@@ -3228,10 +3358,10 @@ describe('inheritance', () => {
         }
 
         @Component({
-          template: `
-          <my-comp (foo)="handleFoo($event)"></my-comp>
-        `,
+          template: ` <my-comp (foo)="handleFoo($event)"></my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           foo = '';
@@ -3270,14 +3400,15 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperDirective {}
 
         @Component({
-          template: `
-          <my-comp>test</my-comp>
-        `,
+          template: ` <my-comp>test</my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -3315,13 +3446,14 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperDirective {}
         @Component({
-          template: `
-        <my-comp superTitle="test">test</my-comp>
-      `,
+          template: ` <my-comp superTitle="test">test</my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -3355,8 +3487,12 @@ describe('inheritance', () => {
 
       @Component({
         selector: 'my-comp',
-        template: `<ul><ng-content></ng-content></ul>`,
+        template: `<ul>
+          <ng-content></ng-content>
+        </ul>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyComponent extends SuperDirective {
         ngAfterViewInit() {
@@ -3366,12 +3502,14 @@ describe('inheritance', () => {
 
       @Component({
         template: `
-        <my-comp>
-          <li child-dir>one</li>
-          <li child-dir>two</li>
-        </my-comp>
-      `,
+          <my-comp>
+            <li child-dir>one</li>
+            <li child-dir>two</li>
+          </my-comp>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -3405,10 +3543,12 @@ describe('inheritance', () => {
         selector: 'my-comp',
         template: `
           <ul>
-            <li child-dir *ngFor="let item of items">{{item}}</li>
+            <li child-dir *ngFor="let item of items">{{ item }}</li>
           </ul>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyComponent extends SuperDirective {
         items = [1, 2, 3, 4, 5];
@@ -3418,10 +3558,10 @@ describe('inheritance', () => {
       }
 
       @Component({
-        template: `
-        <my-comp></my-comp>
-      `,
+        template: ` <my-comp></my-comp> `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -3500,6 +3640,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends BareClass {
           override ngOnInit() {
@@ -3510,6 +3651,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -3551,6 +3693,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -3583,6 +3726,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends BareClass {
           override ngAfterContentInit() {
@@ -3593,6 +3737,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -3625,6 +3770,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends BareClass {
           override ngAfterContentChecked() {
@@ -3635,6 +3781,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -3667,6 +3814,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends BareClass {
           override ngAfterViewInit() {
@@ -3677,6 +3825,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -3709,6 +3858,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends BareClass {
           override ngAfterViewChecked() {
@@ -3719,6 +3869,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -3751,6 +3902,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends BareClass {
           override ngOnDestroy() {
@@ -3761,6 +3913,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -3813,6 +3966,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends BareClass {
           @Input() override baz = '';
@@ -3823,6 +3977,8 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp [foo]="a" [bar]="b" [baz]="c" [qux]="d"></my-comp>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           a = 'a';
@@ -3869,6 +4025,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends BareClass {
           ngOnInit() {
@@ -3877,10 +4034,10 @@ describe('inheritance', () => {
         }
 
         @Component({
-          template: `
-          <my-comp (foo)="handleFoo($event)"></my-comp>
-        `,
+          template: ` <my-comp (foo)="handleFoo($event)"></my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           foo = '';
@@ -3921,14 +4078,15 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends BareClass {}
 
         @Component({
-          template: `
-          <my-comp>test</my-comp>
-        `,
+          template: ` <my-comp>test</my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -3975,13 +4133,14 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends BareClass {}
         @Component({
-          template: `
-          <my-comp superTitle="test1" superAccessKey="test2">test</my-comp>
-        `,
+          template: ` <my-comp superTitle="test1" superAccessKey="test2">test</my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -4018,8 +4177,12 @@ describe('inheritance', () => {
 
       @Component({
         selector: 'my-comp',
-        template: `<ul><ng-content></ng-content></ul>`,
+        template: `<ul>
+          <ng-content></ng-content>
+        </ul>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyComponent extends BareClass {
         ngAfterViewInit() {
@@ -4029,12 +4192,14 @@ describe('inheritance', () => {
 
       @Component({
         template: `
-        <my-comp>
-          <li child-dir>one</li>
-          <li child-dir>two</li>
-        </my-comp>
-      `,
+          <my-comp>
+            <li child-dir>one</li>
+            <li child-dir>two</li>
+          </my-comp>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -4070,10 +4235,12 @@ describe('inheritance', () => {
         selector: 'my-comp',
         template: `
           <ul>
-            <li child-dir *ngFor="let item of items">{{item}}</li>
+            <li child-dir *ngFor="let item of items">{{ item }}</li>
           </ul>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyComponent extends BareClass {
         items = [1, 2, 3, 4, 5];
@@ -4083,10 +4250,10 @@ describe('inheritance', () => {
       }
 
       @Component({
-        template: `
-        <my-comp></my-comp>
-      `,
+        template: ` <my-comp></my-comp> `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -4132,6 +4299,8 @@ describe('inheritance', () => {
         selector: 'super-comp',
         template: `<p>super</p>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class SuperComponent {
         ngOnInit() {
@@ -4164,6 +4333,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngOnInit() {
@@ -4174,6 +4344,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -4206,6 +4377,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngDoCheck() {
@@ -4216,6 +4388,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -4248,6 +4421,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngAfterContentInit() {
@@ -4258,6 +4432,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -4290,6 +4465,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngAfterContentChecked() {
@@ -4300,6 +4476,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -4332,6 +4509,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngAfterViewInit() {
@@ -4342,6 +4520,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -4374,6 +4553,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngAfterViewChecked() {
@@ -4384,6 +4564,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -4416,6 +4597,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngOnDestroy() {
@@ -4426,6 +4608,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -4464,6 +4647,8 @@ describe('inheritance', () => {
           selector: 'super-comp',
           template: `<p>super</p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class SuperComponent {
           @Input() foo = '';
@@ -4477,6 +4662,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           @Input() override baz = '';
@@ -4487,6 +4673,8 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp [foo]="a" [bar]="b" [baz]="c" [qux]="d"></my-comp>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           a = 'a';
@@ -4523,6 +4711,8 @@ describe('inheritance', () => {
           selector: 'super-comp',
           template: `<p>super</p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class SuperComponent {
           @Output() foo = new EventEmitter<string>();
@@ -4532,6 +4722,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           ngOnInit() {
@@ -4540,10 +4731,10 @@ describe('inheritance', () => {
         }
 
         @Component({
-          template: `
-          <my-comp (foo)="handleFoo($event)"></my-comp>
-        `,
+          template: ` <my-comp (foo)="handleFoo($event)"></my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           foo = '';
@@ -4574,6 +4765,8 @@ describe('inheritance', () => {
           },
           animations: [trigger('animation', [state('color', style({color: 'red'}))])],
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class SuperComponent {
           colorExp = 'color';
@@ -4583,12 +4776,16 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<div>my-comp</div>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {}
 
         @Component({
           template: '<my-comp>app</my-comp>',
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -4612,6 +4809,8 @@ describe('inheritance', () => {
             trigger('animation2', [state('opacity', style({opacity: '0.5'}))]),
           ],
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class SuperComponent {}
 
@@ -4628,6 +4827,8 @@ describe('inheritance', () => {
             trigger('animation3', [state('bg', style({backgroundColor: 'green'}))]),
           ],
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           colorExp = 'color';
@@ -4638,6 +4839,8 @@ describe('inheritance', () => {
         @Component({
           template: '<my-comp>app</my-comp>',
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -4663,6 +4866,8 @@ describe('inheritance', () => {
           selector: 'super-comp',
           template: `<p>super</p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class SuperComponent {
           @HostBinding('style.color') color = 'red';
@@ -4674,14 +4879,15 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {}
 
         @Component({
-          template: `
-          <my-comp>test</my-comp>
-        `,
+          template: ` <my-comp>test</my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -4706,6 +4912,8 @@ describe('inheritance', () => {
           selector: 'super-comp',
           template: `<p>super</p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class SuperComponent {
           @HostBinding('title')
@@ -4720,13 +4928,14 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {}
         @Component({
-          template: `
-        <my-comp superTitle="test">test</my-comp>
-      `,
+          template: ` <my-comp superTitle="test">test</my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -4754,6 +4963,8 @@ describe('inheritance', () => {
         selector: 'super-comp',
         template: `<p>super</p>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class SuperComponent {
         @ContentChildren(ChildDir) customDirs!: QueryList<ChildDir>;
@@ -4761,8 +4972,12 @@ describe('inheritance', () => {
 
       @Component({
         selector: 'my-comp',
-        template: `<ul><ng-content></ng-content></ul>`,
+        template: `<ul>
+          <ng-content></ng-content>
+        </ul>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyComponent extends SuperComponent {
         ngAfterViewInit() {
@@ -4772,12 +4987,14 @@ describe('inheritance', () => {
 
       @Component({
         template: `
-        <my-comp>
-          <li child-dir>one</li>
-          <li child-dir>two</li>
-        </my-comp>
-      `,
+          <my-comp>
+            <li child-dir>one</li>
+            <li child-dir>two</li>
+          </my-comp>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -4803,6 +5020,8 @@ describe('inheritance', () => {
         selector: 'super-comp',
         template: `<p>super</p>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class SuperComponent {
         @ViewChildren(ChildDir) customDirs!: QueryList<ChildDir>;
@@ -4812,10 +5031,12 @@ describe('inheritance', () => {
         selector: 'my-comp',
         template: `
           <ul>
-            <li child-dir *ngFor="let item of items">{{item}}</li>
+            <li child-dir *ngFor="let item of items">{{ item }}</li>
           </ul>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyComponent extends SuperComponent {
         items = [1, 2, 3, 4, 5];
@@ -4825,10 +5046,10 @@ describe('inheritance', () => {
       }
 
       @Component({
-        template: `
-        <my-comp></my-comp>
-      `,
+        template: ` <my-comp></my-comp> `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -4848,6 +5069,8 @@ describe('inheritance', () => {
         selector: 'app-base',
         template: 'base',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class BaseComponent {
         @HostListener('click')
@@ -4860,6 +5083,8 @@ describe('inheritance', () => {
         selector: 'app-child',
         template: 'child',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class ChildComponent extends BaseComponent {
         // additional host listeners are defined here to have `hostBindings` function generated on
@@ -4877,6 +5102,8 @@ describe('inheritance', () => {
         selector: 'app-grand-child',
         template: 'grand-child',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class GrandChildComponent extends ChildComponent {
         // additional host listeners are defined here to have `hostBindings` function generated on
@@ -4898,6 +5125,8 @@ describe('inheritance', () => {
           <app-grand-child></app-grand-child>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class RootApp {}
 
@@ -4951,6 +5180,8 @@ describe('inheritance', () => {
         selector: 'super-comp',
         template: `<p>super</p>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class SuperSuperComponent {
         ngOnInit() {
@@ -4985,6 +5216,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngOnInit() {
@@ -4995,6 +5227,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -5027,6 +5260,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngDoCheck() {
@@ -5037,6 +5271,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -5069,6 +5304,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngAfterContentInit() {
@@ -5079,6 +5315,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -5111,6 +5348,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngAfterContentChecked() {
@@ -5121,6 +5359,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -5153,6 +5392,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngAfterViewInit() {
@@ -5163,6 +5403,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -5195,6 +5436,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngAfterViewChecked() {
@@ -5205,6 +5447,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -5237,6 +5480,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           override ngOnDestroy() {
@@ -5247,6 +5491,7 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp *ngIf="showing"></my-comp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           showing = true;
@@ -5285,6 +5530,8 @@ describe('inheritance', () => {
           selector: 'super-comp',
           template: `<p>super</p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class SuperSuperComponent {
           @Input() foo = '';
@@ -5300,6 +5547,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends BareClass {
           @Input() override baz = '';
@@ -5310,6 +5558,8 @@ describe('inheritance', () => {
         @Component({
           template: `<my-comp [foo]="a" [bar]="b" [baz]="c" [qux]="d"></my-comp>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           a = 'a';
@@ -5346,6 +5596,8 @@ describe('inheritance', () => {
           selector: 'super-comp',
           template: `<p>super</p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class SuperSuperComponent {
           @Output() foo = new EventEmitter<string>();
@@ -5359,6 +5611,7 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {
           ngOnInit() {
@@ -5368,10 +5621,10 @@ describe('inheritance', () => {
         }
 
         @Component({
-          template: `
-          <my-comp (foo)="handleFoo($event)" (bar)="handleBar($event)"></my-comp>
-        `,
+          template: ` <my-comp (foo)="handleFoo($event)" (bar)="handleBar($event)"></my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           foo = '';
@@ -5413,6 +5666,8 @@ describe('inheritance', () => {
             trigger('animation2', [state('opacity', style({opacity: '0.5'}))]),
           ],
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class SuperComponent {
           colorExp = 'color';
@@ -5423,6 +5678,8 @@ describe('inheritance', () => {
           selector: 'intermediate-comp',
           template: '...',
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class IntermediateComponent extends SuperComponent {}
 
@@ -5438,6 +5695,8 @@ describe('inheritance', () => {
             trigger('animation3', [state('bg', style({backgroundColor: 'green'}))]),
           ],
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends IntermediateComponent {
           override colorExp = 'color';
@@ -5448,6 +5707,8 @@ describe('inheritance', () => {
         @Component({
           template: '<my-comp>app</my-comp>',
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -5472,6 +5733,8 @@ describe('inheritance', () => {
           selector: 'super-comp',
           template: `<p>super</p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class SuperSuperComponent {
           @HostBinding('style.color') color = 'red';
@@ -5485,14 +5748,15 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {}
 
         @Component({
-          template: `
-          <my-comp>test</my-comp>
-        `,
+          template: ` <my-comp>test</my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -5517,6 +5781,8 @@ describe('inheritance', () => {
           selector: 'super-comp',
           template: `<p>super</p>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class SuperSuperComponent {
           @HostBinding('title')
@@ -5540,13 +5806,14 @@ describe('inheritance', () => {
           selector: 'my-comp',
           template: `<p>test</p>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyComponent extends SuperComponent {}
         @Component({
-          template: `
-          <my-comp superTitle="test1" superAccessKey="test2">test</my-comp>
-        `,
+          template: ` <my-comp superTitle="test1" superAccessKey="test2">test</my-comp> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {}
 
@@ -5576,6 +5843,8 @@ describe('inheritance', () => {
         selector: 'super-comp',
         template: `<p>super</p>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class SuperComponent {
         @ContentChildren(ChildDir) customDirs!: QueryList<ChildDir>;
@@ -5583,8 +5852,12 @@ describe('inheritance', () => {
 
       @Component({
         selector: 'my-comp',
-        template: `<ul><ng-content></ng-content></ul>`,
+        template: `<ul>
+          <ng-content></ng-content>
+        </ul>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyComponent extends SuperComponent {
         ngAfterViewInit() {
@@ -5594,12 +5867,14 @@ describe('inheritance', () => {
 
       @Component({
         template: `
-        <my-comp>
-          <li child-dir>one</li>
-          <li child-dir>two</li>
-        </my-comp>
-      `,
+          <my-comp>
+            <li child-dir>one</li>
+            <li child-dir>two</li>
+          </my-comp>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -5625,6 +5900,8 @@ describe('inheritance', () => {
         selector: 'super-comp',
         template: `<p>super</p>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class SuperComponent {
         @ViewChildren(ChildDir) customDirs!: QueryList<ChildDir>;
@@ -5634,10 +5911,12 @@ describe('inheritance', () => {
         selector: 'my-comp',
         template: `
           <ul>
-            <li child-dir *ngFor="let item of items">{{item}}</li>
+            <li child-dir *ngFor="let item of items">{{ item }}</li>
           </ul>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyComponent extends SuperComponent {
         items = [1, 2, 3, 4, 5];
@@ -5647,10 +5926,10 @@ describe('inheritance', () => {
       }
 
       @Component({
-        template: `
-        <my-comp></my-comp>
-      `,
+        template: ` <my-comp></my-comp> `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 

@@ -79,8 +79,9 @@ class OutputFromObservableRef<T> implements OutputRef<T> {
  *   nameChange = outputFromObservable(this.nameChange$);
  * }
  * ```
+ * @see [RxJS interop with component and directive outputs](ecosystem/rxjs-interop/output-interop)
  *
- * @publicApi
+ * @publicApi 19.0
  */
 export function outputFromObservable<T>(
   observable: Observable<T>,

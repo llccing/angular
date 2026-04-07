@@ -36,9 +36,7 @@ describe('Xliff1TranslationParser', () => {
       expect(parser.analyze('/some/file.xlf', '').canParse).toBeFalse();
       expect(parser.analyze('/some/file.json', '').canParse).toBeFalse();
     });
-  });
 
-  describe('analyze()', () => {
     it('should return a success object if the file contains an <xliff> element with version="1.2" attribute', () => {
       const parser = new Xliff1TranslationParser();
       expect(parser.analyze('/some/file.xlf', '<xliff version="1.2">')).toEqual(
@@ -826,14 +824,13 @@ describe('Xliff1TranslationParser', () => {
           XLIFF,
           /Invalid element found in message/,
           [
-            `Error: Invalid element found in message.`,
-            `At /some/file.xlf@6:16:`,
-            `...`,
-            `        <source/>`,
-            `        <target>[ERROR ->]<b>msg should contain only ph tags</b></target>`,
-            `      </trans-unit>`,
-            `...`,
-            ``,
+            'Invalid element found in message. ("',
+            '      <trans-unit id="deadbeef" datatype="html">',
+            '        <source/>',
+            '        <target>[ERROR ->]<b>msg should contain only ph tags</b></target>',
+            '      </trans-unit>',
+            '    </body>',
+            '"): /some/file.xlf@6:16',
           ].join('\n'),
         );
       });
@@ -858,14 +855,13 @@ describe('Xliff1TranslationParser', () => {
           XLIFF,
           /required "id" attribute/gi,
           [
-            `Error: Missing required "id" attribute:`,
-            `At /some/file.xlf@6:16:`,
-            `...`,
-            `        <source/>`,
-            `        <target>[ERROR ->]<x/></target>`,
-            `      </trans-unit>`,
-            `...`,
-            ``,
+            'Missing required "id" attribute: ("',
+            '      <trans-unit id="deadbeef" datatype="html">',
+            '        <source/>',
+            '        <target>[ERROR ->]<x/></target>',
+            '      </trans-unit>',
+            '    </body>',
+            '"): /some/file.xlf@6:16',
           ].join('\n'),
         );
       });

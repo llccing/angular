@@ -11,7 +11,7 @@ import {injectRootLimpMode, setInjectImplementation} from '../di/inject_switch';
 import {Injector} from '../di/injector';
 import {BackwardsCompatibleInjector, convertToBitFlags} from '../di/injector_compatibility';
 import {InjectorMarkers} from '../di/injector_marker';
-import {InternalInjectFlags, InjectOptions} from '../di/interface/injector';
+import {InjectOptions, InternalInjectFlags} from '../di/interface/injector';
 import {ProviderToken} from '../di/provider_token';
 import {Type} from '../interface/type';
 import {assertDefined, assertEqual, assertIndexInRange} from '../util/assert';
@@ -26,7 +26,11 @@ import {
   setInjectorProfilerContext,
 } from './debug/injector_profiler';
 import {getFactoryDef} from './definition_factory';
-import {throwCyclicDependencyError, throwProviderNotFoundError} from './errors_di';
+import {
+  cyclicDependencyError,
+  cyclicDependencyErrorWithDetails,
+  throwProviderNotFoundError,
+} from './errors_di';
 import {NG_ELEMENT_ID, NG_FACTORY_DEF} from './fields';
 import {registerPreOrderHooks} from './hooks';
 import {AttributeMarker} from './interfaces/attribute_marker';
@@ -662,7 +666,7 @@ function searchTokensOnInjector<T>(
     isHostSpecialCase,
   );
   if (injectableIdx !== null) {
-    return getNodeInjectable(lView, currentTView, injectableIdx, tNode as TElementNode);
+    return getNodeInjectable(lView, currentTView, injectableIdx, tNode as TElementNode, flags);
   } else {
     return NOT_FOUND;
   }
@@ -717,6 +721,11 @@ export function locateDirectiveOrProvider<T>(
 }
 
 /**
+ * Used in ngDevMode to keep the injection path in case of cycles in DI.
+ */
+let injectionPath: string[] = [];
+
+/**
  * Retrieve or instantiate the injectable from the `LView` at particular `index`.
  *
  * This function checks to see if the value has already been instantiated and if so returns the
@@ -728,13 +737,21 @@ export function getNodeInjectable(
   tView: TView,
   index: number,
   tNode: TDirectiveHostNode,
+  flags?: InternalInjectFlags,
 ): any {
   let value = lView[index];
   const tData = tView.data;
   if (value instanceof NodeInjectorFactory) {
     const factory: NodeInjectorFactory = value;
+    ngDevMode && injectionPath.push(factory.name ?? 'unknown');
     if (factory.resolving) {
-      throwCyclicDependencyError(stringifyForError(tData[index]));
+      let token = '';
+      if (ngDevMode) {
+        token = stringifyForError(tData[index]);
+        throw cyclicDependencyErrorWithDetails(token, injectionPath);
+      } else {
+        throw cyclicDependencyError(token);
+      }
     }
     const previousIncludeViewProviders = setIncludeViewProviders(factory.canSeeViewProviders);
     factory.resolving = true;
@@ -765,7 +782,7 @@ export function getNodeInjectable(
     try {
       ngDevMode && emitInjectorToCreateInstanceEvent(token);
 
-      value = lView[index] = factory.factory(undefined, tData, lView, tNode);
+      value = lView[index] = factory.factory(undefined, flags, tData, lView, tNode);
 
       ngDevMode && emitInstanceCreatedByInjectorEvent(value);
 
@@ -787,6 +804,7 @@ export function getNodeInjectable(
       setIncludeViewProviders(previousIncludeViewProviders);
       factory.resolving = false;
       leaveDI();
+      ngDevMode && (injectionPath = []);
     }
   }
   return value;
@@ -998,7 +1016,11 @@ function lookupTokenUsingEmbeddedInjector<T>(
         const embeddedViewInjectorValue = (embeddedViewInjector as BackwardsCompatibleInjector).get(
           token,
           NOT_FOUND as T | {},
-          flags,
+          // The `SkipSelf` flag is intended for the current injection context (the child component).
+          // When we delegate to the embedded view injector, we are effectively traversing to a
+          // parent/fallback scope, so the "Self" has already been skipped. We must strip the
+          // flag to ensure the embedded view injector can resolve tokens from itself.
+          flags & ~InternalInjectFlags.SkipSelf,
         );
         if (embeddedViewInjectorValue !== NOT_FOUND) {
           return embeddedViewInjectorValue;

@@ -7,42 +7,43 @@
  */
 
 // #docregion Component
-import {Component, ContentChild, Directive, Input} from '@angular/core';
+import {Component, contentChild, Directive, input, signal} from '@angular/core';
 
 @Directive({
   selector: 'pane',
-  standalone: false,
 })
 export class Pane {
-  @Input() id!: string;
+  id = input.required<string>();
 }
 
 @Component({
   selector: 'tab',
-  template: ` <div>pane: {{ pane?.id }}</div> `,
-  standalone: false,
+  template: ` <div>pane: {{ pane()?.id() }}</div> `,
 })
 export class Tab {
-  @ContentChild(Pane) pane!: Pane;
+  pane = contentChild(Pane);
 }
 
 @Component({
   selector: 'example-app',
+  imports: [Tab, Pane],
   template: `
     <tab>
-      <pane id="1" *ngIf="shouldShow"></pane>
-      <pane id="2" *ngIf="!shouldShow"></pane>
+      @if (shouldShow()) {
+        <pane id="1" />
+      } @else {
+        <pane id="2" />
+      }
     </tab>
 
     <button (click)="toggle()">Toggle</button>
   `,
-  standalone: false,
 })
 export class ContentChildComp {
-  shouldShow = true;
+  shouldShow = signal(true);
 
   toggle() {
-    this.shouldShow = !this.shouldShow;
+    this.shouldShow.update((shouldShow) => !shouldShow);
   }
 }
 // #enddocregion

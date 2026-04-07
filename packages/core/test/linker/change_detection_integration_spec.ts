@@ -7,6 +7,9 @@
  */
 
 import {ResourceLoader} from '@angular/compiler';
+import {By} from '@angular/platform-browser';
+import {isTextNode} from '@angular/private/testing';
+import {expect} from '@angular/private/testing/matchers';
 import {
   AfterContentChecked,
   AfterContentInit,
@@ -30,6 +33,7 @@ import {
   Pipe,
   PipeTransform,
   Provider,
+  provideZoneChangeDetection,
   RendererFactory2,
   RendererType2,
   SimpleChange,
@@ -40,12 +44,9 @@ import {
   ViewContainerRef,
 } from '../../src/core';
 import {ComponentFixture, fakeAsync, TestBed} from '../../testing';
-import {By} from '@angular/platform-browser/src/dom/debug/by';
-import {isTextNode} from '@angular/platform-browser/testing/src/browser_util';
-import {expect} from '@angular/platform-browser/testing/src/matchers';
 
-import {MockResourceLoader} from './resource_loader_mock';
 import {NoopAnimationsModule} from '@angular/platform-browser/animations';
+import {MockResourceLoader} from './resource_loader_mock';
 
 const TEST_COMPILER_PROVIDERS: Provider[] = [
   {provide: ResourceLoader, useClass: MockResourceLoader, deps: []},
@@ -61,7 +62,9 @@ const TEST_COMPILER_PROVIDERS: Provider[] = [
     template: string,
     compType: Type<T> = <any>TestComponent,
   ): ComponentFixture<T> {
-    TestBed.overrideComponent(compType, {set: new Component({template})});
+    TestBed.overrideComponent(compType, {
+      set: new Component({template, changeDetection: ChangeDetectionStrategy.Eager}),
+    });
 
     initHelpers();
 
@@ -137,7 +140,7 @@ const TEST_COMPILER_PROVIDERS: Provider[] = [
           PipeWithOnDestroy,
           IdentityPipe,
         ],
-        providers: [RenderLog, DirectiveLog],
+        providers: [RenderLog, DirectiveLog, provideZoneChangeDetection()],
       });
     });
 
@@ -1389,8 +1392,12 @@ const TEST_COMPILER_PROVIDERS: Provider[] = [
 
         @Component({
           selector: 'main-cmp',
-          template: `<span [i]="log('start')"></span><outer-cmp><ng-template><span [i]="log('tpl')"></span></ng-template></outer-cmp>`,
+          template: `<span [i]="log('start')"></span
+            ><outer-cmp
+              ><ng-template><span [i]="log('tpl')"></span></ng-template
+            ></outer-cmp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MainComp {
           constructor(public cdRef: ChangeDetectorRef) {}
@@ -1401,8 +1408,12 @@ const TEST_COMPILER_PROVIDERS: Provider[] = [
 
         @Component({
           selector: 'outer-cmp',
-          template: `<span [i]="log('start')"></span><inner-cmp [outerTpl]="tpl"><ng-template><span [i]="log('tpl')"></span></ng-template></inner-cmp>`,
+          template: `<span [i]="log('start')"></span
+            ><inner-cmp [outerTpl]="tpl"
+              ><ng-template><span [i]="log('tpl')"></span></ng-template
+            ></inner-cmp>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class OuterComp {
           @ContentChild(TemplateRef, {static: true}) tpl!: TemplateRef<any>;
@@ -1415,8 +1426,12 @@ const TEST_COMPILER_PROVIDERS: Provider[] = [
 
         @Component({
           selector: 'inner-cmp',
-          template: `<span [i]="log('start')"></span>><ng-container [ngTemplateOutlet]="outerTpl"></ng-container><ng-container [ngTemplateOutlet]="tpl"></ng-container>`,
+          template: `<span [i]="log('start')"></span>><ng-container
+              [ngTemplateOutlet]="outerTpl"
+            ></ng-container
+            ><ng-container [ngTemplateOutlet]="tpl"></ng-container>`,
           standalone: false,
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class InnerComp {
           @ContentChild(TemplateRef, {static: true}) tpl!: TemplateRef<any>;
@@ -1506,7 +1521,7 @@ const TEST_COMPILER_PROVIDERS: Provider[] = [
     describe('class binding', () => {
       it('should coordinate class attribute and class host binding', () => {
         @Component({
-          template: `<div class="{{initClasses}}" someDir></div>`,
+          template: `<div class="{{ initClasses }}" someDir></div>`,
           standalone: false,
         })
         class Comp {
@@ -1634,7 +1649,7 @@ const TEST_COMPILER_PROVIDERS: Provider[] = [
 
           @Component({
             selector: 'my-component',
-            template: `<my-child [inp]='true' (outp)='onOutp()'></my-child>`,
+            template: `<my-child [inp]="true" (outp)="onOutp()"></my-child>`,
             standalone: false,
           })
           class MyComponent {

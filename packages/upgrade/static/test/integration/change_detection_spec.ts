@@ -7,6 +7,7 @@
  */
 
 import {
+  ChangeDetectionStrategy,
   Component,
   destroyPlatform,
   Directive,
@@ -15,6 +16,7 @@ import {
   Input,
   NgModule,
   NgZone,
+  provideZoneChangeDetection,
   SimpleChanges,
 } from '@angular/core';
 import {waitForAsync} from '@angular/core/testing';
@@ -39,10 +41,15 @@ withEachNg1Version(() => {
         selector: 'my-app',
         template: '',
         standalone: false,
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class AppComponent {}
 
-      @NgModule({declarations: [AppComponent], imports: [BrowserModule, UpgradeModule]})
+      @NgModule({
+        declarations: [AppComponent],
+        imports: [BrowserModule, UpgradeModule],
+        providers: [provideZoneChangeDetection()],
+      })
       class Ng2Module {
         ngDoBootstrap() {}
       }
@@ -120,6 +127,7 @@ withEachNg1Version(() => {
         selector: 'ng2',
         template: `{{ l('2A') }}<ng1a></ng1a>{{ l('2B') }}<ng1b></ng1b>{{ l('2C') }}`,
         standalone: false,
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Ng2Component {
         l = l;
@@ -158,6 +166,7 @@ withEachNg1Version(() => {
         selector: 'my-app',
         template: '<my-child [value]="value"></my-child>',
         standalone: false,
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class AppComponent {
         value?: number;
@@ -170,6 +179,7 @@ withEachNg1Version(() => {
         selector: 'my-child',
         template: '<div>{{ valueFromPromise }}</div>',
         standalone: false,
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class ChildComponent {
         valueFromPromise?: number;
@@ -195,6 +205,7 @@ withEachNg1Version(() => {
       @NgModule({
         declarations: [AppComponent, ChildComponent],
         imports: [BrowserModule, UpgradeModule],
+        providers: [provideZoneChangeDetection()],
       })
       class Ng2Module {
         ngDoBootstrap() {}

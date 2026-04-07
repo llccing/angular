@@ -78,32 +78,31 @@ export function compileHmrInitializer(meta: R3HmrMetadata): o.Expression {
     ]);
 
   // (m) => m.default && ɵɵreplaceMetadata(...)
-  const replaceCallback = o.arrowFn([new o.FnParam(moduleName)], defaultRead.and(replaceCall));
+  const replaceCallback = o.arrowFn(
+    [new o.FnParam(moduleName, o.DYNAMIC_TYPE)],
+    defaultRead.and(replaceCall),
+  );
 
-  // '<url>?c=' + id + '&t=' + encodeURIComponent(t)
-  const urlValue = o
-    .literal(`./@ng/component?c=`)
-    .plus(o.variable(idName))
-    .plus(o.literal('&t='))
-    .plus(o.variable('encodeURIComponent').callFn([o.variable(timestampName)]));
-
-  // import.meta.url
-  const urlBase = o.variable('import').prop('meta').prop('url');
-
-  // new URL(urlValue, urlBase).href
-  const urlHref = new o.InstantiateExpr(o.variable('URL'), [urlValue, urlBase]).prop('href');
+  // getReplaceMetadataURL(id, timestamp, import.meta.url)
+  const url = o
+    .importExpr(R3.getReplaceMetadataURL)
+    .callFn([
+      o.variable(idName),
+      o.variable(timestampName),
+      o.variable('import').prop('meta').prop('url'),
+    ]);
 
   // function Cmp_HmrLoad(t) {
-  //   import(/* @vite-ignore */ urlHref).then((m) => m.default && replaceMetadata(...));
+  //   import(/* @vite-ignore */ url).then((m) => m.default && replaceMetadata(...));
   // }
   const importCallback = new o.DeclareFunctionStmt(
     importCallbackName,
-    [new o.FnParam(timestampName)],
+    [new o.FnParam(timestampName, o.DYNAMIC_TYPE)],
     [
       // The vite-ignore special comment is required to prevent Vite from generating a superfluous
       // warning for each usage within the development code. If Vite provides a method to
       // programmatically avoid this warning in the future, this added comment can be removed here.
-      new o.DynamicImportExpr(urlHref, null, '@vite-ignore')
+      new o.DynamicImportExpr(url, null, '@vite-ignore')
         .prop('then')
         .callFn([replaceCallback])
         .toStmt(),
@@ -114,7 +113,7 @@ export function compileHmrInitializer(meta: R3HmrMetadata): o.Expression {
 
   // (d) => d.id === id && Cmp_HmrLoad(d.timestamp)
   const updateCallback = o.arrowFn(
-    [new o.FnParam(dataName)],
+    [new o.FnParam(dataName, o.DYNAMIC_TYPE)],
     o
       .variable(dataName)
       .prop('id')
@@ -177,7 +176,7 @@ export function compileHmrUpdateCallback(
   const body: o.Statement[] = [];
 
   for (const local of meta.localDependencies) {
-    params.push(new o.FnParam(local.name));
+    params.push(new o.FnParam(local.name, o.DYNAMIC_TYPE));
   }
 
   // Declare variables that read out the individual namespaces.

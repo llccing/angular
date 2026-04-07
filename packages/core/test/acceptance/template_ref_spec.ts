@@ -6,7 +6,15 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Component, Injector, TemplateRef, ViewChild, ViewContainerRef} from '../../src/core';
+import {
+  Component,
+  Injector,
+  provideNgReflectAttributes,
+  TemplateRef,
+  ViewChild,
+  ViewContainerRef,
+  ChangeDetectionStrategy,
+} from '../../src/core';
 import {TestBed} from '../../testing';
 
 describe('TemplateRef', () => {
@@ -14,6 +22,8 @@ describe('TemplateRef', () => {
     @Component({
       template: `<ng-template #templateRef></ng-template>`,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       @ViewChild('templateRef', {static: true}) templateRef!: TemplateRef<any>;
@@ -50,13 +60,15 @@ describe('TemplateRef', () => {
       @Component({
         selector: 'menu-content',
         template: `
-              <ng-template>
-                Header
-                <ng-content></ng-content>
-              </ng-template>
-            `,
+          <ng-template>
+            Header
+            <ng-content></ng-content>
+          </ng-template>
+        `,
         exportAs: 'menuContent',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MenuContent {
         @ViewChild(TemplateRef, {static: true}) template!: TemplateRef<any>;
@@ -64,13 +76,15 @@ describe('TemplateRef', () => {
 
       @Component({
         template: `
-              <menu-content #menu="menuContent">
-                <button>Item one</button>
-                <button>Item two</button>
-                <ng-template [ngIf]="true"><button>Item three</button></ng-template>
-              </menu-content>
-            `,
+          <menu-content #menu="menuContent">
+            <button>Item one</button>
+            <button>Item two</button>
+            <ng-template [ngIf]="true"><button>Item three</button></ng-template>
+          </menu-content>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         @ViewChild(MenuContent) content!: MenuContent;
@@ -78,7 +92,10 @@ describe('TemplateRef', () => {
         constructor(public viewContainerRef: ViewContainerRef) {}
       }
 
-      TestBed.configureTestingModule({declarations: [MenuContent, App]});
+      TestBed.configureTestingModule({
+        declarations: [MenuContent, App],
+        providers: [provideNgReflectAttributes()],
+      });
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
 
@@ -186,6 +203,8 @@ describe('TemplateRef', () => {
         selector: 'dynamic',
         template: '',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class DynamicCmp {
         @ViewChild('templateRef', {static: true}) templateRef!: TemplateRef<any>;
@@ -195,6 +214,8 @@ describe('TemplateRef', () => {
         selector: 'test',
         template: '',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestCmp {
         constructor(public vcr: ViewContainerRef) {}
@@ -261,10 +282,12 @@ describe('TemplateRef', () => {
   describe('context', () => {
     @Component({
       template: `
-      <ng-template #templateRef let-name="name">{{name}}</ng-template>
-      <ng-container #containerRef></ng-container>
-    `,
+        <ng-template #templateRef let-name="name">{{ name }}</ng-template>
+        <ng-container #containerRef></ng-container>
+      `,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       @ViewChild('templateRef') templateRef!: TemplateRef<any>;
@@ -283,6 +306,7 @@ describe('TemplateRef', () => {
       expect(fixture.nativeElement.textContent).toBe('Frodo');
 
       context.name = 'Bilbo';
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
 
       expect(fixture.nativeElement.textContent).toBe('Bilbo');
@@ -299,6 +323,7 @@ describe('TemplateRef', () => {
       expect(fixture.nativeElement.textContent).toBe('Frodo');
 
       viewRef.context = {name: 'Bilbo'};
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
 
       expect(fixture.nativeElement.textContent).toBe('Bilbo');
@@ -315,6 +340,8 @@ describe('TemplateRef', () => {
           <ng-container #containerRef></ng-container>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class ListenerTest {
         @ViewChild('templateRef') templateRef!: TemplateRef<any>;
@@ -337,6 +364,7 @@ describe('TemplateRef', () => {
       expect(events).toEqual(['Frodo']);
 
       viewRef.context = {name: 'Bilbo'};
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
       button.click();
       expect(events).toEqual(['Frodo', 'Bilbo']);
@@ -354,6 +382,7 @@ describe('TemplateRef', () => {
       spyOn(console, 'warn');
 
       viewRef.context = {name: 'Bilbo'};
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
 
       expect(console.warn).toHaveBeenCalledTimes(1);

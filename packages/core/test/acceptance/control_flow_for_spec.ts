@@ -8,6 +8,7 @@
 
 import {NgIf} from '@angular/common';
 import {
+  ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   Directive,
@@ -16,16 +17,25 @@ import {
   OnInit,
   Pipe,
   PipeTransform,
+  provideZoneChangeDetection,
+  signal,
   TemplateRef,
   ViewContainerRef,
 } from '../../src/core';
 import {TestBed} from '../../testing';
 
 describe('control flow - for', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideZoneChangeDetection()],
+    });
+  });
   it('should create, remove and move views corresponding to items in a collection', () => {
     @Component({
       template: '@for ((item of items); track item; let idx = $index) {{{item}}({{idx}})|}',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestComponent {
       items = [1, 2, 3];
@@ -53,6 +63,8 @@ describe('control flow - for', () => {
     @Component({
       template: '@for ((item of items.keys()); track $index) {{{item}}|}',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestComponent {
       items = new Map([
@@ -71,6 +83,8 @@ describe('control flow - for', () => {
     @Component({
       template: '@for ((item of items); track idx; let idx = $index) {{{item}}({{idx}})|}',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestComponent {
       items = [1, 2, 3];
@@ -98,6 +112,8 @@ describe('control flow - for', () => {
     @Component({
       template: '@for ((item of items); track idx; let idx = $index) {|} @empty {Empty}',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestComponent {
       items: number[] | null | undefined = [1, 2, 3];
@@ -141,6 +157,8 @@ describe('control flow - for', () => {
     @Component({
       template: '@for (item of items | test; track item;) {{{item}}|}',
       imports: [TestPipe],
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestComponent {
       items = [1, 2, 3];
@@ -171,9 +189,11 @@ describe('control flow - for', () => {
         <div [dir] #dir="dir"></div>
 
         @for (x of dir.data; track $index) {
-          {{x}}
+          {{ x }}
         }
       `,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestComponent {}
 
@@ -187,6 +207,8 @@ describe('control flow - for', () => {
       template:
         '@for ((item of items); track item; let idx = $index) {{{item}}({{$index}}/{{idx}})|}',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestComponent {
       items = [1, 2, 3];
@@ -208,6 +230,8 @@ describe('control flow - for', () => {
       @Component({
         template: '@for ((item of items); track $index + offset) {{{item}}}',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = ['a', 'b', 'c'];
@@ -237,8 +261,12 @@ describe('control flow - for', () => {
       const calls = new Set();
 
       @Component({
-        template: `@for ((item of items); track trackingFn(item, compProp)) {{{item}}}`,
+        template: `@for ((item of items); track trackingFn(item, compProp)) {
+          {{ item }}
+        }`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = ['a', 'b'];
@@ -260,15 +288,19 @@ describe('control flow - for', () => {
 
       @Component({
         template: `
+          @if (true) {
             @if (true) {
               @if (true) {
-                @if (true) {
-                  @for ((item of items); track trackingFn(item, compProp)) {{{item}}}
+                @for ((item of items); track trackingFn(item, compProp)) {
+                  {{ item }}
                 }
               }
             }
-          `,
+          }
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = ['a', 'b'];
@@ -289,8 +321,12 @@ describe('control flow - for', () => {
       let context = null as TestComponent | null;
 
       @Component({
-        template: `@for (item of items; track trackingFn($index, item)) {{{item}}}`,
+        template: `@for (item of items; track trackingFn($index, item)) {
+          {{ item }}
+        }`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = ['a', 'b'];
@@ -308,8 +344,12 @@ describe('control flow - for', () => {
 
     it('should warn about duplicated keys when using arrays', () => {
       @Component({
-        template: `@for (item of items; track item) {{{item}}}`,
+        template: `@for (item of items; track item) {
+          {{ item }}
+        }`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = ['a', 'b', 'a', 'c', 'a'];
@@ -319,7 +359,7 @@ describe('control flow - for', () => {
 
       const fixture = TestBed.createComponent(TestComponent);
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toBe('abaca');
+      expect(fixture.nativeElement.textContent).toBe(' a  b  a  c  a ');
       expect(console.warn).toHaveBeenCalledTimes(1);
       expect(console.warn).toHaveBeenCalledWith(
         jasmine.stringContaining(
@@ -341,8 +381,12 @@ describe('control flow - for', () => {
 
     it('should warn about duplicated keys when using iterables', () => {
       @Component({
-        template: `@for (item of items.values(); track item) {{{item}}}`,
+        template: `@for (item of items.values(); track item) {
+          {{ item }}
+        }`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = new Map([
@@ -358,7 +402,7 @@ describe('control flow - for', () => {
 
       const fixture = TestBed.createComponent(TestComponent);
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toBe('abaca');
+      expect(fixture.nativeElement.textContent).toBe(' a  b  a  c  a ');
       expect(console.warn).toHaveBeenCalledTimes(1);
       expect(console.warn).toHaveBeenCalledWith(
         jasmine.stringContaining(
@@ -384,6 +428,8 @@ describe('control flow - for', () => {
       @Component({
         template: `@for (item of items.values(); track item) {}`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = new Map([
@@ -405,6 +451,8 @@ describe('control flow - for', () => {
       @Component({
         template: `@for (item of items; track item) {}`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = [1, 2, 3];
@@ -423,8 +471,13 @@ describe('control flow - for', () => {
 
     it('should warn about collection re-creation due to identity tracking', () => {
       @Component({
-        template: `@for (item of items; track item) {(<span>{{item.value}}</span>)}`,
+        template: `@for (item of items; track item) {
+          (<span>{{ item.value }}</span
+          >)
+        }`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = [{value: 0}, {value: 1}];
@@ -434,21 +487,25 @@ describe('control flow - for', () => {
 
       const fixture = TestBed.createComponent(TestComponent);
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toBe('(0)(1)');
+      expect(fixture.nativeElement.textContent).toBe(' (0)  (1) ');
       expect(console.warn).not.toHaveBeenCalled();
 
       fixture.componentInstance.items = fixture.componentInstance.items.map((item) => ({
         value: item.value + 1,
       }));
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toBe('(1)(2)');
+      expect(fixture.nativeElement.textContent).toBe(' (1)  (2) ');
       expect(console.warn).toHaveBeenCalled();
     });
 
     it('should NOT warn about collection re-creation when a view is not considered expensive', () => {
       @Component({
-        template: `@for (item of items; track item) {({{item.value}})}`,
+        template: `@for (item of items; track item) {
+          ({{ item.value }})
+        }`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = [{value: 0}, {value: 1}];
@@ -458,21 +515,25 @@ describe('control flow - for', () => {
 
       const fixture = TestBed.createComponent(TestComponent);
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toBe('(0)(1)');
+      expect(fixture.nativeElement.textContent).toBe(' (0)  (1) ');
       expect(console.warn).not.toHaveBeenCalled();
 
       fixture.componentInstance.items = fixture.componentInstance.items.map((item) => ({
         value: item.value + 1,
       }));
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toBe('(1)(2)');
+      expect(fixture.nativeElement.textContent).toBe(' (1)  (2) ');
       expect(console.warn).not.toHaveBeenCalled();
     });
 
     it('should NOT warn about collection re-creation when a trackBy function is not identity', () => {
       @Component({
-        template: `@for (item of items; track item.value) {({{item.value}})}`,
+        template: `@for (item of items; track item.value) {
+          ({{ item.value }})
+        }`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = [{value: 0}, {value: 1}];
@@ -482,14 +543,14 @@ describe('control flow - for', () => {
 
       const fixture = TestBed.createComponent(TestComponent);
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toBe('(0)(1)');
+      expect(fixture.nativeElement.textContent).toBe(' (0)  (1) ');
       expect(console.warn).not.toHaveBeenCalled();
 
       fixture.componentInstance.items = fixture.componentInstance.items.map((item) => ({
         value: item.value + 1,
       }));
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toBe('(1)(2)');
+      expect(fixture.nativeElement.textContent).toBe(' (1)  (2) ');
       expect(console.warn).not.toHaveBeenCalled();
     });
   });
@@ -499,6 +560,8 @@ describe('control flow - for', () => {
       @Component({
         template: '@for (item of items; track item; let idx = $index) {{{item}}({{idx}})|}',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = [1, 2, 3];
@@ -518,6 +581,8 @@ describe('control flow - for', () => {
       @Component({
         template: '@for (item of items; track item; let idx = $index) {{{item}}({{idx}})|}',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = [1, 3];
@@ -537,6 +602,8 @@ describe('control flow - for', () => {
       @Component({
         template: '@for (item of items; track item; let idx = $index) {{{item}}({{idx}})|}',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = [1, 2, 3];
@@ -556,6 +623,8 @@ describe('control flow - for', () => {
       @Component({
         template: '@for (item of items; track item; let idx = $index) {{{item}}({{idx}})|}',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         items = [1, 2, 3, 4, 5, 6];
@@ -588,16 +657,20 @@ describe('control flow - for', () => {
       @Component({
         template: ``,
         selector: 'child-cmp',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class ChildCmp {}
 
       @Component({
         imports: [ChildCmp],
         template: `
-          @for(task of tasks; track task.id) {
-            <child-cmp/>
+          @for (task of tasks; track task.id) {
+            <child-cmp />
           }
         `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {
         tasks = BEFORE;
@@ -619,16 +692,24 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
       @Component({
         imports: [TestComponent],
         template: `
-        <test>Before @for (item of items; track $index) {
-          <span foo>{{item}}</span>
-        } After</test>
-      `,
+          <test
+            >Before
+            @for (item of items; track $index) {
+              <span foo>{{ item }}</span>
+            }
+            After</test
+          >
+        `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1, 2, 3];
@@ -644,16 +725,25 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
       @Component({
         imports: [TestComponent],
         template: `
-        <test>Before @for (item of items; track $index) {} @empty {
-          <span foo>Empty</span>
-        } After</test>
-      `,
+          <test
+            >Before
+            @for (item of items; track $index) {
+            } @empty {
+              <span foo>Empty</span>
+            }
+            After</test
+          >
+        `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [];
@@ -670,18 +760,26 @@ describe('control flow - for', () => {
         selector: 'test',
         template:
           'Main: <ng-content/> Loop slot: <ng-content select="[loop]"/> Empty slot: <ng-content select="[empty]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
       @Component({
         imports: [TestComponent],
         template: `
-        <test>Before @for (item of items; track $index) {
-          <span loop>{{item}}</span>
-        } @empty {
-          <span empty>Empty</span>
-        } After</test>
-      `,
+          <test
+            >Before
+            @for (item of items; track $index) {
+              <span loop>{{ item }}</span>
+            } @empty {
+              <span empty>Empty</span>
+            }
+            After</test
+          >
+        `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1, 2, 3];
@@ -705,17 +803,25 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
       @Component({
         imports: [TestComponent],
         template: `
-        <test>Before @for (item of items; track $index) {
-          <span foo>one{{item}}</span>
-          <div foo>two{{item}}</div>
-        } After</test>
-      `,
+          <test
+            >Before
+            @for (item of items; track $index) {
+              <span foo>one{{ item }}</span>
+              <div foo>two{{ item }}</div>
+            }
+            After</test
+          >
+        `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1, 2];
@@ -742,16 +848,24 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
       @Component({
         imports: [TestComponent, Foo],
         template: `
-        <test>Before @for (item of items; track $index) {
-          <span [foo]="item">{{item}}</span>
-        } After</test>
-      `,
+          <test
+            >Before
+            @for (item of items; track $index) {
+              <span [foo]="item">{{ item }}</span>
+            }
+            After</test
+          >
+        `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1, 2, 3];
@@ -768,19 +882,27 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
       @Component({
         imports: [TestComponent],
         template: `
-        <test>Before @for (item of items; track $index) {
-          <ng-container foo>
-            <span>{{item}}</span>
-            <span>|</span>
-          </ng-container>
-        } After</test>
-      `,
+          <test
+            >Before
+            @for (item of items; track $index) {
+              <ng-container foo>
+                <span>{{ item }}</span>
+                <span>|</span>
+              </ng-container>
+            }
+            After</test
+          >
+        `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1, 2, 3];
@@ -798,18 +920,26 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
       @Component({
         imports: [TestComponent],
         template: `
-        <test>Before @for (item of items; track $index) {
-          <!-- before -->
-          <span foo>{{item}}</span>
-          <!-- after -->
-        } After</test>
-      `,
+          <test
+            >Before
+            @for (item of items; track $index) {
+              <!-- before -->
+              <span foo>{{ item }}</span>
+              <!-- after -->
+            }
+            After</test
+          >
+        `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1, 2, 3];
@@ -825,6 +955,8 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
@@ -834,6 +966,8 @@ describe('control flow - for', () => {
         // Note the whitespace due to the indentation inside @for.
         template:
           '<test>Before @for (item of items; track $index) {<span foo>{{item}}</span>} After</test>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1, 2, 3];
@@ -848,6 +982,8 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
@@ -856,10 +992,16 @@ describe('control flow - for', () => {
         preserveWhitespaces: true,
         // Note the whitespace due to the indentation inside @for.
         template: `
-              <test>Before @for (item of items; track $index) {
-                <span foo>{{item}}</span>
-              } After</test>
-            `,
+          <test
+            >Before
+            @for (item of items; track $index) {
+              <span foo>{{ item }}</span>
+            }
+            After</test
+          >
+        `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1, 2, 3];
@@ -874,18 +1016,26 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
       @Component({
         imports: [TestComponent],
         template: `
-        <test>Before @for (item of items; track $index) {
-          @for (item of items; track $index) {
-            <span foo>{{item}}</span>
-          }
-        } After</test>
-      `,
+          <test
+            >Before
+            @for (item of items; track $index) {
+              @for (item of items; track $index) {
+                <span foo>{{ item }}</span>
+              }
+            }
+            After</test
+          >
+        `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1, 2];
@@ -900,14 +1050,22 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
       @Component({
         imports: [TestComponent, NgIf],
-        template: `<test>Before @for (item of items; track $index) {
-        <span *ngIf="true" foo>{{item}}</span>
-      } After</test>`,
+        template: `<test
+          >Before
+          @for (item of items; track $index) {
+            <span *ngIf="true" foo>{{ item }}</span>
+          }
+          After</test
+        >`,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1, 2];
@@ -928,6 +1086,8 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
@@ -942,10 +1102,15 @@ describe('control flow - for', () => {
 
       @Component({
         imports: [TestComponent, FooDirective],
-        template: `<test>Before @for (item of items; track $index) {
-        <span foo>{{item}}</span>
-      } After</test>
-      `,
+        template: `<test
+          >Before
+          @for (item of items; track $index) {
+            <span foo>{{ item }}</span>
+          }
+          After</test
+        > `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1];
@@ -964,6 +1129,8 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
@@ -986,10 +1153,15 @@ describe('control flow - for', () => {
 
       @Component({
         imports: [TestComponent, TemplateDirective],
-        template: `<test>Before @for (item of items; track $index) {
-        <span *templateDir foo>{{item}}</span>
-      } After</test>
-      `,
+        template: `<test
+          >Before
+          @for (item of items; track $index) {
+            <span *templateDir foo>{{ item }}</span>
+          }
+          After</test
+        > `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1];
@@ -1008,6 +1180,8 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
@@ -1030,10 +1204,15 @@ describe('control flow - for', () => {
 
       @Component({
         imports: [TestComponent, TemplateDirective],
-        template: `<test>Before @for (item of items; track $index) {
-        <ng-template templateDir foo>{{item}}</ng-template>
-      } After</test>
-      `,
+        template: `<test
+          >Before
+          @for (item of items; track $index) {
+            <ng-template templateDir foo>{{ item }}</ng-template>
+          }
+          After</test
+        > `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1];
@@ -1050,6 +1229,8 @@ describe('control flow - for', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
@@ -1057,9 +1238,13 @@ describe('control flow - for', () => {
         imports: [TestComponent],
         template: `
           <test>
-            @for (item of items; track $index) {Hello <span foo>{{item}}</span>}
+            @for (item of items; track $index) {
+              Hello <span foo>{{ item }}</span>
+            }
           </test>
         `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1];
@@ -1067,25 +1252,33 @@ describe('control flow - for', () => {
 
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toBe('Main: Hello 1 Slot: ');
+      expect(fixture.nativeElement.textContent).toBe('Main:  Hello 1 Slot: ');
     });
 
     it('should project an @for with a single root node and @let declarations into the root node slot', () => {
       @Component({
         selector: 'test',
         template: 'Main: <ng-content/> Slot: <ng-content select="[foo]"/>',
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class TestComponent {}
 
       @Component({
         imports: [TestComponent],
         template: `
-        <test>Before @for (item of items; track $index) {
-          @let a = item + 1;
-          @let b = a + 1;
-          <span foo>{{b}}</span>
-        } After</test>
-      `,
+          <test
+            >Before
+            @for (item of items; track $index) {
+              @let a = item + 1;
+              @let b = a + 1;
+              <span foo>{{ b }}</span>
+            }
+            After</test
+          >
+        `,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         items = [1];
@@ -1096,5 +1289,62 @@ describe('control flow - for', () => {
 
       expect(fixture.nativeElement.textContent).toBe('Main: Before  After Slot: 3');
     });
+  });
+
+  describe('reactivity', () => {
+    it('should do a reactive read of length', () => {
+      const len = signal(2);
+      // prettier-ignore
+      @Component({
+        template: `@for (item of items; track item) {{{item}}|}`,
+        changeDetection: ChangeDetectionStrategy.OnPush,
+      })
+      class TestComponent {
+        items = new Proxy([1, 2, 3, 4, 5], {
+          get(target, prop) {
+            if (prop === 'length') {
+              return len();
+            }
+            return target[prop as keyof number[]];
+          },
+        });
+      }
+
+      const fixture = TestBed.createComponent(TestComponent);
+      TestBed.tick();
+      expect(fixture.nativeElement.textContent).toBe('1|2|');
+      len.set(4);
+      TestBed.tick();
+      expect(fixture.nativeElement.textContent).toBe('1|2|3|4|');
+    });
+  });
+
+  it('should do a reactive read of iterator', () => {
+    const iter = signal(() => [1, 2][Symbol.iterator]());
+    // prettier-ignore
+    @Component({
+      template: `@for (item of items; track $index) {{{item}}|}`,
+      changeDetection: ChangeDetectionStrategy.OnPush,
+    })
+    class TestComponent {
+      items = new Proxy(
+        {},
+        {
+          get(target, prop) {
+            if (prop === Symbol.iterator) {
+              return iter();
+            }
+            return target[prop as keyof {}];
+          },
+        },
+      );
+    }
+
+    const fixture = TestBed.createComponent(TestComponent);
+    TestBed.tick();
+    expect(fixture.nativeElement.textContent).toBe('1|2|');
+    iter.set(() => [1, 2, 3, 4][Symbol.iterator]());
+    TestBed.tick();
+    expect(fixture.nativeElement.textContent).toBe('1|2|3|4|');
   });
 });

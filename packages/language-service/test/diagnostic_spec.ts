@@ -7,7 +7,7 @@
  */
 
 import {ErrorCode, ngErrorCode} from '@angular/compiler-cli/src/ngtsc/diagnostics';
-import {initMockFileSystem} from '@angular/compiler-cli/src/ngtsc/file_system/testing';
+
 import ts from 'typescript';
 
 import {createModuleAndProjectWithDeclarations, LanguageServiceTestEnv} from '../testing';
@@ -15,7 +15,6 @@ import {createModuleAndProjectWithDeclarations, LanguageServiceTestEnv} from '..
 describe('getSemanticDiagnostics', () => {
   let env: LanguageServiceTestEnv;
   beforeEach(() => {
-    initMockFileSystem('Native');
     env = LanguageServiceTestEnv.setup();
   });
 
@@ -55,7 +54,7 @@ describe('getSemanticDiagnostics', () => {
     expect(diags.length).toBe(1);
     const {category, file, messageText} = diags[0];
     expect(category).toBe(ts.DiagnosticCategory.Error);
-    expect(file?.fileName).toBe('/test/app.ts');
+    expect(file?.fileName).toBe(project.getAbsFileName('app.ts'));
     expect(messageText).toBe(`Property 'nope' does not exist on type 'AppComponent'.`);
   });
 
@@ -78,13 +77,11 @@ describe('getSemanticDiagnostics', () => {
     const diags = project.getDiagnosticsForFile('app.ts');
     expect(diags.length).toBe(2);
     expect(diags[0].category).toBe(ts.DiagnosticCategory.Error);
-    expect(diags[0].file?.fileName).toBe('/test/app.ts');
+    expect(diags[0].file?.fileName).toBe(project.getAbsFileName('app.ts'));
     expect(diags[0].messageText).toBe(`Duplicate identifier 'test1'.`);
     expect(diags[1].category).toBe(ts.DiagnosticCategory.Error);
-    expect(diags[1].file?.fileName).toBe('/test/app.ts');
-    expect(diags[1].messageText).toBe(
-      `Duplicate decorated properties found on class 'AppComponent': test1`,
-    );
+    expect(diags[1].file?.fileName).toBe(project.getAbsFileName('app.ts'));
+    expect(diags[1].messageText).toBe(`Input 'test1' is bound to both 'test1' and 'test1'.`);
   });
 
   it('should process external template', () => {
@@ -142,7 +139,7 @@ describe('getSemanticDiagnostics', () => {
     expect(diags.length).toBe(1);
     const {category, file, messageText} = diags[0];
     expect(category).toBe(ts.DiagnosticCategory.Error);
-    expect(file?.fileName).toBe('/test/app.ts');
+    expect(file?.fileName).toBe(project.getAbsFileName('app.ts'));
     expect(messageText).toBe(`Property 'nope' does not exist on type 'AppComponent'.`);
   });
 
@@ -165,7 +162,7 @@ describe('getSemanticDiagnostics', () => {
     expect(diags.length).toBe(1);
     const {category, file, messageText} = diags[0];
     expect(category).toBe(ts.DiagnosticCategory.Error);
-    expect(file?.fileName).toBe('/test/app.html');
+    expect(file?.fileName).toBe(project.getAbsFileName('app.html'));
     expect(messageText).toBe(`Property 'nope' does not exist on type 'AppComponent'.`);
   });
 
@@ -191,9 +188,9 @@ describe('getSemanticDiagnostics', () => {
 
     const {category, file, messageText} = diags[0];
     expect(category).toBe(ts.DiagnosticCategory.Error);
-    expect(file?.fileName).toBe('/test/app.html');
+    expect(file?.fileName).toBe(project.getAbsFileName('app.html'));
     expect(messageText).toContain(
-      `Parser Error: Bindings cannot contain assignments at column 8 in [{{nope = true}}]`,
+      `Parser Error: Bindings cannot contain assignments at column 8 in [nope = true]`,
     );
   });
 
@@ -218,11 +215,11 @@ describe('getSemanticDiagnostics', () => {
     expect(diags.length).toBe(2);
 
     expect(diags[0].category).toBe(ts.DiagnosticCategory.Error);
-    expect(diags[0].file?.fileName).toBe('/test/app.html');
+    expect(diags[0].file?.fileName).toBe(project.getAbsFileName('app.html'));
     expect(diags[0].messageText).toContain(`'dne' is not a known element`);
 
     expect(diags[1].category).toBe(ts.DiagnosticCategory.Error);
-    expect(diags[1].file?.fileName).toBe('/test/app.html');
+    expect(diags[1].file?.fileName).toBe(project.getAbsFileName('app.html'));
     expect(diags[1].messageText).toContain(`Opening tag "dne" not terminated.`);
   });
 
@@ -231,13 +228,13 @@ describe('getSemanticDiagnostics', () => {
       'app.ts': `
       import {Component, NgModule} from '@angular/core';
 
-      @Component({ 
+      @Component({
         templateUrl: './app1.html',
         standalone: false,
       })
       export class AppComponent1 { nope = false; }
 
-      @Component({ 
+      @Component({
         templateUrl: './app2.html',
         standalone: false,
       })
@@ -262,13 +259,17 @@ describe('getSemanticDiagnostics', () => {
     const diags1 = project.getDiagnosticsForFile('app1.html');
     expect(diags1.length).toBe(1);
     expect(diags1[0].messageText).toBe(
-      'Parser Error: Bindings cannot contain assignments at column 8 in [{{nope = false}}] in /test/app1.html@0:0',
+      `Parser Error: Bindings cannot contain assignments at column 8 in [nope = false] in ${project.getAbsFileName(
+        'app1.html',
+      )}@0:0`,
     );
 
     const diags2 = project.getDiagnosticsForFile('app2.html');
     expect(diags2.length).toBe(1);
     expect(diags2[0].messageText).toBe(
-      'Parser Error: Bindings cannot contain assignments at column 8 in [{{nope = true}}] in /test/app2.html@0:0',
+      `Parser Error: Bindings cannot contain assignments at column 8 in [nope = true] in ${project.getAbsFileName(
+        'app2.html',
+      )}@0:0`,
     );
   });
 
@@ -285,37 +286,9 @@ describe('getSemanticDiagnostics', () => {
 
     const project = createModuleAndProjectWithDeclarations(env, 'test', files);
     const diags = project.getDiagnosticsForFile('app.ts');
-    expect(diags.map((x) => x.messageText)).toEqual(['component is missing a template']);
-  });
-
-  it('reports a warning when the project configuration prevents good type inference', () => {
-    const files = {
-      'app.ts': `
-        import {Component, NgModule} from '@angular/core';
-        import {CommonModule} from '@angular/common';
-
-        @Component({
-          template: '<div *ngFor="let user of users">{{user}}</div>',
-          standalone: false,
-        })
-        export class MyComponent {
-          users = ['Alpha', 'Beta'];
-        }
-      `,
-    };
-
-    const project = createModuleAndProjectWithDeclarations(env, 'test', files, {
-      // Disable `strictTemplates`.
-      strictTemplates: false,
-      // Use `fullTemplateTypeCheck` mode instead.
-      fullTemplateTypeCheck: true,
-    });
-    const diags = project.getDiagnosticsForFile('app.ts');
-    expect(diags.length).toBe(1);
-    const diag = diags[0];
-    expect(diag.code).toBe(ngErrorCode(ErrorCode.SUGGEST_SUBOPTIMAL_TYPE_INFERENCE));
-    expect(diag.category).toBe(ts.DiagnosticCategory.Suggestion);
-    expect(getTextOfDiagnostic(diag)).toBe('user');
+    expect(diags.map((x) => x.messageText)).toEqual([
+      '@Component is missing a template. Add either a `template` or `templateUrl`',
+    ]);
   });
 
   it('should process a component that would otherwise require an inline TCB', () => {
@@ -386,7 +359,7 @@ describe('getSemanticDiagnostics', () => {
     const files = {
       'app.ts': `
         import {Component} from '@angular/core';
-        @Component({ 
+        @Component({
           template: '',
           standalone: false,
         })
@@ -414,7 +387,7 @@ describe('getSemanticDiagnostics', () => {
 
         @Component({
           template: '',
-          styleUrls: ['./one.css', './two/two.css', './three.css', '../test/four.css'],
+          styleUrls: ['./one.css', './two/two.css', './three.css', './four.css'],
           standalone: false,
         })
         export class MyComponent {}
@@ -574,7 +547,6 @@ describe('getSemanticDiagnostics', () => {
       @Component({
         templateUrl: './test.ng.html',
         imports: [PostModule],
-        standalone: true,
       })
       export class Main { }
        `,
@@ -589,6 +561,221 @@ describe('getSemanticDiagnostics', () => {
     expect(ts.flattenDiagnosticMessageText(diags[0].messageText, '')).toContain(
       'HostBindDirective',
     );
+  });
+});
+
+describe('getSuggestedDiagnostics', () => {
+  let env: LanguageServiceTestEnv;
+  beforeEach(() => {
+    env = LanguageServiceTestEnv.setup();
+  });
+
+  it('should report deprecated for primitive type variable', () => {
+    const files = {
+      'app.ts': `
+      import {Component} from '@angular/core';
+
+      @Component({
+        template: '<div>{{name}}</div>',
+        standalone: false,
+      })
+      export class AppComponent {
+        /**
+         * @deprecated
+         *
+         * Used to test to get the symbol of the type "string", using the
+         * "type.getSymbol()" to check if the symbol is "undefined".
+         */
+        name = 'test';
+      }
+    `,
+    };
+    const project = createModuleAndProjectWithDeclarations(env, 'test', files);
+
+    const diags = project.getSuggestionDiagnosticsForFile('app.ts');
+    expect(diags.length).toBe(1);
+    const {category, file, messageText} = diags[0];
+    expect(category).toBe(ts.DiagnosticCategory.Suggestion);
+    expect(file?.fileName).toBe(project.getAbsFileName('app.ts'));
+    expect(messageText).toBe(`'name' is deprecated.`);
+  });
+
+  it('should report deprecated for component variable', () => {
+    const files = {
+      'app.ts': `
+      import {Component} from '@angular/core';
+
+      @Component({
+        template: '<app-bar name=""></app-bar>',
+        standalone: false,
+      })
+      export class AppComponent {}
+    `,
+      'bar.ts': `
+      import {Component, input} from '@angular/core';
+      @Component({
+        selector: 'app-bar',
+        template: '',
+        standalone: false,
+      })
+      export class BarComponent {
+        /**
+         * @deprecated
+         */
+        name = input<string>();
+      }
+    `,
+    };
+    const project = createModuleAndProjectWithDeclarations(env, 'test', files);
+
+    const diags = project.getSuggestionDiagnosticsForFile('app.ts');
+    expect(diags.length).toBe(1);
+    const {category, file, messageText} = diags[0];
+    expect(category).toBe(ts.DiagnosticCategory.Suggestion);
+    expect(file?.fileName).toBe(project.getAbsFileName('app.ts'));
+    expect(messageText).toBe(`'name' is deprecated.`);
+  });
+
+  it('should report deprecated for component tag without generics', () => {
+    const files = {
+      'app.ts': `
+      import {Component} from '@angular/core';
+
+      @Component({
+        template: '<app-bar name=""></app-bar>',
+        standalone: false,
+      })
+      export class AppComponent {}
+    `,
+      'bar.ts': `
+      import {Component, input} from '@angular/core';
+      /**
+       * @deprecated
+      */
+      @Component({
+        selector: 'app-bar',
+        template: '',
+        standalone: false,
+      })
+      export class BarComponent {
+        name = input<string>();
+      }
+    `,
+    };
+    const project = createModuleAndProjectWithDeclarations(env, 'test', files);
+
+    const diags = project.getSuggestionDiagnosticsForFile('app.ts');
+    expect(diags.length).toBe(1);
+    const {category, file, messageText, start} = diags[0];
+    expect(category).toBe(ts.DiagnosticCategory.Suggestion);
+    expect(file?.fileName).toBe(project.getAbsFileName('app.ts'));
+    expect(start).toBe(87);
+    expect(messageText).toBe(`'BarComponent' is deprecated.`);
+  });
+
+  it('should report deprecated for component tag with generics', () => {
+    const files = {
+      'app.ts': `
+      import {Component} from '@angular/core';
+
+      @Component({
+        template: '<app-bar name=""></app-bar>',
+        standalone: false,
+      })
+      export class AppComponent {}
+    `,
+      'bar.ts': `
+      import {Component, input} from '@angular/core';
+      /**
+       * @deprecated
+      */
+      @Component({
+        selector: 'app-bar',
+        template: '',
+        standalone: false,
+      })
+      export class BarComponent<T> {
+        name = input<string>();
+      }
+    `,
+    };
+    const project = createModuleAndProjectWithDeclarations(env, 'test', files);
+
+    const diags = project.getSuggestionDiagnosticsForFile('app.ts');
+    expect(diags.length).toBe(1);
+    const {category, file, messageText, start} = diags[0];
+    expect(category).toBe(ts.DiagnosticCategory.Suggestion);
+    expect(file?.fileName).toBe(project.getAbsFileName('app.ts'));
+    expect(start).toBe(87);
+    expect(messageText).toBe(`'BarComponent' is deprecated.`);
+  });
+
+  it('should not report deprecated for directive attribute', () => {
+    const files = {
+      'app.ts': `
+      import {Component} from '@angular/core';
+
+      @Component({
+        template: '<div my-directive></div>',
+        standalone: false,
+      })
+      export class AppComponent {}
+    `,
+      'bar.ts': `
+      import {Directive, input} from '@angular/core';
+      /**
+       * @deprecated deprecated
+       */
+      @Directive({
+        selector: '[my-directive]',
+        standalone: false,
+      })
+      export class MyDirective {}
+    `,
+    };
+    const project = createModuleAndProjectWithDeclarations(env, 'test', files);
+
+    const diags = project.getSuggestionDiagnosticsForFile('app.ts');
+    expect(diags.length).toBe(0);
+  });
+
+  it('should not report deprecated for directive context guard', () => {
+    const files = {
+      'app.ts': `
+      import {Component} from '@angular/core';
+
+      @Component({
+        template: \`
+        <div *my-directive>
+          <span>Test</span>
+          <span>Test</span>
+          <span>Test</span>
+        </div>
+        \`,
+        standalone: false,
+      })
+      export class AppComponent {}
+    `,
+      'bar.ts': `
+      import {Directive, input} from '@angular/core';
+      /**
+       * @deprecated deprecated
+       */
+      @Directive({
+        selector: '[my-directive]',
+        standalone: false,
+      })
+      export class MyDirective {
+        static ngTemplateContextGuard(dir: MyDirective, ctx: any): true {
+          return true;
+        }
+      }
+    `,
+    };
+    const project = createModuleAndProjectWithDeclarations(env, 'test', files);
+
+    const diags = project.getSuggestionDiagnosticsForFile('app.ts');
+    expect(diags.length).toBe(0);
   });
 });
 

@@ -64,9 +64,9 @@ function _extractId(valueString: string): string {
  *
  * ```html
  * <select multiple name="countries" [formControl]="countryControl">
- *   <option *ngFor="let country of countries" [ngValue]="country">
- *     {{ country.name }}
- *   </option>
+ *   @for(country of countries; track $index) {
+ *      <option [ngValue]="country">{{ country.name }}</option>
+ *   }
  * </select>
  * ```
  *
@@ -81,7 +81,7 @@ function _extractId(valueString: string): string {
  */
 @Directive({
   selector:
-    'select[multiple][formControlName],select[multiple][formControl],select[multiple][ngModel]',
+    'select[multiple]:not([ngNoCva])[formControlName],select[multiple]:not([ngNoCva])[formControl],select[multiple]:not([ngNoCva])[ngModel]',
   host: {'(change)': 'onChange($event.target)', '(blur)': 'onTouched()'},
   providers: [SELECT_MULTIPLE_VALUE_ACCESSOR],
   standalone: false,
@@ -92,7 +92,7 @@ export class SelectMultipleControlValueAccessor
 {
   /**
    * The current value.
-   * @nodoc
+   * @docs-private
    */
   value: any;
 
@@ -122,7 +122,7 @@ export class SelectMultipleControlValueAccessor
 
   /**
    * Sets the "value" property on one or of more of the select's options.
-   * @nodoc
+   * @docs-private
    */
   writeValue(value: any): void {
     this.value = value;
@@ -144,7 +144,7 @@ export class SelectMultipleControlValueAccessor
   /**
    * Registers a function called when the control value changes
    * and writes an array of the selected options.
-   * @nodoc
+   * @docs-private
    */
   override registerOnChange(fn: (value: any) => any): void {
     this.onChange = (element: HTMLSelectElement) => {
@@ -266,7 +266,7 @@ export class ɵNgSelectMultipleOption implements OnDestroy {
     this._renderer.setProperty(this._element.nativeElement, 'selected', selected);
   }
 
-  /** @nodoc */
+  /** @docs-private */
   ngOnDestroy(): void {
     if (this._select) {
       this._select._optionMap.delete(this.id);

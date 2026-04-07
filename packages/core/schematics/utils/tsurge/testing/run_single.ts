@@ -6,13 +6,9 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
+import {absoluteFrom, AbsoluteFsPath, getFileSystem} from '@angular/compiler-cli';
+import {MockFileSystem} from '@angular/compiler-cli/private/testing';
 import {TsurgeFunnelMigration, TsurgeMigration} from '../migration';
-import {MockFileSystem} from '@angular/compiler-cli/src/ngtsc/file_system/testing';
-import {
-  absoluteFrom,
-  AbsoluteFsPath,
-  getFileSystem,
-} from '@angular/compiler-cli/src/ngtsc/file_system';
 import {groupReplacementsByFile} from '../helpers/group_replacements';
 import {applyTextUpdates} from '../replacement';
 import ts from 'typescript';
@@ -29,11 +25,11 @@ import {TestRun} from './test_run';
  *
  * @returns a mock file system with the applied replacements of the migration.
  */
-export async function runTsurgeMigration<UnitData, GlobalData>(
-  migration: TsurgeMigration<UnitData, GlobalData>,
+export async function runTsurgeMigration<Stats>(
+  migration: TsurgeMigration<unknown, unknown, Stats>,
   files: {name: AbsoluteFsPath; contents: string; isProgramRootFile?: boolean}[],
   compilerOptions: ts.CompilerOptions = {},
-): Promise<TestRun> {
+): Promise<TestRun<Stats>> {
   const mockFs = getFileSystem();
   if (!(mockFs instanceof MockFileSystem)) {
     throw new Error('Expected a mock file system for `runTsurgeMigration`.');
@@ -58,8 +54,7 @@ export async function runTsurgeMigration<UnitData, GlobalData>(
     }),
   );
 
-  const baseInfo = migration.createProgram('/tsconfig.json', mockFs);
-  const info = migration.prepareProgram(baseInfo);
+  const info = migration.createProgram('/tsconfig.json', mockFs);
 
   const unitData = await migration.analyze(info);
   const globalMeta = await migration.globalMeta(unitData);

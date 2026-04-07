@@ -9,14 +9,14 @@
 import {ComponentFixture, TestBed} from '@angular/core/testing';
 
 import {Navigation} from './navigation.component';
-import {RouterTestingModule} from '@angular/router/testing';
+import {provideRouter} from '@angular/router';
 import {By} from '@angular/platform-browser';
-import {PagePrefix} from '../../enums/pages';
 import {Theme, ThemeManager} from '../../services/theme-manager.service';
 import {Version, signal} from '@angular/core';
 import {of} from 'rxjs';
 import {VersionManager} from '../../services/version-manager.service';
 import {Search, WINDOW} from '@angular/docs';
+import {PAGE_PREFIX} from '../../constants/pages';
 
 describe('Navigation', () => {
   let component: Navigation;
@@ -30,6 +30,7 @@ describe('Navigation', () => {
 
   const fakeVersionManager = {
     currentDocsVersion: signal('v17'),
+    currentDocsVersionMode: signal('stable'),
     versions: signal<Version[]>([]),
   };
 
@@ -37,9 +38,10 @@ describe('Navigation', () => {
   const fakeSearch = {};
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [Navigation, RouterTestingModule],
+    TestBed.configureTestingModule({
+      imports: [Navigation],
       providers: [
+        provideRouter([]),
         {
           provide: WINDOW,
           useValue: fakeWindow,
@@ -49,30 +51,30 @@ describe('Navigation', () => {
           useValue: fakeSearch,
         },
       ],
-    }).compileComponents();
+    });
 
     TestBed.overrideProvider(ThemeManager, {useValue: fakeThemeManager});
     TestBed.overrideProvider(VersionManager, {useValue: fakeVersionManager});
 
     fixture = TestBed.createComponent(Navigation);
     component = fixture.componentInstance;
-    fixture.detectChanges();
+    await fixture.whenStable();
   });
 
-  it('should append active class to DOCS_ROUTE when DOCS_ROUTE is active', () => {
-    component.activeRouteItem.set(PagePrefix.DOCS);
+  it('should append active class to DOCS_ROUTE when DOCS_ROUTE is active', async () => {
+    component.activeRouteItem.set(PAGE_PREFIX.DOCS);
 
-    fixture.detectChanges();
+    await fixture.whenStable();
 
     const docsLink = fixture.debugElement.query(By.css('a[href="/docs"]')).parent?.nativeElement;
 
     expect(docsLink).toHaveClass('adev-nav-item--active');
   });
 
-  it('should not have active class when activeRouteItem is null', () => {
+  it('should not have active class when activeRouteItem is null', async () => {
     component.activeRouteItem.set(null);
 
-    fixture.detectChanges();
+    await fixture.whenStable();
 
     const docsLink = fixture.debugElement.query(By.css('a[href="/docs"]')).nativeElement;
     const referenceLink = fixture.debugElement.query(By.css('a[href="/reference"]')).nativeElement;
@@ -81,14 +83,14 @@ describe('Navigation', () => {
     expect(referenceLink).not.toHaveClass('adev-nav-item--active');
   });
 
-  it('should call themeManager.setTheme(dark) when user tries to set dark theme', () => {
+  it('should call themeManager.setTheme(dark) when user tries to set dark theme', async () => {
     const openThemePickerButton = fixture.debugElement.query(
-      By.css('button[aria-label^="Open theme picker"]'),
+      By.css('button[aria-label^="Change theme. Current theme:"]'),
     ).nativeElement;
     const setThemeSpy = spyOn(fakeThemeManager, 'setTheme');
 
     openThemePickerButton.click();
-    fixture.detectChanges();
+    await fixture.whenStable();
 
     const setDarkModeButton = fixture.debugElement.query(
       By.css('button[aria-label="Set dark theme"]'),

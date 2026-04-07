@@ -1,30 +1,24 @@
-load("//tools:defaults.bzl", "ts_library")
+load("//tools:defaults.bzl", "copy_to_bin", "ts_project")
 
 package(
     default_visibility = [
         "//packages/core/schematics:__pkg__",
-        "//packages/core/schematics/migrations/google3:__pkg__",
         "//packages/core/schematics/test:__pkg__",
     ],
 )
 
-filegroup(
+copy_to_bin(
     name = "static_files",
     srcs = ["schema.json"],
 )
 
-ts_library(
+ts_project(
     name = "route-lazy-loading",
     srcs = glob(["**/*.ts"]),
-    tsconfig = "//packages/core/schematics:tsconfig.json",
     deps = [
-        "//packages/compiler-cli",
+        "//:node_modules/@angular-devkit/schematics",
+        "//:node_modules/typescript",
         "//packages/compiler-cli/private",
-        "//packages/compiler-cli/src/ngtsc/annotations",
-        "//packages/compiler-cli/src/ngtsc/reflection",
         "//packages/core/schematics/utils",
-        "@npm//@angular-devkit/schematics",
-        "@npm//@types/node",
-        "@npm//typescript",
     ],
 )

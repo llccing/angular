@@ -8,6 +8,7 @@ import { ChangeDetectorRef } from '@angular/core';
 import { DoCheck } from '@angular/core';
 import { DOCUMENT } from '@angular/core';
 import { ElementRef } from '@angular/core';
+import { EnvironmentInjector } from '@angular/core';
 import * as i0 from '@angular/core';
 import { ɵIMAGE_CONFIG as IMAGE_CONFIG } from '@angular/core';
 import { ɵImageConfig as ImageConfig } from '@angular/core';
@@ -16,7 +17,6 @@ import { Injector } from '@angular/core';
 import { IterableDiffers } from '@angular/core';
 import { KeyValueDiffers } from '@angular/core';
 import { NgIterable } from '@angular/core';
-import { NgModuleFactory } from '@angular/core';
 import { Observable } from 'rxjs';
 import { OnChanges } from '@angular/core';
 import { OnDestroy } from '@angular/core';
@@ -32,6 +32,16 @@ import { TrackByFunction } from '@angular/core';
 import { Type } from '@angular/core';
 import { Version } from '@angular/core';
 import { ViewContainerRef } from '@angular/core';
+import { ɵNavigateEvent } from '@angular/core';
+import { ɵNavigation } from '@angular/core';
+import { ɵNavigationCurrentEntryChangeEvent } from '@angular/core';
+import { ɵNavigationHistoryEntry } from '@angular/core';
+import { ɵNavigationNavigateOptions } from '@angular/core';
+import { ɵNavigationOptions } from '@angular/core';
+import { ɵNavigationReloadOptions } from '@angular/core';
+import { ɵNavigationResult } from '@angular/core';
+import { ɵNavigationTransition } from '@angular/core';
+import { ɵNavigationUpdateCurrentEntryOptions } from '@angular/core';
 
 // @public
 export const APP_BASE_HREF: InjectionToken<string>;
@@ -270,7 +280,6 @@ export class HashLocationStrategy extends LocationStrategy implements OnDestroy 
     getState(): unknown;
     // (undocumented)
     historyGo(relativePosition?: number): void;
-    // (undocumented)
     ngOnDestroy(): void;
     // (undocumented)
     onPopState(fn: LocationChangeListener): void;
@@ -325,6 +334,7 @@ export type ImageLoader = (config: ImageLoaderConfig) => string;
 
 // @public
 export interface ImageLoaderConfig {
+    height?: number;
     isPlaceholder?: boolean;
     loaderParams?: {
         [key: string]: any;
@@ -348,7 +358,7 @@ export function isPlatformServer(platformId: Object): boolean;
 // @public
 export class JsonPipe implements PipeTransform {
     // (undocumented)
-    transform(value: any): string;
+    transform(value: unknown): string;
     // (undocumented)
     static ɵfac: i0.ɵɵFactoryDeclaration<JsonPipe, never>;
     // (undocumented)
@@ -381,6 +391,8 @@ export class KeyValuePipe implements PipeTransform {
     // (undocumented)
     transform<K extends string, V>(input: Record<K, V> | ReadonlyMap<K, V> | null | undefined, compareFn?: ((a: KeyValue<K, V>, b: KeyValue<K, V>) => number) | null): Array<KeyValue<K, V>> | null;
     // (undocumented)
+    transform<T>(input: T, compareFn?: T extends object ? (a: T[keyof T], b: T[keyof T]) => number : never): T extends object ? Array<KeyValue<keyof T, T[keyof T]>> : null;
+    // (undocumented)
     static ɵfac: i0.ɵɵFactoryDeclaration<KeyValuePipe, never>;
     // (undocumented)
     static ɵpipe: i0.ɵɵPipeDeclaration<KeyValuePipe, "keyvalue", true>;
@@ -396,7 +408,6 @@ class Location_2 implements OnDestroy {
     historyGo(relativePosition?: number): void;
     isCurrentPathEqualTo(path: string, query?: string): boolean;
     static joinWithSlash: (start: string, end: string) => string;
-    // (undocumented)
     ngOnDestroy(): void;
     normalize(url: string): string;
     static normalizeQueryParams: (params: string) => string;
@@ -493,25 +504,22 @@ export class NgClass implements DoCheck {
 export class NgComponentOutlet<T = any> implements OnChanges, DoCheck, OnDestroy {
     constructor(_viewContainerRef: ViewContainerRef);
     get componentInstance(): T | null;
-    ngComponentOutlet: Type<any> | null;
+    ngComponentOutlet: Type<T> | null;
     // (undocumented)
-    ngComponentOutletContent?: any[][];
+    ngComponentOutletContent?: Node[][];
+    // (undocumented)
+    ngComponentOutletEnvironmentInjector?: EnvironmentInjector;
     // (undocumented)
     ngComponentOutletInjector?: Injector;
     // (undocumented)
     ngComponentOutletInputs?: Record<string, unknown>;
     // (undocumented)
     ngComponentOutletNgModule?: Type<any>;
-    // @deprecated (undocumented)
-    ngComponentOutletNgModuleFactory?: NgModuleFactory<any>;
-    // (undocumented)
     ngDoCheck(): void;
-    // (undocumented)
     ngOnChanges(changes: SimpleChanges): void;
-    // (undocumented)
     ngOnDestroy(): void;
     // (undocumented)
-    static ɵdir: i0.ɵɵDirectiveDeclaration<NgComponentOutlet<any>, "[ngComponentOutlet]", ["ngComponentOutlet"], { "ngComponentOutlet": { "alias": "ngComponentOutlet"; "required": false; }; "ngComponentOutletInputs": { "alias": "ngComponentOutletInputs"; "required": false; }; "ngComponentOutletInjector": { "alias": "ngComponentOutletInjector"; "required": false; }; "ngComponentOutletContent": { "alias": "ngComponentOutletContent"; "required": false; }; "ngComponentOutletNgModule": { "alias": "ngComponentOutletNgModule"; "required": false; }; "ngComponentOutletNgModuleFactory": { "alias": "ngComponentOutletNgModuleFactory"; "required": false; }; }, {}, never, never, true, never>;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<NgComponentOutlet<any>, "[ngComponentOutlet]", ["ngComponentOutlet"], { "ngComponentOutlet": { "alias": "ngComponentOutlet"; "required": false; }; "ngComponentOutletInputs": { "alias": "ngComponentOutletInputs"; "required": false; }; "ngComponentOutletInjector": { "alias": "ngComponentOutletInjector"; "required": false; }; "ngComponentOutletEnvironmentInjector": { "alias": "ngComponentOutletEnvironmentInjector"; "required": false; }; "ngComponentOutletContent": { "alias": "ngComponentOutletContent"; "required": false; }; "ngComponentOutletNgModule": { "alias": "ngComponentOutletNgModule"; "required": false; }; }, {}, never, never, true, never>;
     // (undocumented)
     static ɵfac: i0.ɵɵFactoryDeclaration<NgComponentOutlet<any>, never>;
 }
@@ -520,7 +528,9 @@ export class NgComponentOutlet<T = any> implements OnChanges, DoCheck, OnDestroy
 class NgForOf<T, U extends NgIterable<T> = NgIterable<T>> implements DoCheck {
     constructor(_viewContainer: ViewContainerRef, _template: TemplateRef<NgForOfContext<T, U>>, _differs: IterableDiffers);
     ngDoCheck(): void;
+    // @deprecated
     set ngForOf(ngForOf: (U & NgIterable<T>) | undefined | null);
+    // @deprecated
     set ngForTemplate(value: TemplateRef<NgForOfContext<T, U>>);
     set ngForTrackBy(fn: TrackByFunction<T>);
     // (undocumented)
@@ -558,8 +568,11 @@ export class NgForOfContext<T, U extends NgIterable<T> = NgIterable<T>> {
 // @public @deprecated
 export class NgIf<T = unknown> {
     constructor(_viewContainer: ViewContainerRef, templateRef: TemplateRef<NgIfContext<T>>);
+    // @deprecated
     set ngIf(condition: T);
+    // @deprecated
     set ngIfElse(templateRef: TemplateRef<NgIfContext<T>> | null);
+    // @deprecated
     set ngIfThen(templateRef: TemplateRef<NgIfContext<T>> | null);
     static ngTemplateContextGuard<T>(dir: NgIf<T>, ctx: any): ctx is NgIfContext<Exclude<T, false | 0 | '' | null | undefined>>;
     static ngTemplateGuard_ngIf: 'binding';
@@ -569,7 +582,7 @@ export class NgIf<T = unknown> {
     static ɵfac: i0.ɵɵFactoryDeclaration<NgIf<any>, never>;
 }
 
-// @public (undocumented)
+// @public @deprecated (undocumented)
 export class NgIfContext<T = unknown> {
     // (undocumented)
     $implicit: T;
@@ -581,7 +594,7 @@ export class NgIfContext<T = unknown> {
 export class NgLocaleLocalization extends NgLocalization {
     constructor(locale: string);
     // (undocumented)
-    getPluralCategory(value: any, locale?: string): string;
+    getPluralCategory(value: number, locale?: string): string;
     // (undocumented)
     protected locale: string;
     // (undocumented)
@@ -593,7 +606,7 @@ export class NgLocaleLocalization extends NgLocalization {
 // @public (undocumented)
 export abstract class NgLocalization {
     // (undocumented)
-    abstract getPluralCategory(value: any, locale?: string): string;
+    abstract getPluralCategory(value: number, locale?: string): string;
     // (undocumented)
     static ɵfac: i0.ɵɵFactoryDeclaration<NgLocalization, never>;
     // (undocumented)
@@ -603,6 +616,7 @@ export abstract class NgLocalization {
 // @public
 export class NgOptimizedImage implements OnInit, OnChanges {
     constructor();
+    decoding?: 'sync' | 'async' | 'auto';
     disableOptimizedSrcset: boolean;
     fill: boolean;
     protected generatePlaceholder(placeholderInput: string | boolean): string | boolean | null;
@@ -625,9 +639,7 @@ export class NgOptimizedImage implements OnInit, OnChanges {
     static ngAcceptInputType_priority: unknown;
     // (undocumented)
     static ngAcceptInputType_width: unknown;
-    // (undocumented)
-    ngOnChanges(changes: SimpleChanges): void;
-    // (undocumented)
+    ngOnChanges(changes: SimpleChanges<NgOptimizedImage>): void;
     ngOnInit(): void;
     ngSrc: string;
     ngSrcset: string;
@@ -638,7 +650,7 @@ export class NgOptimizedImage implements OnInit, OnChanges {
     sizes?: string;
     width: number | undefined;
     // (undocumented)
-    static ɵdir: i0.ɵɵDirectiveDeclaration<NgOptimizedImage, "img[ngSrc]", never, { "ngSrc": { "alias": "ngSrc"; "required": true; }; "ngSrcset": { "alias": "ngSrcset"; "required": false; }; "sizes": { "alias": "sizes"; "required": false; }; "width": { "alias": "width"; "required": false; }; "height": { "alias": "height"; "required": false; }; "loading": { "alias": "loading"; "required": false; }; "priority": { "alias": "priority"; "required": false; }; "loaderParams": { "alias": "loaderParams"; "required": false; }; "disableOptimizedSrcset": { "alias": "disableOptimizedSrcset"; "required": false; }; "fill": { "alias": "fill"; "required": false; }; "placeholder": { "alias": "placeholder"; "required": false; }; "placeholderConfig": { "alias": "placeholderConfig"; "required": false; }; "src": { "alias": "src"; "required": false; }; "srcset": { "alias": "srcset"; "required": false; }; }, {}, never, never, true, never>;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<NgOptimizedImage, "img[ngSrc]", never, { "ngSrc": { "alias": "ngSrc"; "required": true; }; "ngSrcset": { "alias": "ngSrcset"; "required": false; }; "sizes": { "alias": "sizes"; "required": false; }; "width": { "alias": "width"; "required": false; }; "height": { "alias": "height"; "required": false; }; "decoding": { "alias": "decoding"; "required": false; }; "loading": { "alias": "loading"; "required": false; }; "priority": { "alias": "priority"; "required": false; }; "loaderParams": { "alias": "loaderParams"; "required": false; }; "disableOptimizedSrcset": { "alias": "disableOptimizedSrcset"; "required": false; }; "fill": { "alias": "fill"; "required": false; }; "placeholder": { "alias": "placeholder"; "required": false; }; "placeholderConfig": { "alias": "placeholderConfig"; "required": false; }; "src": { "alias": "src"; "required": false; }; "srcset": { "alias": "srcset"; "required": false; }; }, {}, never, never, true, never>;
     // (undocumented)
     static ɵfac: i0.ɵɵFactoryDeclaration<NgOptimizedImage, never>;
 }
@@ -684,7 +696,7 @@ export class NgStyle implements DoCheck {
 
 // @public @deprecated
 export class NgSwitch {
-    // (undocumented)
+    // @deprecated (undocumented)
     set ngSwitch(newValue: any);
     // (undocumented)
     static ɵdir: i0.ɵɵDirectiveDeclaration<NgSwitch, "[ngSwitch]", never, { "ngSwitch": { "alias": "ngSwitch"; "required": false; }; }, {}, never, never, true, never>;
@@ -696,6 +708,7 @@ export class NgSwitch {
 export class NgSwitchCase implements DoCheck {
     constructor(viewContainer: ViewContainerRef, templateRef: TemplateRef<Object>, ngSwitch: NgSwitch);
     ngDoCheck(): void;
+    // @deprecated
     ngSwitchCase: any;
     // (undocumented)
     static ɵdir: i0.ɵɵDirectiveDeclaration<NgSwitchCase, "[ngSwitchCase]", never, { "ngSwitchCase": { "alias": "ngSwitchCase"; "required": false; }; }, {}, never, never, true, never>;
@@ -716,14 +729,26 @@ export class NgSwitchDefault {
 export class NgTemplateOutlet<C = unknown> implements OnChanges {
     constructor(_viewContainerRef: ViewContainerRef);
     // (undocumented)
+    protected injector: Injector;
+    // (undocumented)
     ngOnChanges(changes: SimpleChanges): void;
-    ngTemplateOutlet: TemplateRef<C> | null;
-    ngTemplateOutletContext: C | null;
-    ngTemplateOutletInjector: Injector | null;
+    ngTemplateOutlet: TemplateRef<C> | null | undefined;
+    ngTemplateOutletContext: C | null | undefined;
+    ngTemplateOutletInjector: Injector | 'outlet' | null | undefined;
     // (undocumented)
     static ɵdir: i0.ɵɵDirectiveDeclaration<NgTemplateOutlet<any>, "[ngTemplateOutlet]", never, { "ngTemplateOutletContext": { "alias": "ngTemplateOutletContext"; "required": false; }; "ngTemplateOutlet": { "alias": "ngTemplateOutlet"; "required": false; }; "ngTemplateOutletInjector": { "alias": "ngTemplateOutletInjector"; "required": false; }; }, {}, never, never, true, never>;
     // (undocumented)
     static ɵfac: i0.ɵɵFactoryDeclaration<NgTemplateOutlet<any>, never>;
+}
+
+// @public
+export class NoTrailingSlashPathLocationStrategy extends PathLocationStrategy {
+    // (undocumented)
+    prepareExternalUrl(internal: string): string;
+    // (undocumented)
+    static ɵfac: i0.ɵɵFactoryDeclaration<NoTrailingSlashPathLocationStrategy, never>;
+    // (undocumented)
+    static ɵprov: i0.ɵɵInjectableDeclaration<NoTrailingSlashPathLocationStrategy>;
 }
 
 // @public @deprecated
@@ -772,7 +797,6 @@ export class PathLocationStrategy extends LocationStrategy implements OnDestroy 
     getState(): unknown;
     // (undocumented)
     historyGo(relativePosition?: number): void;
-    // (undocumented)
     ngOnDestroy(): void;
     // (undocumented)
     onPopState(fn: LocationChangeListener): void;
@@ -843,6 +867,50 @@ export abstract class PlatformLocation {
     static ɵprov: i0.ɵɵInjectableDeclaration<PlatformLocation>;
 }
 
+// @public
+export abstract class PlatformNavigation implements ɵNavigation {
+    // (undocumented)
+    abstract addEventListener(type: unknown, listener: unknown, options?: unknown): void;
+    // (undocumented)
+    abstract back(options?: ɵNavigationOptions | undefined): ɵNavigationResult;
+    // (undocumented)
+    abstract canGoBack: boolean;
+    // (undocumented)
+    abstract canGoForward: boolean;
+    // (undocumented)
+    abstract currentEntry: ɵNavigationHistoryEntry | null;
+    // (undocumented)
+    abstract dispatchEvent(event: Event): boolean;
+    // (undocumented)
+    abstract entries(): ɵNavigationHistoryEntry[];
+    // (undocumented)
+    abstract forward(options?: ɵNavigationOptions | undefined): ɵNavigationResult;
+    // (undocumented)
+    abstract navigate(url: string, options?: ɵNavigationNavigateOptions | undefined): ɵNavigationResult;
+    // (undocumented)
+    abstract oncurrententrychange: ((this: ɵNavigation, ev: ɵNavigationCurrentEntryChangeEvent) => any) | null;
+    // (undocumented)
+    abstract onnavigate: ((this: ɵNavigation, ev: ɵNavigateEvent) => any) | null;
+    // (undocumented)
+    abstract onnavigateerror: ((this: ɵNavigation, ev: ErrorEvent) => any) | null;
+    // (undocumented)
+    abstract onnavigatesuccess: ((this: ɵNavigation, ev: Event) => any) | null;
+    // (undocumented)
+    abstract reload(options?: ɵNavigationReloadOptions | undefined): ɵNavigationResult;
+    // (undocumented)
+    abstract removeEventListener(type: unknown, listener: unknown, options?: unknown): void;
+    // (undocumented)
+    abstract transition: ɵNavigationTransition | null;
+    // (undocumented)
+    abstract traverseTo(key: string, options?: ɵNavigationOptions | undefined): ɵNavigationResult;
+    // (undocumented)
+    abstract updateCurrentEntry(options: ɵNavigationUpdateCurrentEntryOptions): void;
+    // (undocumented)
+    static ɵfac: i0.ɵɵFactoryDeclaration<PlatformNavigation, never>;
+    // (undocumented)
+    static ɵprov: i0.ɵɵInjectableDeclaration<PlatformNavigation>;
+}
+
 // @public @deprecated
 export enum Plural {
     // (undocumented)
@@ -876,16 +944,16 @@ export { PopStateEvent_2 as PopStateEvent }
 export const PRECONNECT_CHECK_BLOCKLIST: InjectionToken<(string | string[])[]>;
 
 // @public
-export const provideCloudflareLoader: (path: string) => i0.Provider[];
+export const provideCloudflareLoader: (path: string) => Provider[];
 
 // @public
-export const provideCloudinaryLoader: (path: string) => i0.Provider[];
+export const provideCloudinaryLoader: (path: string) => Provider[];
 
 // @public
-export const provideImageKitLoader: (path: string) => i0.Provider[];
+export const provideImageKitLoader: (path: string) => Provider[];
 
 // @public
-export const provideImgixLoader: (path: string) => i0.Provider[];
+export const provideImgixLoader: (path: string) => Provider[];
 
 // @public
 export function provideNetlifyLoader(path?: string): Provider[];
@@ -931,6 +999,16 @@ export class TitleCasePipe implements PipeTransform {
     static ɵpipe: i0.ɵɵPipeDeclaration<TitleCasePipe, "titlecase", true>;
 }
 
+// @public
+export class TrailingSlashPathLocationStrategy extends PathLocationStrategy {
+    // (undocumented)
+    prepareExternalUrl(internal: string): string;
+    // (undocumented)
+    static ɵfac: i0.ɵɵFactoryDeclaration<TrailingSlashPathLocationStrategy, never>;
+    // (undocumented)
+    static ɵprov: i0.ɵɵInjectableDeclaration<TrailingSlashPathLocationStrategy>;
+}
+
 // @public @deprecated
 export enum TranslationWidth {
     Abbreviated = 1,
@@ -959,12 +1037,12 @@ export const VERSION: Version;
 // @public
 export abstract class ViewportScroller {
     abstract getScrollPosition(): [number, number];
-    abstract scrollToAnchor(anchor: string): void;
-    abstract scrollToPosition(position: [number, number]): void;
+    abstract scrollToAnchor(anchor: string, options?: ScrollOptions): void;
+    abstract scrollToPosition(position: [number, number], options?: ScrollOptions): void;
     abstract setHistoryScrollRestoration(scrollRestoration: 'auto' | 'manual'): void;
     abstract setOffset(offset: [number, number] | (() => [number, number])): void;
     // (undocumented)
-    static ɵprov: unknown;
+    static ɵprov: i0.ɵɵInjectableDeclaration<NullViewportScroller | BrowserViewportScroller>;
 }
 
 // @public @deprecated

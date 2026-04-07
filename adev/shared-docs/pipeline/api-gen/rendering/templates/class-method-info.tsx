@@ -8,35 +8,31 @@
 
 import {Fragment, h} from 'preact';
 import {
-  FunctionEntryRenderable,
   FunctionSignatureMetadataRenderable,
-  MethodEntryRenderable,
   ParameterEntryRenderable,
-} from '../entities/renderables';
-import {PARAM_KEYWORD_CLASS_NAME, REFERENCE_MEMBER_CARD_ITEM} from '../styling/css-classes';
+} from '../entities/renderables.mjs';
+import {PARAM_KEYWORD_CLASS_NAME, REFERENCE_MEMBER_CARD_ITEM} from '../styling/css-classes.mjs';
+import {CodeSymbol} from './code-symbols';
 import {DeprecatedLabel} from './deprecated-label';
 import {Parameter} from './parameter';
 import {RawHtml} from './raw-html';
-import {CodeSymbol} from './code-symbols';
 
 /**
  * Component to render the method-specific parts of a class's API reference.
  */
 export function ClassMethodInfo(props: {
   entry: FunctionSignatureMetadataRenderable;
-  options?: {
-    showUsageNotes?: boolean;
-  };
+  hideUsageNotes?: boolean;
 }) {
   const entry = props.entry;
 
   return (
     <div
-      className={`${REFERENCE_MEMBER_CARD_ITEM} ${entry.isDeprecated ? 'docs-reference-card-item-deprecated' : ''}`}
+      className={`${REFERENCE_MEMBER_CARD_ITEM} ${entry.deprecated ? 'docs-reference-card-item-deprecated' : ''}`}
     >
       <RawHtml value={entry.htmlDescription} className={'docs-function-definition'} />
       {/* In case when method is overloaded we need to indicate which overload is deprecated */}
-      {entry.isDeprecated ? (
+      {entry.deprecated ? (
         <div>
           <DeprecatedLabel entry={entry} />
         </div>
@@ -50,9 +46,9 @@ export function ClassMethodInfo(props: {
         <span className={PARAM_KEYWORD_CLASS_NAME}>@returns</span>
         <CodeSymbol code={entry.returnType} />
       </div>
-      {entry.htmlUsageNotes && props.options?.showUsageNotes ? (
+      {entry.htmlUsageNotes && !props.hideUsageNotes ? (
         <div className={'docs-usage-notes'}>
-          <span className={PARAM_KEYWORD_CLASS_NAME}>Usage notes</span>
+          <span className={'docs-usage-notes-heading'}>Usage notes</span>
           <RawHtml value={entry.htmlUsageNotes} />
         </div>
       ) : (

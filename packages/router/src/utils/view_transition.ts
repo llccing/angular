@@ -6,31 +6,22 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-/// <reference types="dom-view-transitions" />
-
 import {DOCUMENT} from '@angular/common';
-import {
-  afterNextRender,
-  InjectionToken,
-  Injector,
-  NgZone,
-  runInInjectionContext,
-} from '@angular/core';
+import {afterNextRender, InjectionToken, Injector, runInInjectionContext} from '@angular/core';
 
 import {ActivatedRouteSnapshot} from '../router_state';
 
 export const CREATE_VIEW_TRANSITION = new InjectionToken<typeof createViewTransition>(
-  ngDevMode ? 'view transition helper' : '',
+  typeof ngDevMode !== 'undefined' && ngDevMode ? 'view transition helper' : '',
 );
 export const VIEW_TRANSITION_OPTIONS = new InjectionToken<
   ViewTransitionsFeatureOptions & {skipNextTransition: boolean}
->(ngDevMode ? 'view transition options' : '');
+>(typeof ngDevMode !== 'undefined' && ngDevMode ? 'view transition options' : '');
 
 /**
  * Options to configure the View Transitions integration in the Router.
  *
- * @experimental
- * @publicApi
+ * @developerPreview 20.0
  * @see withViewTransitions
  */
 export interface ViewTransitionsFeatureOptions {
@@ -52,41 +43,14 @@ export interface ViewTransitionsFeatureOptions {
  * The information passed to the `onViewTransitionCreated` function provided in the
  * `withViewTransitions` feature options.
  *
- * @publicApi
- * @experimental
+ * @developerPreview 20.0
  */
 export interface ViewTransitionInfo {
-  // TODO(atscott): This type can/should be the built-in `ViewTransition` type
-  // from @types/dom-view-transitions but exporting that type from the public API is currently not
-  // supported by tooling.
   /**
    * The `ViewTransition` returned by the call to `startViewTransition`.
    * @see https://developer.mozilla.org/en-US/docs/Web/API/ViewTransition
    */
-  transition: {
-    /**
-     * @see https://developer.mozilla.org/en-US/docs/Web/API/ViewTransition/finished
-     */
-    finished: Promise<void>;
-    /**
-     * @see https://developer.mozilla.org/en-US/docs/Web/API/ViewTransition/ready
-     */
-    ready: Promise<void>;
-    /**
-     * @see https://developer.mozilla.org/en-US/docs/Web/API/ViewTransition/updateCallbackDone
-     */
-    updateCallbackDone: Promise<void>;
-    /**
-     * @see https://developer.mozilla.org/en-US/docs/Web/API/ViewTransition/skipTransition
-     */
-    skipTransition(): void;
-
-    /**
-     * @see https://developer.mozilla.org/en-US/docs/Web/API/ViewTransition#browser_compatibility
-     * @see https://developer.chrome.com/docs/web-platform/view-transitions/same-document#default_style_and_transition_reference
-     */
-    readonly types: Set<string>;
-  };
+  transition: ViewTransition;
   /**
    * The `ActivatedRouteSnapshot` that the navigation is transitioning from.
    */
@@ -110,35 +74,46 @@ export function createViewTransition(
 ): Promise<void> {
   const transitionOptions = injector.get(VIEW_TRANSITION_OPTIONS);
   const document = injector.get(DOCUMENT);
-  // Create promises outside the Angular zone to avoid causing extra change detections
-  return injector.get(NgZone).runOutsideAngular(() => {
-    if (!document.startViewTransition || transitionOptions.skipNextTransition) {
-      transitionOptions.skipNextTransition = false;
-      // The timing of `startViewTransition` is closer to a macrotask. It won't be called
-      // until the current event loop exits so we use a promise resolved in a timeout instead
-      // of Promise.resolve().
-      return new Promise((resolve) => setTimeout(resolve));
-    }
+  if (!document.startViewTransition || transitionOptions.skipNextTransition) {
+    transitionOptions.skipNextTransition = false;
+    // The timing of `startViewTransition` is closer to a macrotask. It won't be called
+    // until the current event loop exits so we use a promise resolved in a timeout instead
+    // of Promise.resolve().
+    return new Promise((resolve) => setTimeout(resolve));
+  }
 
-    let resolveViewTransitionStarted: () => void;
-    const viewTransitionStarted = new Promise<void>((resolve) => {
-      resolveViewTransitionStarted = resolve;
-    });
-    const transition = document.startViewTransition(() => {
-      resolveViewTransitionStarted();
-      // We don't actually update dom within the transition callback. The resolving of the above
-      // promise unblocks the Router navigation, which synchronously activates and deactivates
-      // routes (the DOM update). This view transition waits for the next change detection to
-      // complete (below), which includes the update phase of the routed components.
-      return createRenderPromise(injector);
-      // TODO(atscott): Types in DefinitelyTyped are not up-to-date
-    }) as ViewTransition & {readonly types: Set<string>};
-    const {onViewTransitionCreated} = transitionOptions;
-    if (onViewTransitionCreated) {
-      runInInjectionContext(injector, () => onViewTransitionCreated({transition, from, to}));
-    }
-    return viewTransitionStarted;
+  let resolveViewTransitionStarted: () => void;
+  const viewTransitionStarted = new Promise<void>((resolve) => {
+    resolveViewTransitionStarted = resolve;
   });
+  const transition = document.startViewTransition(() => {
+    resolveViewTransitionStarted();
+    // We don't actually update dom within the transition callback. The resolving of the above
+    // promise unblocks the Router navigation, which synchronously activates and deactivates
+    // routes (the DOM update). This view transition waits for the next change detection to
+    // complete (below), which includes the update phase of the routed components.
+    return createRenderPromise(injector);
+  });
+  transition.updateCallbackDone.catch((error) => {
+    if (typeof ngDevMode === 'undefined' || ngDevMode) {
+      console.error(error);
+    }
+  });
+  transition.ready.catch((error) => {
+    if (typeof ngDevMode === 'undefined' || ngDevMode) {
+      console.error(error);
+    }
+  });
+  transition.finished.catch((error) => {
+    if (typeof ngDevMode === 'undefined' || ngDevMode) {
+      console.error(error);
+    }
+  });
+  const {onViewTransitionCreated} = transitionOptions;
+  if (onViewTransitionCreated) {
+    runInInjectionContext(injector, () => onViewTransitionCreated({transition, from, to}));
+  }
+  return viewTransitionStarted;
 }
 
 /**

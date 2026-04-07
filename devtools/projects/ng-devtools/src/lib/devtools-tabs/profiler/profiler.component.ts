@@ -8,16 +8,16 @@
 
 import {Component, inject, signal} from '@angular/core';
 import {MatDialog} from '@angular/material/dialog';
-import {Events, MessageBus, ProfilerFrame} from 'protocol';
+import {MatIcon} from '@angular/material/icon';
+import {MatTooltip} from '@angular/material/tooltip';
+import {MatProgressBar} from '@angular/material/progress-bar';
+import {Events, MessageBus, ProfilerFrame} from '../../../../../protocol';
 import {Subject} from 'rxjs';
 
 import {FileApiService} from './file-api-service';
-import {ProfilerImportDialogComponent} from './profiler-import-dialog.component';
-import {TimelineComponent} from './timeline/timeline.component';
-import {MatIcon} from '@angular/material/icon';
-import {MatTooltip} from '@angular/material/tooltip';
-import {MatIconButton} from '@angular/material/button';
-import {MatCard} from '@angular/material/card';
+import {ProfilerImportDialogComponent} from './profiler-import-dialog/profiler-import-dialog.component';
+import {RecordingTimelineComponent} from './recording-timeline/recording-timeline.component';
+import {ButtonComponent} from '../../shared/button/button.component';
 
 type State = 'idle' | 'recording' | 'visualizing';
 
@@ -28,7 +28,7 @@ const PROFILER_VERSION = 1;
   selector: 'ng-profiler',
   templateUrl: './profiler.component.html',
   styleUrls: ['./profiler.component.scss'],
-  imports: [MatCard, MatIconButton, MatTooltip, MatIcon, TimelineComponent],
+  imports: [MatTooltip, MatIcon, RecordingTimelineComponent, ButtonComponent, MatProgressBar],
 })
 export class ProfilerComponent {
   readonly state = signal<State>('idle');
@@ -46,9 +46,15 @@ export class ProfilerComponent {
       if (importedFile.error) {
         console.error('Could not process uploaded file');
         console.error(importedFile.error);
+
+        const errorMessage =
+          importedFile.error instanceof Error
+            ? `${importedFile.error.name}: ${importedFile.error.message}`
+            : JSON.stringify(importedFile.error);
+
         this.dialog.open(ProfilerImportDialogComponent, {
           width: '600px',
-          data: {status: 'ERROR', errorMessage: importedFile.error},
+          data: {status: 'ERROR', errorMessage},
         });
 
         return;

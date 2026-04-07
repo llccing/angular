@@ -6,11 +6,12 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {SimpleChange, ɵWritable as Writable} from '@angular/core';
-import {fakeAsync, flushMicrotasks, tick} from '@angular/core/testing';
+import {ChangeDetectorRef, SimpleChange, ɵWritable as Writable} from '@angular/core';
+import {TestBed} from '@angular/core/testing';
 import {
   AbstractControl,
   CheckboxControlValueAccessor,
+  ControlEvent,
   ControlValueAccessor,
   DefaultValueAccessor,
   FormArray,
@@ -21,19 +22,24 @@ import {
   FormGroup,
   FormGroupDirective,
   FormGroupName,
+  FormResetEvent,
+  FormSubmittedEvent,
   NgControl,
   NgForm,
   NgModel,
   NgModelGroup,
   SelectControlValueAccessor,
   SelectMultipleControlValueAccessor,
+  StatusChangeEvent,
+  TouchedChangeEvent,
   ValidationErrors,
   Validator,
   Validators,
+  ValueChangeEvent,
 } from '../index';
 import {selectValueAccessor} from '../src/directives/shared';
 import {composeValidators} from '../src/validators';
-
+import {useAutoTick, timeout} from '@angular/private/testing';
 import {asyncValidator} from './util';
 
 class DummyControlValueAccessor implements ControlValueAccessor {
@@ -55,6 +61,7 @@ class CustomValidatorDirective implements Validator {
 
 describe('Form Directives', () => {
   let defaultAccessor: DefaultValueAccessor;
+  useAutoTick();
 
   beforeEach(() => {
     defaultAccessor = new DefaultValueAccessor(null!, null!, null!);
@@ -90,8 +97,15 @@ describe('Form Directives', () => {
       });
 
       it('should return select accessor when provided', () => {
-        const selectAccessor = new SelectControlValueAccessor(null!, null!);
-        expect(selectValueAccessor(dir, [defaultAccessor, selectAccessor])).toEqual(selectAccessor);
+        TestBed.configureTestingModule({
+          providers: [{provide: ChangeDetectorRef, useValue: null!}],
+        });
+        TestBed.runInInjectionContext(() => {
+          const selectAccessor = new SelectControlValueAccessor(null!, null!);
+          expect(selectValueAccessor(dir, [defaultAccessor, selectAccessor])).toEqual(
+            selectAccessor,
+          );
+        });
       });
 
       it('should return select multiple accessor when provided', () => {
@@ -102,9 +116,14 @@ describe('Form Directives', () => {
       });
 
       it('should throw when more than one build-in accessor is provided', () => {
-        const checkboxAccessor = new CheckboxControlValueAccessor(null!, null!);
-        const selectAccessor = new SelectControlValueAccessor(null!, null!);
-        expect(() => selectValueAccessor(dir, [checkboxAccessor, selectAccessor])).toThrowError();
+        TestBed.configureTestingModule({
+          providers: [{provide: ChangeDetectorRef, useValue: null!}],
+        });
+        TestBed.runInInjectionContext(() => {
+          const checkboxAccessor = new CheckboxControlValueAccessor(null!, null!);
+          const selectAccessor = new SelectControlValueAccessor(null!, null!);
+          expect(() => selectValueAccessor(dir, [checkboxAccessor, selectAccessor])).toThrowError();
+        });
       });
 
       it('should return custom accessor when provided', () => {
@@ -211,9 +230,7 @@ describe('Form Directives', () => {
         dir.name = 'login';
 
         expect(() => form.addControl(dir)).toThrowError(
-          new RegExp(
-            `NG01203: No value accessor for form control name: 'login'. Find more at https://angular.dev/errors/NG01203`,
-          ),
+          /NG01203: No value accessor for form control name: 'login'\. Find more at https:\/\/(?:next\.)?angular\.dev\/errors\/NG01203/,
         );
       });
 
@@ -224,13 +241,11 @@ describe('Form Directives', () => {
         dir.name = 'password';
 
         expect(() => form.addControl(dir)).toThrowError(
-          new RegExp(
-            `NG01203: No value accessor for form control path: 'passwords -> password'. Find more at https://angular.dev/errors/NG01203`,
-          ),
+          /NG01203: No value accessor for form control path: 'passwords -> password'\. Find more at https:\/\/(?:next\.)?angular\.dev\/errors\/NG01203/,
         );
       });
 
-      it('should set up validators', fakeAsync(() => {
+      it('should set up validators', async () => {
         form.addControl(loginControlDir);
 
         // sync validators are set
@@ -242,11 +257,11 @@ describe('Form Directives', () => {
         // sync validator passes, running async validators
         expect(formModel.pending).toBe(true);
 
-        tick();
+        await timeout();
 
         expect(formModel.hasError('required', ['login'])).toBe(false);
         expect(formModel.hasError('async', ['login'])).toBe(true);
-      }));
+      });
 
       it('should write value to the DOM', () => {
         (<FormControl>formModel.get(['login'])).setValue('initValue');
@@ -272,7 +287,7 @@ describe('Form Directives', () => {
         }
       };
 
-      it('should set up validator', fakeAsync(() => {
+      it('should set up validator', async () => {
         const group = new FormGroupName(
           form,
           [matchingPasswordsValidator],
@@ -294,10 +309,10 @@ describe('Form Directives', () => {
         // sync validators pass, running async validators
         expect(formModel.pending).toBe(true);
 
-        tick();
+        await timeout();
 
         expect(formModel.hasError('async', ['passwords'])).toBe(true);
-      }));
+      });
     });
 
     describe('removeControl', () => {
@@ -328,15 +343,15 @@ describe('Form Directives', () => {
         expect(formModel.errors).toEqual({'custom': true});
       });
 
-      it('should set up an async validator', fakeAsync(() => {
+      it('should set up an async validator', async () => {
         const f = new FormGroupDirective([], [asyncValidator('expected')]);
         f.form = formModel;
         f.ngOnChanges({'form': new SimpleChange(null, null, false)});
 
-        tick();
+        await timeout();
 
         expect(formModel.errors).toEqual({'async': true});
-      }));
+      });
     });
   });
 
@@ -386,51 +401,82 @@ describe('Form Directives', () => {
     });
 
     describe('addControl & addFormGroup', () => {
-      it('should create a control with the given name', fakeAsync(() => {
+      it('should create a control with the given name', async () => {
         form.addFormGroup(personControlGroupDir);
         form.addControl(loginControlDir);
 
-        flushMicrotasks();
+        await timeout();
 
         expect(formModel.get(['person', 'login'])).not.toBeNull();
-      }));
+      });
 
       // should update the form's value and validity
     });
 
     describe('removeControl & removeFormGroup', () => {
-      it('should remove control', fakeAsync(() => {
+      it('should remove control', async () => {
         form.addFormGroup(personControlGroupDir);
         form.addControl(loginControlDir);
 
         form.removeFormGroup(personControlGroupDir);
         form.removeControl(loginControlDir);
 
-        flushMicrotasks();
+        await timeout();
 
         expect(formModel.get(['person'])).toBeNull();
         expect(formModel.get(['person', 'login'])).toBeNull();
-      }));
+      });
 
       // should update the form's value and validity
     });
 
-    it('should set up sync validator', fakeAsync(() => {
+    it('should set up sync validator', async () => {
       const formValidator = () => ({'custom': true});
       const f = new NgForm([formValidator], []);
 
-      tick();
+      await timeout();
 
       expect(f.form.errors).toEqual({'custom': true});
-    }));
+    });
 
-    it('should set up async validator', fakeAsync(() => {
+    it('should set up async validator', async () => {
       const f = new NgForm([], [asyncValidator('expected')]);
 
-      tick();
+      await timeout();
 
       expect(f.form.errors).toEqual({'async': true});
-    }));
+    });
+
+    describe('events emissions', () => {
+      it('formControl should emit an event when resetting a form', () => {
+        const f = new NgForm([], []);
+        const events: ControlEvent[] = [];
+
+        f.form.events.subscribe((event) => events.push(event));
+        f.resetForm();
+
+        expect(events.length).toBe(4);
+        expect(events[0]).toBeInstanceOf(TouchedChangeEvent);
+        expect(events[1]).toBeInstanceOf(ValueChangeEvent);
+        expect(events[2]).toBeInstanceOf(StatusChangeEvent);
+
+        // The event that matters
+        expect(events[3]).toBeInstanceOf(FormResetEvent);
+        expect(events[3].source).toBe(f.form);
+      });
+
+      it('formControl should emit an event when submitting a form', () => {
+        const f = new NgForm([], []);
+        const events: ControlEvent[] = [];
+
+        f.form.events.subscribe((event) => events.push(event));
+        f.onSubmit({} as any);
+
+        expect(events.length).toBe(1);
+        expect(events[0]).toBeInstanceOf(FormSubmittedEvent);
+        expect(events[0].source).toBe(f.form);
+      });
+    });
   });
 
   describe('FormGroupName', () => {
@@ -619,9 +665,7 @@ describe('Form Directives', () => {
       namedDir.name = 'one';
 
       expect(() => namedDir.ngOnChanges({})).toThrowError(
-        new RegExp(
-          `NG01203: No value accessor for form control name: 'one'. Find more at https://angular.dev/errors/NG01203`,
-        ),
+        /NG01203: No value accessor for form control name: 'one'\. Find more at https:\/\/(?:next\.)?angular\.dev\/errors\/NG01203/,
       );
     });
 
@@ -629,62 +673,60 @@ describe('Form Directives', () => {
       const unnamedDir = new NgModel(null!, null!, null!, null!);
 
       expect(() => unnamedDir.ngOnChanges({})).toThrowError(
-        new RegExp(
-          `NG01203: No value accessor for form control unspecified name attribute. Find more at https://angular.dev/errors/NG01203`,
-        ),
+        /NG01203: No value accessor for form control unspecified name attribute\. Find more at https:\/\/(?:next\.)?angular\.dev\/errors\/NG01203/,
       );
     });
 
-    it('should set up validator', fakeAsync(() => {
+    it('should set up validator', async () => {
       // this will add the required validator and recalculate the validity
       ngModel.ngOnChanges({});
-      tick();
+      await timeout();
 
       expect(ngModel.control.errors).toEqual({'required': true});
 
       ngModel.control.setValue('someValue');
-      tick();
+      await timeout();
 
       expect(ngModel.control.errors).toEqual({'async': true});
-    }));
+    });
 
-    it('should mark as disabled properly', fakeAsync(() => {
+    it('should mark as disabled properly', async () => {
       ngModel.ngOnChanges({isDisabled: new SimpleChange('', undefined, false)});
-      tick();
+      await timeout();
       expect(ngModel.control.disabled).toEqual(false);
 
       ngModel.ngOnChanges({isDisabled: new SimpleChange('', null, false)});
-      tick();
+      await timeout();
       expect(ngModel.control.disabled).toEqual(false);
 
-      ngModel.ngOnChanges({isDisabled: new SimpleChange('', false, false)});
-      tick();
+      ngModel.ngOnChanges({isDisabled: new SimpleChange('' as any, false, false)});
+      await timeout();
       expect(ngModel.control.disabled).toEqual(false);
 
       ngModel.ngOnChanges({isDisabled: new SimpleChange('', 'false', false)});
-      tick();
+      await timeout();
       expect(ngModel.control.disabled).toEqual(false);
 
-      ngModel.ngOnChanges({isDisabled: new SimpleChange('', 0, false)});
-      tick();
+      ngModel.ngOnChanges({isDisabled: new SimpleChange('' as any, 0, false)});
+      await timeout();
       expect(ngModel.control.disabled).toEqual(false);
 
       ngModel.ngOnChanges({isDisabled: new SimpleChange(null, '', false)});
-      tick();
+      await timeout();
       expect(ngModel.control.disabled).toEqual(true);
 
       ngModel.ngOnChanges({isDisabled: new SimpleChange(null, 'true', false)});
-      tick();
+      await timeout();
       expect(ngModel.control.disabled).toEqual(true);
 
       ngModel.ngOnChanges({isDisabled: new SimpleChange(null, true, false)});
-      tick();
+      await timeout();
       expect(ngModel.control.disabled).toEqual(true);
 
       ngModel.ngOnChanges({isDisabled: new SimpleChange(null, 'anything else', false)});
-      tick();
+      await timeout();
       expect(ngModel.control.disabled).toEqual(true);
-    }));
+    });
   });
 
   describe('FormControlName', () => {

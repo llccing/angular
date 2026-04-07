@@ -9,7 +9,12 @@
 import {
   AbsoluteSourceSpan,
   BoundTarget,
+  ClassPropertyMapping,
+  ClassPropertyName,
   DirectiveMeta,
+  InputOrOutput,
+  LegacyAnimationTriggerNames,
+  MatchSource,
   ParseSourceSpan,
   SchemaMetadata,
 } from '@angular/compiler';
@@ -18,13 +23,105 @@ import ts from 'typescript';
 import {ErrorCode} from '../../diagnostics';
 import {Reference} from '../../imports';
 import {
-  ClassPropertyMapping,
   DirectiveTypeCheckMeta,
   HostDirectiveMeta,
   InputMapping,
   PipeMeta,
+  TemplateGuardMeta,
 } from '../../metadata';
 import {ClassDeclaration} from '../../reflection';
+
+export interface TcbReferenceMetadata {
+  /** The name of the class */
+  readonly name: string;
+  /** The module path where the symbol is located, or null if local/ambient */
+  readonly moduleName: string | null;
+  /** True if the symbol successfully emitted locally (no external import required) */
+  readonly isLocal: boolean;
+  /** If the reference could not be externally emitted, this string holds the diagnostic reason why */
+  readonly unexportedDiagnostic: string | null;
+
+  /** Key used to uniquely identify the target of this reference. */
+  readonly key: TcbReferenceKey;
+
+  /**
+   * Defines the `AbsoluteSourceSpan` of the target's node name, if available.
+   */
+  readonly nodeNameSpan?: AbsoluteSourceSpan;
+
+  /**
+   * The absolute path to the file containing the reference node, if available.
+   */
+  readonly nodeFilePath?: string;
+}
+
+export type TcbReferenceKey = string & {__brand: 'TcbReferenceKey'};
+
+export interface TcbTypeParameter {
+  name: string;
+  representation: string;
+  representationWithDefault: string;
+}
+
+export type TcbInputMapping = InputOrOutput & {
+  required: boolean;
+
+  /**
+   * AST-free string representation of the transform type of the input, if available.
+   */
+  transformType?: string;
+};
+
+export interface TcbPipeMetadata {
+  name: string;
+  ref: TcbReferenceMetadata;
+  isExplicitlyDeferred: boolean;
+}
+
+export interface TcbDirectiveMetadata {
+  ref: TcbReferenceMetadata;
+  name: string;
+  selector: string | null;
+  isComponent: boolean;
+  isGeneric: boolean;
+  isStructural: boolean;
+  isStandalone: boolean;
+  isExplicitlyDeferred: boolean;
+  preserveWhitespaces: boolean;
+  exportAs: string[] | null;
+  matchSource: MatchSource;
+
+  /** Type parameters of the directive, if available. */
+  typeParameters: TcbTypeParameter[] | null;
+  inputs: ClassPropertyMapping<TcbInputMapping>;
+  outputs: ClassPropertyMapping;
+  requiresInlineTypeCtor: boolean;
+  ngTemplateGuards: TemplateGuardMeta[];
+  hasNgTemplateContextGuard: boolean;
+  hasNgFieldDirective: boolean;
+  coercedInputFields: Set<ClassPropertyName>;
+  restrictedInputFields: Set<ClassPropertyName>;
+  stringLiteralInputFields: Set<ClassPropertyName>;
+  undeclaredInputFields: Set<ClassPropertyName>;
+  publicMethods: Set<string>;
+  ngContentSelectors: string[] | null;
+  animationTriggerNames: LegacyAnimationTriggerNames | null;
+}
+
+export interface TcbComponentMetadata {
+  ref: TcbReferenceMetadata;
+  typeParameters: TcbTypeParameter[] | null;
+  typeArguments: string[] | null;
+}
+
+export interface TcbTypeCheckBlockMetadata {
+  id: TypeCheckId;
+  boundTarget: BoundTarget<TcbDirectiveMetadata>;
+  pipes: Map<string, TcbPipeMetadata> | null;
+  schemas: SchemaMetadata[];
+  isStandalone: boolean;
+  preserveWhitespaces: boolean;
+}
 
 /**
  * Extension of `DirectiveMeta` that includes additional information required to type-check the
@@ -50,7 +147,7 @@ export type TypeCheckId = string & {__brand: 'TypeCheckId'};
  * A `ts.Diagnostic` with additional information about the diagnostic related to template
  * type-checking.
  */
-export interface TemplateDiagnostic extends ts.Diagnostic {
+export interface TemplateDiagnostic extends ts.DiagnosticWithLocation {
   /**
    * The component with the template that resulted in this diagnostic.
    */
@@ -119,7 +216,7 @@ export interface TypeCtorMetadata {
   /**
    * Input, output, and query field names in the type which should be included as constructor input.
    */
-  fields: {inputs: ClassPropertyMapping<InputMapping>; queries: string[]};
+  fields: {inputs: ClassPropertyMapping<TcbInputMapping>};
 
   /**
    * `Set` of field names which have type coercion enabled.
@@ -335,23 +432,14 @@ export interface TypeCheckingConfig {
   useInlineTypeConstructors: boolean;
 
   /**
-   * Whether or not to produce diagnostic suggestions in cases where the compiler could have
-   * inferred a better type for a construct, but was prevented from doing so by the current type
-   * checking configuration.
-   *
-   * For example, if the compiler could have used a template context guard to infer a better type
-   * for a structural directive's context and `let-` variables, but the user is in
-   * `fullTemplateTypeCheck` mode and such guards are therefore disabled.
-   *
-   * This mode is useful for clients like the Language Service which want to inform users of
-   * opportunities to improve their own developer experience.
-   */
-  suggestionsForSuboptimalTypeInference: boolean;
-
-  /**
    * Whether the type of two-way bindings should be widened to allow `WritableSignal`.
    */
   allowSignalsInTwoWayBindings: boolean;
+
+  /**
+   * Whether the type of DOM events should be asserted with '@angular/core' 'ɵassertType' (see TCB implementation).
+   */
+  allowDomEventAssertion: boolean;
 
   /**
    * Whether to descend into the bodies of control flow blocks (`@if`, `@switch` and `@for`).
@@ -423,4 +511,8 @@ export interface FullSourceMapping {
   sourceLocation: SourceLocation;
   sourceMapping: SourceMapping;
   span: ParseSourceSpan;
+}
+
+export interface GetPotentialAngularMetaOptions {
+  includeExternalModule: boolean;
 }

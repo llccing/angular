@@ -19,7 +19,7 @@ import {
   QueryList,
 } from '../src/core';
 import {TestBed} from '../testing';
-import {expect} from '@angular/platform-browser/testing/src/matchers';
+import {expect} from '@angular/private/testing/matchers';
 
 class Frame {
   name: string = 'frame';
@@ -60,7 +60,8 @@ class App {}
 
 @Component({
   selector: 'door',
-  template: `{{frame.name}}(<span *ngFor="let lock of locks">{{lock.name}}</span>)`,
+  template: `{{ frame.name }}(<span *ngFor="let lock of locks">{{ lock.name }}</span
+    >)`,
   standalone: false,
 })
 class Door {

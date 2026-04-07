@@ -6,13 +6,24 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import 'zone.js/lib/browser/rollup-main';
-import 'zone.js/lib/zone-spec/task-tracking';
+import 'zone.js';
+import 'zone.js/plugins/task-tracking';
 
 // okd
 
-import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
+import {bootstrapApplication, provideProtractorTestingSupport} from '@angular/platform-browser';
+import {routes, TestsAppComponent} from './test_app_component';
+import {ApplicationConfig, provideZoneChangeDetection} from '@angular/core';
+import {provideRouter} from '@angular/router';
+import {provideAnimations} from '@angular/platform-browser/animations';
 
-import {TestsAppModule} from './test_module';
+const appConfig: ApplicationConfig = {
+  providers: [
+    provideRouter(routes),
+    provideAnimations(),
+    provideZoneChangeDetection(),
+    provideProtractorTestingSupport(),
+  ],
+};
 
-platformBrowserDynamic().bootstrapModule(TestsAppModule);
+bootstrapApplication(TestsAppComponent, appConfig).catch((err) => console.error(err));

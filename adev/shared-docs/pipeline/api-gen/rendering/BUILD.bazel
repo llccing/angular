@@ -1,12 +1,16 @@
-load("@npm//@angular/build-tooling/bazel:defaults.bzl", "ts_library")
-load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
-load("@npm//@angular/build-tooling/bazel/esbuild:index.bzl", "esbuild_esm_bundle")
+load("//adev/shared-docs:defaults.bzl", "esbuild", "js_binary", "ts_project")
 
 package(default_visibility = ["//adev/shared-docs/pipeline/api-gen:__subpackages__"])
 
-esbuild_esm_bundle(
+esbuild(
     name = "bin",
-    entry_point = ":index.ts",
+    entry_point = ":index.mts",
+    external = [
+        "jsdom",
+        "playwright-core",
+        "typescript",
+    ],
+    format = "esm",
     output = "bin.mjs",
     platform = "node",
     target = "es2022",
@@ -15,37 +19,36 @@ esbuild_esm_bundle(
     ],
 )
 
-ts_library(
+ts_project(
     name = "render_api_to_html_lib",
     srcs = glob(
         [
-            "**/*.ts",
+            "**/*.mts",
             "**/*.tsx",
         ],
         exclude = [
-            "entities.ts",
+            "entities.mts",
         ],
     ),
-    devmode_module = "commonjs",
-    tsconfig = "//adev:tsconfig.json",
     deps = [
         ":entities",
-        "@npm//@bazel/runfiles",
-        "@npm//@types/node",
-        "@npm//html-entities",
-        "@npm//marked",
-        "@npm//preact",
-        "@npm//preact-render-to-string",
-        "@npm//shiki",
+        "//adev:node_modules/marked",
+        "//adev:node_modules/preact",
+        "//adev:node_modules/preact-render-to-string",
+        "//adev:node_modules/prettier",
+        "//adev:node_modules/shiki",
+        "//adev/shared-docs/pipeline/shared:linking",
+        "//adev/shared-docs/pipeline/shared:shiki",
+        "//adev/shared-docs/pipeline/shared/marked",
+        "//adev/shared-docs/pipeline/shared/regions",
     ],
 )
 
-ts_library(
+ts_project(
     name = "entities",
     srcs = [
-        "entities.ts",
+        "entities.mts",
     ],
-    tsconfig = "//adev:tsconfig.json",
     visibility = [
         "//adev/shared-docs/pipeline/api-gen/rendering:__pkg__",
         "//docs/pipeline/guides:__pkg__",
@@ -53,7 +56,7 @@ ts_library(
 )
 
 # Action binary for the api_gen bazel rule.
-nodejs_binary(
+js_binary(
     name = "render_api_to_html",
     data = [
         ":render_api_to_html_lib",
@@ -62,8 +65,7 @@ nodejs_binary(
     # Do not use the NodeJS linker because:
     #  - it's brittle and causes race conditions on Windows.
     #  - it requires additional work to setup the runtime linker.
-    templated_args = [
-        "--bazel_patch_module_resolver",
+    fixed_args = [
         "--node_options=--preserve-symlinks-main",
     ],
     visibility = ["//visibility:public"],

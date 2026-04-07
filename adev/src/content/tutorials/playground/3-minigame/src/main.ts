@@ -1,6 +1,6 @@
 import {A11yModule} from '@angular/cdk/a11y';
-import {CommonModule} from '@angular/common';
-import {Component, ElementRef, ViewChild, computed, signal} from '@angular/core';
+import {DecimalPipe} from '@angular/common';
+import {Component, ElementRef, computed, signal, viewChild} from '@angular/core';
 import {MatSlideToggleChange, MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {bootstrapApplication} from '@angular/platform-browser';
 
@@ -52,11 +52,11 @@ function getResultQuote(accuracy: number) {
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, MatSlideToggleModule, A11yModule],
+  imports: [DecimalPipe, MatSlideToggleModule, A11yModule],
   styleUrl: 'game.css',
   templateUrl: 'game.html',
 })
-export class PlaygroundComponent {
+export class Playground {
   protected readonly isGuessModalOpen = signal(false);
   protected readonly isAccessiblePanelOpen = signal(false);
   protected readonly rotateVal = signal(40);
@@ -75,7 +75,7 @@ export class PlaygroundComponent {
     quote: "Hi, I'm NG the Angle!",
   };
 
-  @ViewChild('staticArrow') staticArrow!: ElementRef;
+  staticArrow = viewChild.required<ElementRef<HTMLElement>>('staticArrow');
 
   protected readonly totalAccuracyPercentage = computed(() => {
     const {level, totalAccuracy} = this.gameStats();
@@ -100,6 +100,12 @@ export class PlaygroundComponent {
     return this.currentInteractions;
   });
 
+  protected readonly rotation = computed(() => `rotate(${this.rotateVal()}deg)`);
+
+  protected readonly indicatorStyle = computed(() => 0.487 * this.rotateVal() - 179.5);
+
+  protected readonly indicatorRotation = computed(() => `rotate(${253 + this.rotateVal()}deg)`);
+
   constructor() {
     this.resetGame();
   }
@@ -107,18 +113,6 @@ export class PlaygroundComponent {
   resetGame() {
     this.goal.set(Math.floor(Math.random() * 360));
     this.rotateVal.set(40);
-  }
-
-  getRotation() {
-    return `rotate(${this.rotateVal()}deg)`;
-  }
-
-  getIndicatorStyle() {
-    return 0.487 * this.rotateVal() - 179.5;
-  }
-
-  getIndicatorRotation() {
-    return `rotate(${253 + this.rotateVal()}deg)`;
   }
 
   mouseDown() {
@@ -133,8 +127,8 @@ export class PlaygroundComponent {
     const vh30 = 0.3 * document.documentElement.clientHeight;
     if (!this.isDragging) return;
 
-    let pointX = e.pageX - (this.staticArrow.nativeElement.offsetLeft + 2.5);
-    let pointY = e.pageY - (this.staticArrow.nativeElement.offsetTop + vh30);
+    let pointX = e.pageX - (this.staticArrow().nativeElement.offsetLeft + 2.5);
+    let pointY = e.pageY - (this.staticArrow().nativeElement.offsetTop + vh30);
 
     let calculatedAngle = 0;
     if (pointX >= 0 && pointY < 0) {
@@ -208,7 +202,7 @@ export class PlaygroundComponent {
     for (let i = 0; i < 5; i++) {
       emojiAccuracy += roundedAcc >= 20 * (i + 1) ? '🟩' : '⬜️';
     }
-    return encodeURIComponent(
+    return encodeURI(
       `📐 ${emojiAccuracy} \n My angles are ${roundedAcc}% accurate on level ${
         this.gameStats().level
       }. \n\nHow @Angular are you? \nhttps://angular.dev/playground`,
@@ -220,4 +214,4 @@ export class PlaygroundComponent {
   }
 }
 
-bootstrapApplication(PlaygroundComponent);
+bootstrapApplication(Playground);

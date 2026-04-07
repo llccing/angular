@@ -6,9 +6,9 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {getIntParameter} from '../util';
+import {getIntParameter} from '../util.js';
 
-export const numViews = getIntParameter('viewCount');
+export const numViews: number = getIntParameter('viewCount');
 
 export function newArray<T = any>(size: number): T[];
 export function newArray<T>(size: number, value: T): T[];

@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {InputFlags} from '@angular/compiler/src/core';
+import {core} from '@angular/compiler';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -34,6 +34,7 @@ describe('component declaration jit compilation', () => {
       version: '18.0.0',
       type: TestClass,
       template: `<div></div>`,
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -47,6 +48,7 @@ describe('component declaration jit compilation', () => {
       type: TestClass,
       template: '<div></div>',
       selector: '[dir], test',
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -66,12 +68,13 @@ describe('component declaration jit compilation', () => {
       outputs: {
         minifiedEventName: 'eventBindingName',
       },
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
       inputs: {
-        'property': ['minifiedProperty', InputFlags.None, null],
-        'bindingName': ['minifiedClassProperty', InputFlags.None, null],
+        'property': ['minifiedProperty', core.InputFlags.None, null],
+        'bindingName': ['minifiedClassProperty', core.InputFlags.None, null],
       },
       declaredInputs: {
         'property': 'property',
@@ -92,13 +95,14 @@ describe('component declaration jit compilation', () => {
       inputs: {
         minifiedClassProperty: ['bindingName', 'classProperty', transformFn],
       },
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
       inputs: {
         'bindingName': [
           'minifiedClassProperty',
-          InputFlags.HasDecoratorInputTransform,
+          core.InputFlags.HasDecoratorInputTransform,
           transformFn,
         ],
       },
@@ -114,6 +118,7 @@ describe('component declaration jit compilation', () => {
       type: TestClass,
       template: '<div></div>',
       exportAs: ['a', 'b'],
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -127,6 +132,7 @@ describe('component declaration jit compilation', () => {
       type: TestClass,
       template: '<div></div>',
       providers: [{provide: 'token', useValue: 123}],
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -141,6 +147,7 @@ describe('component declaration jit compilation', () => {
       type: TestClass,
       template: '<div></div>',
       viewProviders: [{provide: 'token', useValue: 123}],
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -169,19 +176,18 @@ describe('component declaration jit compilation', () => {
           emitDistinctChangesOnly: false,
         },
       ],
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
       contentQueries: functionContaining([
         // "byRef" should use `contentQuery` with `0` (`QueryFlags.none`) for query flag
         // without a read token, and bind to the full query result.
-        /contentQuery[^(]*\(dirIndex,_c0,4\)/,
-        '(ctx.byRef = _t)',
-
         // "byToken" should use `staticContentQuery` with `3`
         // (`QueryFlags.descendants|QueryFlags.isStatic`) for query flag and `ElementRef` as
         // read token, and bind to the first result in the query result.
-        /contentQuery[^(]*\(dirIndex,[^,]*String[^,]*,3,[^)]*ElementRef[^)]*\)/,
+        /contentQuery[^(]*\(dirIndex,_c0,4\)[^(]*\(dirIndex,[^,]*String[^,]*,\s*3,[^)]*ElementRef[^)]*\)/,
+        '(ctx.byRef = _t)',
         '(ctx.byToken = _t.first)',
       ]),
     });
@@ -207,19 +213,18 @@ describe('component declaration jit compilation', () => {
           emitDistinctChangesOnly: false,
         },
       ],
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
       viewQuery: functionContaining([
         // "byRef" should use `viewQuery` with `0` (`QueryFlags.none`) for query flag without a read
         // token, and bind to the full query result.
-        /viewQuery[^(]*\(_c0,4\)/,
-        '(ctx.byRef = _t)',
-
         // "byToken" should use `viewQuery` with `3`
         // (`QueryFlags.descendants|QueryFlags.isStatic`) for query flag and `ElementRef` as
         // read token, and bind to the first result in the query result.
-        /viewQuery[^(]*\([^,]*String[^,]*,3,[^)]*ElementRef[^)]*\)/,
+        /viewQuery[^(]*\(_c0,4\)[^(]*\([^,]*String[^,]*,3,[^)]*ElementRef[^)]*\)/,
+        '(ctx.byRef = _t)',
         '(ctx.byToken = _t.first)',
       ]),
     });
@@ -244,6 +249,7 @@ describe('component declaration jit compilation', () => {
         classAttribute: 'foo bar',
         styleAttribute: 'width: 100px;',
       },
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -272,6 +278,7 @@ describe('component declaration jit compilation', () => {
       type: TestClass,
       template: '<div></div>',
       usesInheritance: true,
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -285,6 +292,7 @@ describe('component declaration jit compilation', () => {
       type: TestClass,
       template: '<div></div>',
       usesOnChanges: true,
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -311,6 +319,7 @@ describe('component declaration jit compilation', () => {
       type: TestClass,
       template: '<div></div>',
       styles: ['div {}'],
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -326,6 +335,7 @@ describe('component declaration jit compilation', () => {
       template: '<div></div>',
       styles: ['div {}'],
       encapsulation: ViewEncapsulation.ShadowDom,
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -340,6 +350,7 @@ describe('component declaration jit compilation', () => {
       type: TestClass,
       template: '<div></div>',
       animations: [{type: 'trigger'}],
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -356,11 +367,13 @@ describe('component declaration jit compilation', () => {
       type: TestClass,
       template,
       preserveWhitespaces: true,
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
     const whenOmitted = ɵɵngDeclareComponent({
       version: '18.0.0',
       type: TestClass,
       template,
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(whenTrue, {
@@ -374,16 +387,33 @@ describe('component declaration jit compilation', () => {
     });
   });
 
-  it('should honor custom interpolation config', () => {
+  it('should bind directive inputs as regular property (not DOM property) in the presence of pipes', () => {
+    // https://github.com/angular/angular/issues/62573
     const def = ɵɵngDeclareComponent({
       version: '18.0.0',
       type: TestClass,
-      template: '{% foo %}',
-      interpolation: ['{%', '%}'],
+      isStandalone: true,
+      dependencies: [
+        {
+          kind: 'directive',
+          type: TestDir,
+          selector: '[dir]',
+          inputs: ['dir'],
+        },
+        {
+          kind: 'pipe',
+          type: TestPipe,
+          name: 'test',
+        },
+      ],
+      template: `<div [dir]="'test' | test"></div>`,
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
-      template: functionContaining([/textInterpolate[^(]*\(ctx.foo\)/]),
+      template: functionContaining([/property[^(]*\('dir',/]),
+      directives: [TestDir],
+      pipes: [TestPipe],
     });
   });
 
@@ -398,6 +428,7 @@ describe('component declaration jit compilation', () => {
           selector: 'cmp',
         },
       ],
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -416,6 +447,7 @@ describe('component declaration jit compilation', () => {
           selector: '[dir]',
         },
       ],
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -440,6 +472,7 @@ describe('component declaration jit compilation', () => {
           selector: '[dir]',
         },
       ],
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -460,6 +493,7 @@ describe('component declaration jit compilation', () => {
           selector: '[forward]',
         },
       ],
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     @Directive({
@@ -490,6 +524,7 @@ describe('component declaration jit compilation', () => {
           selector: '[forward]',
         },
       ],
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     @Directive({
@@ -511,6 +546,7 @@ describe('component declaration jit compilation', () => {
       pipes: {
         'test': TestPipe,
       },
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     expectComponentDef(def, {
@@ -528,6 +564,7 @@ describe('component declaration jit compilation', () => {
           return ForwardPipe;
         }),
       },
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     @Pipe({
@@ -552,6 +589,7 @@ describe('component declaration jit compilation', () => {
           return ForwardPipe;
         }),
       },
+      changeDetection: ChangeDetectionStrategy.Eager,
     }) as ComponentDef<TestClass>;
 
     @Pipe({

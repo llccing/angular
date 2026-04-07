@@ -92,32 +92,6 @@ describe('language service adapter', () => {
       );
     });
 
-    it('should always disable block syntax if enableBlockSyntax is false', () => {
-      const {project, tsLS} = setup();
-      const ngLS = new LanguageService(project, tsLS, {
-        enableBlockSyntax: false,
-      });
-
-      expect(ngLS.getCompilerOptions()).toEqual(
-        jasmine.objectContaining({
-          '_enableBlockSyntax': false,
-        }),
-      );
-    });
-
-    it('should always disable let declarations if enableLetSyntax is false', () => {
-      const {project, tsLS} = setup();
-      const ngLS = new LanguageService(project, tsLS, {
-        enableLetSyntax: false,
-      });
-
-      expect(ngLS.getCompilerOptions()).toEqual(
-        jasmine.objectContaining({
-          '_enableLetSyntax': false,
-        }),
-      );
-    });
-
     it('should pass the @angular/core version along to the compiler', () => {
       const {project, tsLS} = setup();
       const ngLS = new LanguageService(project, tsLS, {
@@ -154,18 +128,6 @@ describe('language service adapter', () => {
       const diag = diags.find(isSuggestStrictTemplatesDiag);
       expect(diag).toBeUndefined();
     });
-
-    it('does not suggest turning on strict mode is fullTemplateTypeCheck flag is on', () => {
-      configFileFs.overwriteConfigFile(TSCONFIG, {
-        angularCompilerOptions: {
-          fullTemplateTypeCheck: true,
-        },
-      });
-      const diags = ngLS.getCompilerOptionsDiagnostics();
-      const diag = diags.find(isSuggestStrictTemplatesDiag);
-      expect(diag).toBeUndefined();
-    });
-
     function isSuggestStrictTemplatesDiag(diag: ts.Diagnostic) {
       return diag.code === ngErrorCode(ErrorCode.SUGGEST_STRICT_TEMPLATES);
     }

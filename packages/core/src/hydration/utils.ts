@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * Copyright Google LLC All Rights Reserved.
  *
@@ -13,8 +13,8 @@ import {LContainer} from '../render3/interfaces/container';
 import {getDocument} from '../render3/interfaces/document';
 import {RElement, RNode} from '../render3/interfaces/renderer_dom';
 import {isRootView} from '../render3/interfaces/type_checks';
-import {HEADER_OFFSET, LView, TVIEW, TViewType} from '../render3/interfaces/view';
-import {makeStateKey, TransferState} from '../transfer_state';
+import {HEADER_OFFSET, HYDRATION, LView, TVIEW, TViewType} from '../render3/interfaces/view';
+import {makeStateKey, StateKey, TransferState} from '../transfer_state';
 import {assertDefined, assertEqual} from '../util/assert';
 import type {HydrationContext} from './annotate';
 
@@ -34,11 +34,14 @@ import {
   SerializedView,
 } from './interfaces';
 import {IS_INCREMENTAL_HYDRATION_ENABLED, JSACTION_BLOCK_ELEMENT_MAP} from './tokens';
-import {RuntimeError, RuntimeErrorCode} from '../errors';
+import {formatRuntimeError, RuntimeError, RuntimeErrorCode} from '../errors';
 import {DeferBlockTrigger, HydrateTriggerDetails} from '../defer/interfaces';
-import {hoverEventNames, interactionEventNames} from '../defer/dom_triggers';
+import {hoverEventNames, interactionEventNames} from '../../primitives/defer/src/triggers';
 import {DEHYDRATED_BLOCK_REGISTRY} from '../defer/registry';
 import {sharedMapFunction} from '../event_delegation_utils';
+import {isDetachedByI18n} from '../i18n/utils';
+import {isInSkipHydrationBlock} from '../render3/state';
+import {TNode} from '../render3/interfaces/node';
 
 /**
  * The name of the key used in the TransferState collection,
@@ -49,7 +52,8 @@ const TRANSFER_STATE_TOKEN_ID = '__nghData__';
 /**
  * Lookup key used to reference DOM hydration data (ngh) in `TransferState`.
  */
-export const NGH_DATA_KEY = makeStateKey<Array<SerializedView>>(TRANSFER_STATE_TOKEN_ID);
+export const NGH_DATA_KEY: StateKey<SerializedView[]> =
+  makeStateKey<Array<SerializedView>>(TRANSFER_STATE_TOKEN_ID);
 
 /**
  * The name of the key used in the TransferState collection,
@@ -60,9 +64,16 @@ export const TRANSFER_STATE_DEFER_BLOCKS_INFO = '__nghDeferData__';
 /**
  * Lookup key used to retrieve defer block datain `TransferState`.
  */
-export const NGH_DEFER_BLOCKS_KEY = makeStateKey<{[key: string]: SerializedDeferBlock}>(
-  TRANSFER_STATE_DEFER_BLOCKS_INFO,
-);
+export const NGH_DEFER_BLOCKS_KEY: StateKey<{[key: string]: SerializedDeferBlock}> = makeStateKey<{
+  [key: string]: SerializedDeferBlock;
+}>(TRANSFER_STATE_DEFER_BLOCKS_INFO);
+
+/**
+ * Checks whether a given key is used by the framework for transferring hydration data.
+ */
+export function isInternalHydrationTransferStateKey(key: string): boolean {
+  return key === TRANSFER_STATE_TOKEN_ID || key === TRANSFER_STATE_DEFER_BLOCKS_INFO;
+}
 
 /**
  * The name of the attribute that would be added to host component
@@ -301,7 +312,7 @@ const HYDRATION_INFO_KEY = '__ngDebugHydrationInfo__';
 
 export type HydratedNode = {
   [HYDRATION_INFO_KEY]?: HydrationInfo;
-};
+} & Element;
 
 function patchHydrationInfo(node: RNode, info: HydrationInfo) {
   (node as HydratedNode)[HYDRATION_INFO_KEY] = info;
@@ -400,15 +411,23 @@ export function isIncrementalHydrationEnabled(injector: Injector): boolean {
   });
 }
 
+let incrementalHydrationEnabledWarned = false;
+export function resetIncrementalHydrationEnabledWarnedForTests() {
+  incrementalHydrationEnabledWarned = false;
+}
+
 /** Throws an error if the incremental hydration is not enabled */
-export function assertIncrementalHydrationIsConfigured(injector: Injector) {
-  if (!isIncrementalHydrationEnabled(injector)) {
-    throw new RuntimeError(
-      RuntimeErrorCode.MISCONFIGURED_INCREMENTAL_HYDRATION,
-      'Angular has detected that some `@defer` blocks use `hydrate` triggers, ' +
-        'but incremental hydration was not enabled. Please ensure that the `withIncrementalHydration()` ' +
-        'call is added as an argument for the `provideClientHydration()` function call ' +
-        'in your application config.',
+export function warnIncrementalHydrationNotConfigured(): void {
+  if (!incrementalHydrationEnabledWarned) {
+    incrementalHydrationEnabledWarned = true;
+    console.warn(
+      formatRuntimeError(
+        RuntimeErrorCode.MISCONFIGURED_INCREMENTAL_HYDRATION,
+        'Angular has detected that some `@defer` blocks use `hydrate` triggers, ' +
+          'but incremental hydration was not enabled. Please ensure that the `withIncrementalHydration()` ' +
+          'call is added as an argument for the `provideClientHydration()` function call ' +
+          'in your application config.',
+      ),
     );
   }
 }
@@ -496,8 +515,24 @@ export function isDisconnectedNode(hydrationInfo: DehydratedView, index: number)
 }
 
 /**
+ * Checks whether a node can be hydrated.
+ * @param lView View in which the node instance is placed.
+ * @param tNode Node to be checked.
+ */
+export function canHydrateNode(lView: LView, tNode: TNode): boolean {
+  const hydrationInfo = lView[HYDRATION];
+
+  return (
+    hydrationInfo !== null &&
+    !isInSkipHydrationBlock() &&
+    !isDetachedByI18n(tNode) &&
+    !isDisconnectedNode(hydrationInfo, tNode.index - HEADER_OFFSET)
+  );
+}
+
+/**
  * Helper function to prepare text nodes for serialization by ensuring
- * that seperate logical text blocks in the DOM remain separate after
+ * that separate logical text blocks in the DOM remain separate after
  * serialization.
  */
 export function processTextNodeBeforeSerialization(context: HydrationContext, node: RNode) {
@@ -664,6 +699,22 @@ function getHydrateTimerTrigger(blockData: SerializedDeferBlock): number | null 
   return (trigger as SerializedTriggerDetails)?.delay ?? null;
 }
 
+function getHydrateViewportTrigger(
+  blockData: SerializedDeferBlock,
+): true | IntersectionObserverInit | null {
+  const details = blockData[DEFER_HYDRATE_TRIGGERS];
+  if (details) {
+    for (const current of details) {
+      if (current === DeferBlockTrigger.Viewport) {
+        return true;
+      } else if (typeof current === 'object' && current.trigger === DeferBlockTrigger.Viewport) {
+        return current.intersectionObserverOptions || true;
+      }
+    }
+  }
+  return null;
+}
+
 function hasHydrateTrigger(blockData: SerializedDeferBlock, trigger: DeferBlockTrigger): boolean {
   return blockData[DEFER_HYDRATE_TRIGGERS]?.includes(trigger) ?? false;
 }
@@ -679,7 +730,7 @@ function createBlockSummary(blockInfo: SerializedDeferBlock): BlockSummary {
       idle: hasHydrateTrigger(blockInfo, DeferBlockTrigger.Idle),
       immediate: hasHydrateTrigger(blockInfo, DeferBlockTrigger.Immediate),
       timer: getHydrateTimerTrigger(blockInfo),
-      viewport: hasHydrateTrigger(blockInfo, DeferBlockTrigger.Viewport),
+      viewport: getHydrateViewportTrigger(blockInfo),
     },
   };
 }

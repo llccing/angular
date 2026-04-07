@@ -38,6 +38,8 @@ export interface SignalNode<T> extends ReactiveNode {
 }
 
 export type SignalBaseGetter<T> = (() => T) & {readonly [SIGNAL]: unknown};
+export type SignalSetter<T> = (newValue: T) => void;
+export type SignalUpdater<T> = (updateFn: (value: T) => T) => void;
 
 // Note: Closure *requires* this to be an `interface` and not a type, which is why the
 // `SignalBaseGetter` type exists to provide the correct shape.
@@ -46,9 +48,12 @@ export interface SignalGetter<T> extends SignalBaseGetter<T> {
 }
 
 /**
- * Create a `Signal` that can be set or updated directly.
+ * Creates a `Signal` getter, setter, and updater function.
  */
-export function createSignal<T>(initialValue: T, equal?: ValueEqualityFn<T>): SignalGetter<T> {
+export function createSignal<T>(
+  initialValue: T,
+  equal?: ValueEqualityFn<T>,
+): [SignalGetter<T>, SignalSetter<T>, SignalUpdater<T>] {
   const node: SignalNode<T> = Object.create(SIGNAL_NODE);
   node.value = initialValue;
   if (equal !== undefined) {
@@ -57,13 +62,14 @@ export function createSignal<T>(initialValue: T, equal?: ValueEqualityFn<T>): Si
   const getter = (() => signalGetFn(node)) as SignalGetter<T>;
   (getter as any)[SIGNAL] = node;
   if (typeof ngDevMode !== 'undefined' && ngDevMode) {
-    const debugName = node.debugName ? ' (' + node.debugName + ')' : '';
-    getter.toString = () => `[Signal${debugName}: ${node.value}]`;
+    getter.toString = () =>
+      `[Signal${node.debugName ? ' (' + node.debugName + ')' : ''}: ${String(node.value)}]`;
   }
 
   runPostProducerCreatedFn(node);
-
-  return getter;
+  const set = (newValue: T) => signalSetFn(node, newValue);
+  const update = (updateFn: (value: T) => T) => signalUpdateFn(node, updateFn);
+  return [getter, set, update];
 }
 
 export function setPostSignalSetFn(fn: ReactiveHookFn | null): ReactiveHookFn | null {
@@ -102,7 +108,6 @@ export function runPostSignalSetFn<T>(node: SignalNode<T>): void {
 
 // Note: Using an IIFE here to ensure that the spread assignment is not considered
 // a side-effect, ending up preserving `COMPUTED_NODE` and `REACTIVE_NODE`.
-// TODO: remove when https://github.com/evanw/esbuild/issues/3392 is resolved.
 export const SIGNAL_NODE: SignalNode<unknown> = /* @__PURE__ */ (() => {
   return {
     ...REACTIVE_NODE,

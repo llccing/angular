@@ -18,7 +18,7 @@ import {type DestroyRef} from '../../linker/destroy_ref';
 import {NgZone} from '../../zone';
 import {AFTER_RENDER_SEQUENCES_TO_ADD, FLAGS, LView, LViewFlags} from '../interfaces/view';
 import {profiler} from '../profiler';
-import {ProfilerEvent} from '../profiler_types';
+import {ProfilerEvent} from '../../../primitives/devtools';
 import {markAncestorsForTraversal} from '../util/view_utils';
 import {AfterRenderPhase, AfterRenderRef} from './api';
 
@@ -37,7 +37,7 @@ export class AfterRenderManager {
   });
 }
 
-export const AFTER_RENDER_PHASES = /* @__PURE__ **/ (() =>
+export const AFTER_RENDER_PHASES: AfterRenderPhase[] = /* @__PURE__ **/ (() =>
   [
     AfterRenderPhase.EarlyRead,
     AfterRenderPhase.Write,

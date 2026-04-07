@@ -7,7 +7,14 @@
  */
 
 import {RuntimeError, RuntimeErrorCode} from '../errors';
-import {assertDefined, assertEqual, assertNumber, throwError} from '../util/assert';
+import {
+  assertDefined,
+  assertEqual,
+  assertIndexInRange,
+  assertLessThan,
+  assertNumber,
+  throwError,
+} from '../util/assert';
 
 import {getComponentDef, getNgModuleDef} from './def_getters';
 import {LContainer} from './interfaces/container';
@@ -18,10 +25,8 @@ import {TNode} from './interfaces/node';
 import {isLContainer, isLView} from './interfaces/type_checks';
 import {
   DECLARATION_COMPONENT_VIEW,
-  FLAGS,
   HEADER_OFFSET,
   LView,
-  LViewFlags,
   T_HOST,
   TVIEW,
   TView,
@@ -32,6 +37,16 @@ import {
 
 export function assertTNodeForLView(tNode: TNode, lView: LView) {
   assertTNodeForTView(tNode, lView[TVIEW]);
+}
+
+export function assertTNodeCreationIndex(lView: LView, index: number) {
+  const adjustedIndex = index + HEADER_OFFSET;
+  assertIndexInRange(lView, adjustedIndex);
+  assertLessThan(
+    adjustedIndex,
+    lView[TVIEW].bindingStartIndex,
+    'TNodes should be created before any bindings',
+  );
 }
 
 export function assertTNodeForTView(tNode: TNode, tView: TView) {
@@ -157,26 +172,6 @@ export function assertParentView(lView: LView | null, errMessage?: string) {
     lView,
     errMessage || "Component views should always have a parent view (component's host view)",
   );
-}
-
-export function assertNoDuplicateDirectives(directives: DirectiveDef<unknown>[]): void {
-  // The array needs at least two elements in order to have duplicates.
-  if (directives.length < 2) {
-    return;
-  }
-
-  const seenDirectives = new Set<DirectiveDef<unknown>>();
-
-  for (const current of directives) {
-    if (seenDirectives.has(current)) {
-      throw new RuntimeError(
-        RuntimeErrorCode.DUPLICATE_DIRECTIVE,
-        `Directive ${current.type.name} matches multiple times on the same element. ` +
-          `Directives can only match an element once.`,
-      );
-    }
-    seenDirectives.add(current);
-  }
 }
 
 /**

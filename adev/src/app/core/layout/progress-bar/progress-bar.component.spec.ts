@@ -9,20 +9,22 @@
 import {ComponentFixture, TestBed} from '@angular/core/testing';
 
 import {PROGRESS_BAR_DELAY, ProgressBarComponent} from './progress-bar.component';
-import {RouterTestingHarness, RouterTestingModule} from '@angular/router/testing';
+import {RouterTestingHarness} from '@angular/router/testing';
+import {provideRouter} from '@angular/router';
 
 describe('ProgressBarComponent', () => {
   let component: ProgressBarComponent;
   let fixture: ComponentFixture<ProgressBarComponent>;
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [ProgressBarComponent, RouterTestingModule],
-    }).compileComponents();
+    TestBed.configureTestingModule({
+      imports: [ProgressBarComponent],
+      providers: [provideRouter([])],
+    });
 
     fixture = TestBed.createComponent(ProgressBarComponent);
     component = fixture.componentInstance;
-    fixture.detectChanges();
+    await fixture.whenStable();
   });
 
   // This test often timeouts

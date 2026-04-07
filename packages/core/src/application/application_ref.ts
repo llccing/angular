@@ -10,7 +10,11 @@ import '../util/ng_hmr_mode';
 import '../util/ng_jit_mode';
 import '../util/ng_server_mode';
 
-import {setActiveConsumer, setThrowInvalidWriteToSignalError} from '../../primitives/signals';
+import {
+  setActiveConsumer,
+  getActiveConsumer,
+  setThrowInvalidWriteToSignalError,
+} from '../../primitives/signals';
 import {type Observable, Subject, type Subscription} from 'rxjs';
 import {map} from 'rxjs/operators';
 
@@ -28,13 +32,12 @@ import {ComponentFactory, ComponentRef} from '../linker/component_factory';
 import {ComponentFactoryResolver} from '../linker/component_factory_resolver';
 import {NgModuleRef} from '../linker/ng_module_factory';
 import {ViewRef} from '../linker/view_ref';
-import {PendingTasksInternal} from '../pending_tasks';
+import {PendingTasksInternal} from '../pending_tasks_internal';
 import {RendererFactory2} from '../render/api';
 import {AfterRenderManager} from '../render3/after_render/manager';
 import {ComponentFactory as R3ComponentFactory} from '../render3/component_ref';
 import {isStandalone} from '../render3/def_getters';
 import {ChangeDetectionMode, detectChangesInternal} from '../render3/instructions/change_detection';
-import {LView} from '../render3/interfaces/view';
 import {publishDefaultGlobalUtils as _publishDefaultGlobalUtils} from '../render3/util/global_utils';
 import {requiresRefreshOrTraversal} from '../render3/util/view_utils';
 import {ViewRef as InternalViewRef} from '../render3/view_ref';
@@ -42,8 +45,9 @@ import {TESTABILITY} from '../testability/testability';
 import {NgZone} from '../zone/ng_zone';
 
 import {profiler} from '../render3/profiler';
-import {ProfilerEvent} from '../render3/profiler_types';
+import {ProfilerEvent} from '../../primitives/devtools';
 import {EffectScheduler} from '../render3/reactivity/root_effect_scheduler';
+import {isReactiveLViewConsumer} from '../render3/reactive_lview_consumer';
 import {ApplicationInitStatus} from './application_init';
 import {TracingAction, TracingService, TracingSnapshot} from './tracing';
 
@@ -70,10 +74,15 @@ export function publishDefaultGlobalUtils() {
  */
 export function publishSignalConfiguration(): void {
   setThrowInvalidWriteToSignalError(() => {
-    throw new RuntimeError(
-      RuntimeErrorCode.SIGNAL_WRITE_FROM_ILLEGAL_CONTEXT,
-      ngDevMode && 'Writing to signals is not allowed in a `computed`.',
-    );
+    let errorMessage = '';
+    if (ngDevMode) {
+      const activeConsumer = getActiveConsumer();
+      errorMessage =
+        activeConsumer && isReactiveLViewConsumer(activeConsumer)
+          ? 'Writing to signals is not allowed while Angular renders the template (eg. interpolations)'
+          : 'Writing to signals is not allowed in a `computed`';
+    }
+    throw new RuntimeError(RuntimeErrorCode.SIGNAL_WRITE_FROM_ILLEGAL_CONTEXT, errorMessage);
   });
 }
 
@@ -82,22 +91,10 @@ export function isBoundToModule<C>(cf: ComponentFactory<C>): boolean {
 }
 
 /**
- * A token for third-party components that can register themselves with NgProbe.
- *
- * @deprecated
- * @publicApi
- */
-export class NgProbeToken {
-  constructor(
-    public name: string,
-    public token: any,
-  ) {}
-}
-
-/**
  * Provides additional options to the bootstrapping process.
  *
  * @publicApi
+ * @deprecated 20.2 Configure `NgZone` in the `providers` array of the application module instead.
  */
 export interface BootstrapOptions {
   /**
@@ -106,6 +103,8 @@ export interface BootstrapOptions {
    * - Provide your own `NgZone` instance.
    * - `zone.js` - Use default `NgZone` which requires `Zone.js`.
    * - `noop` - Use `NoopNgZone` which does nothing.
+   *
+   * @deprecated BootstrapOptions is deprecated. Provide `NgZone` in the `providers` array of the module instead.
    */
   ngZone?: NgZone | 'zone.js' | 'noop';
 
@@ -129,6 +128,8 @@ export interface BootstrapOptions {
    * And if this option be set to true, the change detection will be
    * triggered async by scheduling a animation frame. So in the case above,
    * the change detection will only be triggered once.
+   *
+   * @deprecated BootstrapOptions is deprecated. Use `provideZoneChangeDetection` instead to configure coalescing.
    */
   ngZoneEventCoalescing?: boolean;
 
@@ -149,27 +150,9 @@ export interface BootstrapOptions {
    * With ngZoneRunCoalescing options, all change detections in an event loop trigger only once.
    * In addition, the change detection executes in requestAnimation.
    *
+   * @deprecated BootstrapOptions is deprecated. Use `provideZoneChangeDetection` instead to configure coalescing.
    */
   ngZoneRunCoalescing?: boolean;
-
-  /**
-   * When false, change detection is scheduled when Angular receives
-   * a clear indication that templates need to be refreshed. This includes:
-   *
-   * - calling `ChangeDetectorRef.markForCheck`
-   * - calling `ComponentRef.setInput`
-   * - updating a signal that is read in a template
-   * - attaching a view that is marked dirty
-   * - removing a view
-   * - registering a render hook (templates are only refreshed if render hooks do one of the above)
-   *
-   * @deprecated This option was introduced out of caution as a way for developers to opt out of the
-   *    new behavior in v18 which schedule change detection for the above events when they occur
-   *    outside the Zone. After monitoring the results post-release, we have determined that this
-   *    feature is working as desired and do not believe it should ever be disabled by setting
-   *    this option to `true`.
-   */
-  ignoreChangesOutsideZone?: boolean;
 }
 
 /** Maximum number of times ApplicationRef will refresh all attached views in a single tick. */
@@ -308,12 +291,18 @@ export class ApplicationRef {
 
   // Needed for ComponentFixture temporarily during migration of autoDetect behavior
   // Eventually the hostView of the fixture should just attach to ApplicationRef.
-  private externalTestViews: Set<InternalViewRef<unknown>> = new Set();
+  private allTestViews: Set<InternalViewRef<unknown>> = new Set();
+  private autoDetectTestViews: Set<InternalViewRef<unknown>> = new Set();
+  /** @internal */
+  includeAllTestViews = false;
   /** @internal */
   afterTick = new Subject<void>();
   /** @internal */
   get allViews(): Array<InternalViewRef<unknown>> {
-    return [...this.externalTestViews.keys(), ...this._views];
+    return [
+      ...(this.includeAllTestViews ? this.allTestViews : this.autoDetectTestViews).keys(),
+      ...this._views,
+    ];
   }
 
   /**
@@ -510,59 +499,62 @@ export class ApplicationRef {
     rootSelectorOrNode?: string | any,
     injector: Injector = Injector.NULL,
   ): ComponentRef<C> {
-    profiler(ProfilerEvent.BootstrapComponentStart);
+    const ngZone = this._injector.get(NgZone);
+    return ngZone.run(() => {
+      profiler(ProfilerEvent.BootstrapComponentStart);
 
-    (typeof ngDevMode === 'undefined' || ngDevMode) && warnIfDestroyed(this._destroyed);
-    const isComponentFactory = componentOrFactory instanceof ComponentFactory;
-    const initStatus = this._injector.get(ApplicationInitStatus);
+      (typeof ngDevMode === 'undefined' || ngDevMode) && warnIfDestroyed(this._destroyed);
+      const isComponentFactory = componentOrFactory instanceof ComponentFactory;
+      const initStatus = this._injector.get(ApplicationInitStatus);
 
-    if (!initStatus.done) {
-      let errorMessage = '';
-      if (typeof ngDevMode === 'undefined' || ngDevMode) {
-        const standalone = !isComponentFactory && isStandalone(componentOrFactory);
-        errorMessage =
-          'Cannot bootstrap as there are still asynchronous initializers running.' +
-          (standalone
-            ? ''
-            : ' Bootstrap components in the `ngDoBootstrap` method of the root module.');
+      if (!initStatus.done) {
+        let errorMessage = '';
+        if (typeof ngDevMode === 'undefined' || ngDevMode) {
+          const standalone = !isComponentFactory && isStandalone(componentOrFactory);
+          errorMessage =
+            'Cannot bootstrap as there are still asynchronous initializers running.' +
+            (standalone
+              ? ''
+              : ' Bootstrap components in the `ngDoBootstrap` method of the root module.');
+        }
+        throw new RuntimeError(RuntimeErrorCode.ASYNC_INITIALIZERS_STILL_RUNNING, errorMessage);
       }
-      throw new RuntimeError(RuntimeErrorCode.ASYNC_INITIALIZERS_STILL_RUNNING, errorMessage);
-    }
 
-    let componentFactory: ComponentFactory<C>;
-    if (isComponentFactory) {
-      componentFactory = componentOrFactory;
-    } else {
-      const resolver = this._injector.get(ComponentFactoryResolver);
-      componentFactory = resolver.resolveComponentFactory(componentOrFactory)!;
-    }
-    this.componentTypes.push(componentFactory.componentType);
+      let componentFactory: ComponentFactory<C>;
+      if (isComponentFactory) {
+        componentFactory = componentOrFactory;
+      } else {
+        const resolver = this._injector.get(ComponentFactoryResolver);
+        componentFactory = resolver.resolveComponentFactory(componentOrFactory)!;
+      }
+      this.componentTypes.push(componentFactory.componentType);
 
-    // Create a factory associated with the current module if it's not bound to some other
-    const ngModule = isBoundToModule(componentFactory)
-      ? undefined
-      : this._injector.get(NgModuleRef);
-    const selectorOrNode = rootSelectorOrNode || componentFactory.selector;
-    const compRef = componentFactory.create(injector, [], selectorOrNode, ngModule);
-    const nativeElement = compRef.location.nativeElement;
-    const testability = compRef.injector.get(TESTABILITY, null);
-    testability?.registerApplication(nativeElement);
+      // Create a factory associated with the current module if it's not bound to some other
+      const ngModule = isBoundToModule(componentFactory)
+        ? undefined
+        : this._injector.get(NgModuleRef);
+      const selectorOrNode = rootSelectorOrNode || componentFactory.selector;
+      const compRef = componentFactory.create(injector, [], selectorOrNode, ngModule);
+      const nativeElement = compRef.location.nativeElement;
+      const testability = compRef.injector.get(TESTABILITY, null);
+      testability?.registerApplication(nativeElement);
 
-    compRef.onDestroy(() => {
-      this.detachView(compRef.hostView);
-      remove(this.components, compRef);
-      testability?.unregisterApplication(nativeElement);
+      compRef.onDestroy(() => {
+        this.detachView(compRef.hostView);
+        remove(this.components, compRef);
+        testability?.unregisterApplication(nativeElement);
+      });
+
+      this._loadComponent(compRef);
+      if (typeof ngDevMode === 'undefined' || ngDevMode) {
+        const _console = this._injector.get(Console);
+        _console.log(`Angular is running in development mode.`);
+      }
+
+      profiler(ProfilerEvent.BootstrapComponentEnd, compRef);
+
+      return compRef;
     });
-
-    this._loadComponent(compRef);
-    if (typeof ngDevMode === 'undefined' || ngDevMode) {
-      const _console = this._injector.get(Console);
-      _console.log(`Angular is running in development mode.`);
-    }
-
-    profiler(ProfilerEvent.BootstrapComponentEnd, compRef);
-
-    return compRef;
   }
 
   /**
@@ -599,6 +591,7 @@ export class ApplicationRef {
   private tickImpl = (): void => {
     (typeof ngDevMode === 'undefined' || ngDevMode) && warnIfDestroyed(this._destroyed);
     if (this._runningTick) {
+      profiler(ProfilerEvent.ChangeDetectionEnd);
       throw new RuntimeError(
         RuntimeErrorCode.RECURSIVE_APPLICATION_REF_TICK,
         ngDevMode && 'ApplicationRef.tick is called recursively',
@@ -637,8 +630,11 @@ export class ApplicationRef {
     let runs = 0;
     while (this.dirtyFlags !== ApplicationRefDirtyFlags.None && runs++ < MAXIMUM_REFRESH_RERUNS) {
       profiler(ProfilerEvent.ChangeDetectionSyncStart);
-      this.synchronizeOnce();
-      profiler(ProfilerEvent.ChangeDetectionSyncEnd);
+      try {
+        this.synchronizeOnce();
+      } finally {
+        profiler(ProfilerEvent.ChangeDetectionSyncEnd);
+      }
     }
 
     if ((typeof ngDevMode === 'undefined' || ngDevMode) && runs >= MAXIMUM_REFRESH_RERUNS) {
@@ -663,6 +659,7 @@ export class ApplicationRef {
     }
 
     // First check dirty views, if there are any.
+    let ranDetectChanges = false;
     if (this.dirtyFlags & ApplicationRefDirtyFlags.ViewTreeAny) {
       // Change detection on views starts in targeted mode (only check components if they're
       // marked as dirty) unless global checking is specifically requested via APIs like
@@ -677,7 +674,21 @@ export class ApplicationRef {
 
       // Check all potentially dirty views.
       for (let {_lView} of this.allViews) {
-        detectChangesInViewIfRequired(_lView, useGlobalCheck, this.zonelessEnabled);
+        // When re-checking, only check views which actually need it.
+        if (!useGlobalCheck && !requiresRefreshOrTraversal(_lView)) {
+          continue;
+        }
+
+        const mode =
+          useGlobalCheck && !this.zonelessEnabled
+            ? // Global mode includes `CheckAlways` views.
+              // When using zoneless, all root views must be explicitly marked for refresh, even if they are
+              // `CheckAlways`.
+              ChangeDetectionMode.Global
+            : // Only refresh views with the `RefreshView` flag or views is a changed signal
+              ChangeDetectionMode.Targeted;
+        detectChangesInternal(_lView, mode);
+        ranDetectChanges = true;
       }
 
       // If `markForCheck()` was called during view checking, it will have set the `ViewTreeCheck`
@@ -695,7 +706,8 @@ export class ApplicationRef {
         // hooks.
         return;
       }
-    } else {
+    }
+    if (!ranDetectChanges) {
       // If we skipped refreshing views above, there might still be unflushed animations
       // because we never called `detectChangesInternal` on the views.
       this._rendererFactory?.begin?.();
@@ -895,25 +907,4 @@ export const enum ApplicationRefDirtyFlags {
    * Effects at the `ApplicationRef` level.
    */
   RootEffects = 0b00010000,
-}
-
-export function detectChangesInViewIfRequired(
-  lView: LView,
-  isFirstPass: boolean,
-  zonelessEnabled: boolean,
-) {
-  // When re-checking, only check views which actually need it.
-  if (!isFirstPass && !requiresRefreshOrTraversal(lView)) {
-    return;
-  }
-
-  const mode =
-    isFirstPass && !zonelessEnabled
-      ? // The first pass is always in Global mode, which includes `CheckAlways` views.
-        // When using zoneless, all root views must be explicitly marked for refresh, even if they are
-        // `CheckAlways`.
-        ChangeDetectionMode.Global
-      : // Only refresh views with the `RefreshView` flag or views is a changed signal
-        ChangeDetectionMode.Targeted;
-  detectChangesInternal(lView, mode);
 }

@@ -6,11 +6,11 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {InjectionToken} from '../../di';
 import {isTypeProvider} from '../../di/provider_collection';
 import {assertDefined, assertEqual} from '../../util/assert';
+import {performanceMarkFeature} from '../../util/performance';
 import {setProfiler} from '../profiler';
-import {Profiler, ProfilerEvent} from '../profiler_types';
+import {Profiler, ProfilerEvent} from '../../../primitives/devtools';
 import {stringifyForError} from '../util/stringify_utils';
 import {
   InjectorProfiler,
@@ -71,16 +71,15 @@ function measureEnd(
   entryName: string,
   color: DevToolsColor,
 ) {
-  const top = eventsStack.pop();
+  let top: stackEntry | undefined;
 
-  assertDefined(top, 'Profiling error: could not find start event entry ' + startEvent);
-  assertEqual(
-    top[0],
-    startEvent,
-    `Profiling error: expected to see ${startEvent} event but got ${top[0]}`,
-  );
+  // The stack may be asymmetric when an end event for a prior start event is missing (e.g. when an exception
+  // has occurred), unroll the stack until a matching item has been found in that case.
+  do {
+    top = eventsStack.pop();
+    assertDefined(top, 'Profiling error: could not find start event entry ' + startEvent);
+  } while (top[0] !== startEvent);
 
-  // Expecting TypeScript error here as overloaded types are not supported yet in TS types
   console.timeStamp(
     entryName,
     'Event_' + top[0] + '_' + top[1],
@@ -215,16 +214,35 @@ function getComponentMeasureName(instance: {}) {
 }
 
 function getProviderTokenMeasureName<T>(token: any) {
-  if (token instanceof InjectionToken) {
-    return token.toString();
-  } else if (isTypeProvider(token)) {
+  if (isTypeProvider(token)) {
     return token.name;
-  } else {
+  } else if (token.provide != null) {
     return getProviderTokenMeasureName(token.provide);
   }
+  return token.toString();
 }
 
+/**
+ * Start listening to the Angular's internal performance-related events and route those to the Chrome DevTools performance panel.
+ * This enables Angular-specific data visualization when recording a performance profile directly in the Chrome DevTools.
+ *
+ * NOTE: Integration is enabled in the development mode only, this operation is noop in the production mode.
+ *
+ * @publicApi v21.0
+ *
+ * @returns a function that can be invoked to stop sending profiling data.
+ * @see [Profiling with the Chrome DevTools](best-practices/profiling-with-chrome-devtools#recording-a-profile)
+ */
 export function enableProfiling() {
-  setInjectorProfiler(chromeDevToolsInjectorProfiler);
-  setProfiler(devToolsProfiler);
+  performanceMarkFeature('Chrome DevTools profiling');
+  if (typeof ngDevMode !== 'undefined' && ngDevMode) {
+    const removeInjectorProfiler = setInjectorProfiler(chromeDevToolsInjectorProfiler);
+    const removeProfiler = setProfiler(devToolsProfiler);
+
+    return () => {
+      removeInjectorProfiler();
+      removeProfiler();
+    };
+  }
+  return () => {};
 }

@@ -6,17 +6,95 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {DevToolsNode, SerializedInjector} from 'protocol';
-
+import {DevToolsNode, SerializedInjector} from '../../../../../protocol';
 import {
-  InjectorTreeD3Node,
-  InjectorTreeNode,
-} from '../dependency-injection/injector-tree-visualizer';
+  SvgD3Link,
+  SvgD3Node,
+  TreeD3Node,
+  TreeNode,
+} from '../../shared/tree-visualizer/tree-visualizer';
+import {TreeVisualizerComponent} from '../../shared/tree-visualizer/tree-visualizer.component';
+
+// Types
 
 export interface InjectorPath {
   node: DevToolsNode;
   path: SerializedInjector[];
 }
+
+export type InjectorTreeVisualizer = TreeVisualizerComponent<InjectorTreeNode>;
+
+export interface InjectorTreeNode extends TreeNode {
+  injector: SerializedInjector;
+  children: InjectorTreeNode[];
+}
+
+export type InjectorTreeD3Node = TreeD3Node<InjectorTreeNode>;
+
+// Consts
+
+const ANGULAR_DIRECTIVES = [
+  'NgClass',
+  'NgComponentOutlet',
+  'NgFor',
+  'NgForOf',
+  'NgIf',
+  'NgOptimizedImage',
+  'NgPlural',
+  'NgPluralCase',
+  'NgStyle',
+  'NgSwitch',
+  'NgSwitchCase',
+  'NgSwitchDefault',
+  'NgTemplateOutlet',
+  'AbstractFormGroupDirective',
+  'CheckboxControlValueAccessor',
+  'CheckboxRequiredValidator',
+  'DefaultValueAccessor',
+  'EmailValidator',
+  'FormArrayName',
+  'FormControlDirective',
+  'FormControlName',
+  'FormGroupDirective',
+  'FormGroupName',
+  'MaxLengthValidator',
+  'MaxValidator',
+  'MinLengthValidator',
+  'MinValidator',
+  'NgControlStatus',
+  'NgControlStatusGroup',
+  'NgForm',
+  'NgModel',
+  'NgModelGroup',
+  'NgSelectOption',
+  'NumberValueAccessor',
+  'PatternValidator',
+  'RadioControlValueAccessor',
+  'RangeValueAccessor',
+  'RequiredValidator',
+  'SelectControlValueAccessor',
+  'SelectMultipleControlValueAccessor',
+  'RouterLink',
+  'RouterLinkActive',
+  'RouterLinkWithHref',
+  'RouterOutlet',
+  'UpgradeComponent',
+];
+
+const IGNORED_ANGULAR_INJECTORS = new Set([
+  'Null Injector',
+  ...ANGULAR_DIRECTIVES,
+  ...ANGULAR_DIRECTIVES.map((directive) => `_${directive}`),
+]);
+
+const INJECTOR_TYPE_CLASS_MAP = new Map<SerializedInjector['type'], string>([
+  ['imported-module', 'node-imported-module'],
+  ['environment', 'node-environment'],
+  ['element', 'node-element'],
+  ['null', 'node-null'],
+]);
+
+// Functions
 
 export function getInjectorIdsToRootFromNode(node: InjectorTreeD3Node): string[] {
   const ids: string[] = [];
@@ -71,22 +149,28 @@ export function transformInjectorResolutionPathsIntoTree(
         continue;
       }
 
-      const next = {
-        injector: injector,
+      const next: InjectorTreeNode = {
+        label: injector.name || '',
+        injector,
         children: [],
       };
+
+      if (injector.providers !== undefined) {
+        const providerText = injector.providers === 1 ? 'Provider' : 'Providers';
+        next.subLabel = `${injector.providers} ${providerText}`;
+      }
+
       next.injector.node = injectorIdToNode.get(next.injector.id);
       currentLevel.push(next);
       currentLevel = next.children;
     }
   }
 
-  const hiddenRoot = {
+  return {
+    label: '',
     injector: {name: '', type: 'hidden', id: 'N/A'},
     children: injectorTree,
   };
-
-  return hiddenRoot as any;
 }
 
 export function grabInjectorPathsFromDirectiveForest(
@@ -160,60 +244,6 @@ export function splitInjectorPathsIntoElementAndEnvironmentPaths(injectorPaths: 
   };
 }
 
-const ANGULAR_DIRECTIVES = [
-  'NgClass',
-  'NgComponentOutlet',
-  'NgFor',
-  'NgForOf',
-  'NgIf',
-  'NgOptimizedImage',
-  'NgPlural',
-  'NgPluralCase',
-  'NgStyle',
-  'NgSwitch',
-  'NgSwitchCase',
-  'NgSwitchDefault',
-  'NgTemplateOutlet',
-  'AbstractFormGroupDirective',
-  'CheckboxControlValueAccessor',
-  'CheckboxRequiredValidator',
-  'DefaultValueAccessor',
-  'EmailValidator',
-  'FormArrayName',
-  'FormControlDirective',
-  'FormControlName',
-  'FormGroupDirective',
-  'FormGroupName',
-  'MaxLengthValidator',
-  'MaxValidator',
-  'MinLengthValidator',
-  'MinValidator',
-  'NgControlStatus',
-  'NgControlStatusGroup',
-  'NgForm',
-  'NgModel',
-  'NgModelGroup',
-  'NgSelectOption',
-  'NumberValueAccessor',
-  'PatternValidator',
-  'RadioControlValueAccessor',
-  'RangeValueAccessor',
-  'RequiredValidator',
-  'SelectControlValueAccessor',
-  'SelectMultipleControlValueAccessor',
-  'RouterLink',
-  'RouterLinkActive',
-  'RouterLinkWithHref',
-  'RouterOutlet',
-  'UpgradeComponent',
-];
-
-const ignoredAngularInjectors = new Set([
-  'Null Injector',
-  ...ANGULAR_DIRECTIVES,
-  ...ANGULAR_DIRECTIVES.map((directive) => `_${directive}`),
-]);
-
 export function filterOutInjectorsWithNoProviders(injectorPaths: InjectorPath[]): InjectorPath[] {
   for (const injectorPath of injectorPaths) {
     injectorPath.path = injectorPath.path.filter(
@@ -226,6 +256,103 @@ export function filterOutInjectorsWithNoProviders(injectorPaths: InjectorPath[])
 
 export function filterOutAngularInjectors(injectorPaths: InjectorPath[]): InjectorPath[] {
   return injectorPaths.map(({node, path}) => {
-    return {node, path: path.filter((injector) => !ignoredAngularInjectors.has(injector.name))};
+    return {node, path: path.filter((injector) => !IGNORED_ANGULAR_INJECTORS.has(injector.name))};
   });
+}
+
+export function d3InjectorTreeLinkModifier(link: SvgD3Link<InjectorTreeNode>) {
+  link
+    .attr('hidden', (node: InjectorTreeD3Node) => {
+      const parentId = node.parent?.data.injector.id;
+      return parentId === 'N/A' ? 'true' : null;
+    })
+    .attr('data-id', (node: InjectorTreeD3Node) => {
+      const from = node.data.injector.id;
+      const to = node.parent?.data.injector.id;
+
+      if (from && to) {
+        return `${from}-to-${to}`;
+      }
+      return '';
+    });
+}
+
+export function d3InjectorTreeNodeModifier(d3Node: SvgD3Node<InjectorTreeNode>) {
+  d3Node
+    .attr('class', (node: InjectorTreeD3Node) => {
+      return [d3Node.attr('class'), INJECTOR_TYPE_CLASS_MAP.get(node.data.injector.type) ?? '']
+        .filter((c) => !!c)
+        .join(' ');
+    })
+    .attr('hidden', (node: InjectorTreeD3Node) => (node.data.injector.id === 'N/A' ? 'true' : null))
+    .attr('data-id', (node: InjectorTreeD3Node) => {
+      return node.data.injector.id;
+    })
+    .attr('data-component-id', (node: InjectorTreeD3Node) => {
+      if (node.data.injector.type === 'element') {
+        const injector = node.data.injector;
+        return injector.node?.component?.id ?? -1;
+      }
+      return -1;
+    });
+}
+
+/** Returns whether InjectorTreeNodes are equal (excl. children comparison). */
+export function areInjectorTreeNodesEqual(a: InjectorTreeNode, b: InjectorTreeNode): boolean {
+  const isSameInjector = equalInjector(a?.injector, b?.injector);
+  const isSameLabel = a?.label === b?.label;
+  const isSameSubLabel = a?.subLabel === b?.subLabel;
+
+  return isSameInjector && isSameLabel && isSameSubLabel;
+}
+
+/** Returns whether injector trees (InjectorTreeNodes with children) are equal. */
+export function areInjectorTreesEqual(
+  a: InjectorTreeNode | null,
+  b: InjectorTreeNode | null,
+): boolean {
+  if (!a && !b) {
+    return true;
+  }
+  if ((a && !b) || (!a && b)) {
+    return false;
+  }
+
+  const stackA: InjectorTreeNode[] = [a!];
+  const stackB: InjectorTreeNode[] = [b!];
+
+  while (stackA.length && stackB.length) {
+    const aNode = stackA.pop()!;
+    const bNode = stackB.pop()!;
+
+    const isDiffChildrenLength = aNode?.children.length !== bNode?.children.length;
+
+    if (!areInjectorTreeNodesEqual(aNode, bNode) || isDiffChildrenLength) {
+      return false;
+    }
+
+    if (aNode?.children && bNode?.children) {
+      for (let i = 0; i < aNode.children.length; i++) {
+        const aChild = aNode.children[i];
+        const bChild = bNode.children[i];
+
+        stackA.push(aChild);
+        stackB.push(bChild);
+      }
+    }
+  }
+
+  return true;
+}
+
+/** Checks whether an injector belongs to the element tree. */
+export function isElementTreeInjector(injector: SerializedInjector | undefined): boolean {
+  const type = injector?.type;
+  return type === 'element';
+}
+
+/** Checks whether an injector belongs to the environment tree. */
+export function isEnvironmentTreeInjector(injector: SerializedInjector | undefined): boolean {
+  const type = injector?.type;
+  return type === 'environment' || type === 'null' || type === 'imported-module';
 }

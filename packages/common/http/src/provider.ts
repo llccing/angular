@@ -14,15 +14,10 @@ import {
   Provider,
 } from '@angular/core';
 
-import {HttpBackend, HttpHandler} from './backend';
+import {HttpBackend, HttpHandler, HttpInterceptorHandler} from './backend';
 import {HttpClient} from './client';
-import {FETCH_BACKEND, FetchBackend} from './fetch';
-import {
-  HTTP_INTERCEPTOR_FNS,
-  HttpInterceptorFn,
-  HttpInterceptorHandler,
-  legacyInterceptorFnFactory,
-} from './interceptor';
+import {FetchBackend} from './fetch';
+import {HTTP_INTERCEPTOR_FNS, HttpInterceptorFn, legacyInterceptorFnFactory} from './interceptor';
 import {
   jsonpCallbackContext,
   JsonpCallbackContext,
@@ -30,14 +25,7 @@ import {
   jsonpInterceptorFn,
 } from './jsonp';
 import {HttpXhrBackend} from './xhr';
-import {
-  HttpXsrfCookieExtractor,
-  HttpXsrfTokenExtractor,
-  XSRF_COOKIE_NAME,
-  XSRF_ENABLED,
-  XSRF_HEADER_NAME,
-  xsrfInterceptorFn,
-} from './xsrf';
+import {XSRF_COOKIE_NAME, XSRF_ENABLED, XSRF_HEADER_NAME, xsrfInterceptorFn} from './xsrf';
 
 /**
  * Identifies a particular kind of `HttpFeature`.
@@ -52,6 +40,7 @@ export enum HttpFeatureKind {
   JsonpSupport,
   RequestsMadeViaParent,
   Fetch,
+  Xhr,
 }
 
 /**
@@ -77,6 +66,8 @@ function makeHttpFeature<KindT extends HttpFeatureKind>(
 /**
  * Configures Angular's `HttpClient` service to be available for injection.
  *
+ * The `HttpClient` service is provided in the root by default.
+ *
  * By default, `HttpClient` will be configured for injection with its default options for XSRF
  * protection of outgoing requests. Additional configuration options can be provided by passing
  * feature functions to `provideHttpClient`. For example, HTTP interceptors can be added using the
@@ -84,24 +75,26 @@ function makeHttpFeature<KindT extends HttpFeatureKind>(
  *
  * <div class="docs-alert docs-alert-helpful">
  *
- * It's strongly recommended to enable
- * [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) for applications that use
- * Server-Side Rendering for better performance and compatibility. To enable `fetch`, add
- * `withFetch()` feature to the `provideHttpClient()` call at the root of the application:
+ * By default, `HttpClient` uses the
+ * [`fetch` API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) to make requests.
+ * This is strongly recommended for applications that use
+ * Server-Side Rendering for better performance and compatibility.
+ * To use the `XMLHttpRequest` API instead, add the {@link withXhr} feature:
  *
  * ```ts
- * provideHttpClient(withFetch());
+ * provideHttpClient(withXhr());
  * ```
  *
  * </div>
  *
+ * @see [HTTP Client](guide/http/setup)
  * @see {@link withInterceptors}
  * @see {@link withInterceptorsFromDi}
  * @see {@link withXsrfConfiguration}
  * @see {@link withNoXsrfProtection}
  * @see {@link withJsonpSupport}
  * @see {@link withRequestsMadeViaParent}
- * @see {@link withFetch}
+ * @see {@link withXhr}
  */
 export function provideHttpClient(
   ...features: HttpFeature<HttpFeatureKind>[]
@@ -122,13 +115,13 @@ export function provideHttpClient(
 
   const providers: Provider[] = [
     HttpClient,
-    HttpXhrBackend,
+    FetchBackend,
     HttpInterceptorHandler,
     {provide: HttpHandler, useExisting: HttpInterceptorHandler},
     {
       provide: HttpBackend,
       useFactory: () => {
-        return inject(FETCH_BACKEND, {optional: true}) ?? inject(HttpXhrBackend);
+        return inject(FetchBackend);
       },
     },
     {
@@ -136,8 +129,6 @@ export function provideHttpClient(
       useValue: xsrfInterceptorFn,
       multi: true,
     },
-    {provide: XSRF_ENABLED, useValue: true},
-    {provide: HttpXsrfTokenExtractor, useClass: HttpXsrfCookieExtractor},
   ];
 
   for (const feature of features) {
@@ -171,7 +162,7 @@ export function withInterceptors(
 }
 
 const LEGACY_INTERCEPTOR_FN = new InjectionToken<HttpInterceptorFn>(
-  ngDevMode ? 'LEGACY_INTERCEPTOR_FN' : '',
+  typeof ngDevMode !== 'undefined' && ngDevMode ? 'LEGACY_INTERCEPTOR_FN' : '',
 );
 
 /**
@@ -275,8 +266,9 @@ export function withJsonpSupport(): HttpFeature<HttpFeatureKind.JsonpSupport> {
  * "bubble up" until either reaching the root level or an `HttpClient` which was not configured with
  * this option.
  *
+ * @see [HTTP client setup](guide/http/setup#withrequestsmadeviaparent)
  * @see {@link provideHttpClient}
- * @publicApi
+ * @publicApi 19.0
  */
 export function withRequestsMadeViaParent(): HttpFeature<HttpFeatureKind.RequestsMadeViaParent> {
   return makeHttpFeature(HttpFeatureKind.RequestsMadeViaParent, [
@@ -300,12 +292,29 @@ export function withRequestsMadeViaParent(): HttpFeature<HttpFeatureKind.Request
  *
  * Note: The Fetch API doesn't support progress report on uploads.
  *
+ * @see [Advanced fetch Options](guide/http/making-requests#advanced-fetch-options)
+ *
  * @publicApi
+ * @deprecated `withFetch` is not required anymore. `FetchBackend` is the default `HttpBackend`.
  */
 export function withFetch(): HttpFeature<HttpFeatureKind.Fetch> {
   return makeHttpFeature(HttpFeatureKind.Fetch, [
     FetchBackend,
-    {provide: FETCH_BACKEND, useExisting: FetchBackend},
     {provide: HttpBackend, useExisting: FetchBackend},
+  ]);
+}
+
+/**
+ * Configures the current `HttpClient` instance to make requests using the Xhr API.
+ *
+ * Use this feature if you want to report progress on uploads as the Xhr API supports it.
+ *
+ * @see {@link provideHttpClient}
+ * @publicApi
+ */
+export function withXhr(): HttpFeature<HttpFeatureKind.Xhr> {
+  return makeHttpFeature(HttpFeatureKind.Xhr, [
+    HttpXhrBackend,
+    {provide: HttpBackend, useExisting: HttpXhrBackend},
   ]);
 }

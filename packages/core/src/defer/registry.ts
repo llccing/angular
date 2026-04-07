@@ -15,13 +15,14 @@ import {
 } from '../event_delegation_utils';
 import {JSACTION_BLOCK_ELEMENT_MAP} from '../hydration/tokens';
 import {DehydratedDeferBlock} from './interfaces';
+import type {PromiseWithResolvers} from '../util/promise_with_resolvers';
 
 /**
  * An internal injection token to reference `DehydratedBlockRegistry` implementation
  * in a tree-shakable way.
  */
 export const DEHYDRATED_BLOCK_REGISTRY = new InjectionToken<DehydratedBlockRegistry>(
-  ngDevMode ? 'DEHYDRATED_BLOCK_REGISTRY' : '',
+  typeof ngDevMode !== 'undefined' && ngDevMode ? 'DEHYDRATED_BLOCK_REGISTRY' : '',
 );
 
 /**

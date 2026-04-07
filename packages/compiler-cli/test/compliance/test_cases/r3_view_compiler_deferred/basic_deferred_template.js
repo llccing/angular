@@ -3,13 +3,15 @@ function MyApp_Defer_2_Template(rf, ctx) {
     $r3$.ɵɵtext(0, "Deferred content");
   }
 }…
-MyApp.ɵcmp = /*@__PURE__*/ $r3$.ɵɵdefineComponent({
+export class MyApp {
+  …
+  static ɵcmp = /*@__PURE__*/ $r3$.ɵɵdefineComponent({
   …
   template: function MyApp_Template(rf, ctx) {
     if (rf & 1) {
       $r3$.ɵɵelementStart(0, "div");
       $r3$.ɵɵtext(1);
-      $r3$.ɵɵtemplate(2, MyApp_Defer_2_Template, 1, 0);
+      $r3$.ɵɵdomTemplate(2, MyApp_Defer_2_Template, 1, 0);
       $r3$.ɵɵdefer(3, 2);
       $r3$.ɵɵdeferOnIdle();
       $r3$.ɵɵelementStart(5, "p");
@@ -25,3 +27,4 @@ MyApp.ɵcmp = /*@__PURE__*/ $r3$.ɵɵdefineComponent({
 });
 …
 $r3$.ɵsetClassMetadata(MyApp, …);
+}

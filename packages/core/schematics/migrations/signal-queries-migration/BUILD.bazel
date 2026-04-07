@@ -1,6 +1,6 @@
-load("//tools:defaults.bzl", "jasmine_node_test", "ts_library")
+load("//tools:defaults.bzl", "jasmine_test", "ts_project")
 
-ts_library(
+ts_project(
     name = "migration",
     srcs = glob(
         ["**/*.ts"],
@@ -11,22 +11,16 @@ ts_library(
         "//packages/language-service/src/refactorings:__pkg__",
     ],
     deps = [
+        "//:node_modules/typescript",
         "//packages/compiler",
         "//packages/compiler-cli",
         "//packages/compiler-cli/private",
-        "//packages/compiler-cli/src/ngtsc/annotations",
-        "//packages/compiler-cli/src/ngtsc/annotations/directive",
-        "//packages/compiler-cli/src/ngtsc/diagnostics",
-        "//packages/compiler-cli/src/ngtsc/file_system",
-        "//packages/compiler-cli/src/ngtsc/reflection",
         "//packages/core/schematics/migrations/signal-migration/src",
         "//packages/core/schematics/utils/tsurge",
-        "@npm//@types/node",
-        "@npm//typescript",
     ],
 )
 
-ts_library(
+ts_project(
     name = "test_lib",
     testonly = True,
     srcs = glob(
@@ -34,15 +28,14 @@ ts_library(
     ),
     deps = [
         ":migration",
+        "//:node_modules/typescript",
         "//packages/compiler-cli",
-        "//packages/compiler-cli/src/ngtsc/file_system/testing",
         "//packages/core/schematics/utils/tsurge",
-        "@npm//typescript",
     ],
 )
 
-jasmine_node_test(
+jasmine_test(
     name = "test",
-    srcs = [":test_lib"],
+    data = [":test_lib"],
     env = {"FORCE_COLOR": "3"},
 )

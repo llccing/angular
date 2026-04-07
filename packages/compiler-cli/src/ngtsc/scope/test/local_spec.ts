@@ -10,11 +10,9 @@ import ts from 'typescript';
 
 import {Reference, ReferenceEmitter} from '../../imports';
 import {
-  ClassPropertyMapping,
   CompoundMetadataRegistry,
   DirectiveMeta,
   LocalMetadataRegistry,
-  MatchSource,
   MetadataRegistry,
   MetaKind,
   PipeMeta,
@@ -23,6 +21,7 @@ import {ClassDeclaration} from '../../reflection';
 import {LocalModuleScope, ScopeData} from '../src/api';
 import {DtsModuleScopeResolver} from '../src/dependency';
 import {LocalModuleScopeRegistry} from '../src/local';
+import {ClassPropertyMapping, MatchSource} from '@angular/compiler';
 
 function registerFakeRefs(registry: MetadataRegistry): {
   [name: string]: Reference<ClassDeclaration>;
@@ -352,6 +351,7 @@ function fakeDirective(ref: Reference<ClassDeclaration>): DirectiveMeta {
     restrictedInputFields: new Set<string>(),
     stringLiteralInputFields: new Set<string>(),
     undeclaredInputFields: new Set<string>(),
+    publicMethods: new Set<string>(),
     isGeneric: false,
     baseClass: null,
     isPoisoned: false,
@@ -370,6 +370,8 @@ function fakeDirective(ref: Reference<ClassDeclaration>): DirectiveMeta {
     isExplicitlyDeferred: false,
     deferredImports: null,
     inputFieldNamesFromMetadataArray: null,
+    selectorlessEnabled: false,
+    localReferencedSymbols: null,
   };
 }
 
@@ -383,6 +385,7 @@ function fakePipe(ref: Reference<ClassDeclaration>): PipeMeta {
     isStandalone: false,
     decorator: null,
     isExplicitlyDeferred: false,
+    isPure: false,
   };
 }
 

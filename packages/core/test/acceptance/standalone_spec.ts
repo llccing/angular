@@ -43,7 +43,9 @@ describe('standalone components, directives, and pipes', () => {
   it('should render a recursive standalone component', () => {
     @Component({
       selector: 'tree',
-      template: `({{level}})<ng-template [ngIf]="level > 0"><tree [level]="level - 1"></tree></ng-template>`,
+      template: `({{ level }})<ng-template [ngIf]="level > 0"
+          ><tree [level]="level - 1"></tree
+        ></ng-template>`,
       imports: [CommonModule],
     })
     class TreeCmp {
@@ -155,7 +157,8 @@ describe('standalone components, directives, and pipes', () => {
 
     @Component({
       selector: 'app-cmpt',
-      template: `<standalone-cmp standalone-dir></standalone-cmp>{{'standalone' | standalonePipe}}`,
+      template: `<standalone-cmp standalone-dir></standalone-cmp
+        >{{ 'standalone' | standalonePipe }}`,
       standalone: false,
     })
     class AppComponent {}
@@ -474,7 +477,7 @@ describe('standalone components, directives, and pipes', () => {
     @Component({
       selector: 'standalone',
       imports: [ExportingModule],
-      template: `({{service.value}})`,
+      template: `({{ service.value }})`,
     })
     class TestComponent {
       constructor(readonly service: Service) {}
@@ -498,7 +501,7 @@ describe('standalone components, directives, and pipes', () => {
 
     @Component({
       selector: 'standalone',
-      template: `<div red>{{'' | blue}}</div>`,
+      template: `<div red>{{ '' | blue }}</div>`,
       imports: [[RedIdDirective, [BluePipe]]],
     })
     class TestComponent {}
@@ -523,7 +526,7 @@ describe('standalone components, directives, and pipes', () => {
 
     @Component({
       selector: 'standalone',
-      template: `<div red>{{'' | blue}}</div>`,
+      template: `<div red>{{ '' | blue }}</div>`,
       imports: [DirAndPipe],
     })
     class TestComponent {}
@@ -599,7 +602,7 @@ describe('standalone components, directives, and pipes', () => {
     expect(() => {
       TestBed.createComponent(StandaloneCmp);
     }).toThrowError(
-      'The "NonStandaloneCmp" component, imported from "StandaloneCmp", is not standalone. Did you forget to add the standalone: true flag?',
+      'The "NonStandaloneCmp" component, imported from "StandaloneCmp", is not standalone. Does the component have the standalone: false flag?',
     );
   });
 
@@ -620,7 +623,7 @@ describe('standalone components, directives, and pipes', () => {
     expect(() => {
       TestBed.createComponent(StandaloneCmp);
     }).toThrowError(
-      'The "NonStandaloneDirective" directive, imported from "StandaloneCmp", is not standalone. Did you forget to add the standalone: true flag?',
+      'The "NonStandaloneDirective" directive, imported from "StandaloneCmp", is not standalone. Does the directive have the standalone: false flag?',
     );
   });
 
@@ -641,7 +644,7 @@ describe('standalone components, directives, and pipes', () => {
     expect(() => {
       TestBed.createComponent(StandaloneCmp);
     }).toThrowError(
-      'The "NonStandalonePipe" pipe, imported from "StandaloneCmp", is not standalone. Did you forget to add the standalone: true flag?',
+      'The "NonStandalonePipe" pipe, imported from "StandaloneCmp", is not standalone. Does the pipe have the standalone: false flag?',
     );
   });
 
@@ -814,39 +817,20 @@ describe('standalone components, directives, and pipes', () => {
     it('should allow extending a regular component and turn it into a standalone one', () => {
       @Component({
         selector: 'regular',
-        template: 'regular: {{in}}',
+        template: 'regular: {{input}}',
         standalone: false,
       })
       class RegularCmp {
-        @Input() in: string | undefined;
+        @Input() input: string | undefined;
       }
 
-      @Component({selector: 'standalone', template: 'standalone: {{in}}'})
+      @Component({selector: 'standalone', template: 'standalone: {{input}}'})
       class StandaloneCmp extends RegularCmp {}
 
       const fixture = TestBed.createComponent(StandaloneCmp);
-      fixture.componentInstance.in = 'input value';
+      fixture.componentInstance.input = 'input value';
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toBe('standalone: input value');
-    });
-
-    it('should allow extending a regular component and turn it into a standalone one', () => {
-      @Component({selector: 'standalone', template: 'standalone: {{in}}'})
-      class StandaloneCmp {
-        @Input() in: string | undefined;
-      }
-
-      @Component({
-        selector: 'regular',
-        template: 'regular: {{in}}',
-        standalone: false,
-      })
-      class RegularCmp extends StandaloneCmp {}
-
-      const fixture = TestBed.createComponent(RegularCmp);
-      fixture.componentInstance.in = 'input value';
-      fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toBe('regular: input value');
     });
 
     it('should ?', () => {
@@ -858,11 +842,11 @@ describe('standalone components, directives, and pipes', () => {
 
       @Component({
         selector: 'standalone',
-        template: 'standalone: {{in}}; (<inner></inner>)',
+        template: 'standalone: {{input}}; (<inner></inner>)',
         imports: [InnerCmp],
       })
       class StandaloneCmp {
-        @Input() in: string | undefined;
+        @Input() input: string | undefined;
       }
 
       @Component({
@@ -872,7 +856,7 @@ describe('standalone components, directives, and pipes', () => {
       class RegularCmp extends StandaloneCmp {}
 
       const fixture = TestBed.createComponent(RegularCmp);
-      fixture.componentInstance.in = 'input value';
+      fixture.componentInstance.input = 'input value';
       fixture.detectChanges();
       // the assumption here is that not providing a template is equivalent to providing an empty
       // one

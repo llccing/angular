@@ -6,20 +6,20 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {isPlatformBrowser, NgComponentOutlet} from '@angular/common';
+import {CdkMenu, CdkMenuItem, CdkMenuTrigger} from '@angular/cdk/menu';
+import {isPlatformServer, NgComponentOutlet} from '@angular/common';
 import {
-  AfterViewInit,
-  ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   DestroyRef,
+  effect,
   EnvironmentInjector,
+  inject,
+  input,
   PLATFORM_ID,
   Type,
-  inject,
 } from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
-import {CdkMenu, CdkMenuItem, CdkMenuTrigger} from '@angular/cdk/menu';
 import {IconComponent, PlaygroundTemplate} from '@angular/docs';
 import {forkJoin, switchMap, tap} from 'rxjs';
 
@@ -27,26 +27,26 @@ import {injectAsync} from '../../core/services/inject-async';
 import {injectNodeRuntimeSandbox} from '../../editor/index';
 import type {NodeRuntimeSandbox} from '../../editor/node-runtime-sandbox.service';
 
+import {ActivatedRoute, Router} from '@angular/router';
 import PLAYGROUND_ROUTE_DATA_JSON from '../../../../src/assets/tutorials/playground/routes.json';
 
 @Component({
   selector: 'adev-playground',
   imports: [NgComponentOutlet, IconComponent, CdkMenu, CdkMenuItem, CdkMenuTrigger],
   templateUrl: './playground.component.html',
-  styleUrls: [
-    './playground.component.scss',
-    '../tutorial/tutorial-navigation.scss',
-    '../tutorial/tutorial-navigation-list.scss',
-  ],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['./playground.component.scss', '../tutorial/tutorial-navigation.scss'],
 })
-export default class PlaygroundComponent implements AfterViewInit {
+export default class PlaygroundComponent {
+  readonly templateId = input<string | undefined>();
+
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly environmentInjector = inject(EnvironmentInjector);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly isServer = isPlatformServer(inject(PLATFORM_ID));
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
-  readonly templates = PLAYGROUND_ROUTE_DATA_JSON.templates;
+  readonly templates: PlaygroundTemplate[] = PLAYGROUND_ROUTE_DATA_JSON.templates;
   readonly defaultTemplate = PLAYGROUND_ROUTE_DATA_JSON.defaultTemplate;
   readonly starterTemplate = PLAYGROUND_ROUTE_DATA_JSON.starterTemplate;
 
@@ -54,10 +54,15 @@ export default class PlaygroundComponent implements AfterViewInit {
   protected embeddedEditorComponent?: Type<unknown>;
   protected selectedTemplate: PlaygroundTemplate = this.defaultTemplate;
 
-  ngAfterViewInit(): void {
-    if (!this.isBrowser) {
+  constructor() {
+    if (this.isServer) {
       return;
     }
+
+    effect(() => {
+      const foundTemplate = this.templates.find((t) => t.id === this.templateId());
+      this.changeTemplate(foundTemplate ?? this.defaultTemplate);
+    });
 
     // If using `async-await`, `this` will be captured until the function is executed
     // and completed, which can lead to a memory leak if the user navigates away from
@@ -71,12 +76,12 @@ export default class PlaygroundComponent implements AfterViewInit {
           this.nodeRuntimeSandbox = nodeRuntimeSandbox;
           this.embeddedEditorComponent = embeddedEditorComponent;
         }),
-        switchMap(() => this.loadTemplate(this.defaultTemplate.path)),
+        switchMap(() => this.loadTemplate(this.selectedTemplate.path)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe(() => {
         this.changeDetectorRef.markForCheck();
-        this.nodeRuntimeSandbox!.init();
+        this.nodeRuntimeSandbox?.init();
       });
   }
 
@@ -85,9 +90,14 @@ export default class PlaygroundComponent implements AfterViewInit {
   }
 
   async changeTemplate(template: PlaygroundTemplate): Promise<void> {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {templateId: template.id},
+      replaceUrl: true,
+    });
     this.selectedTemplate = template;
     await this.loadTemplate(template.path);
-    await this.nodeRuntimeSandbox!.reset();
+    await this.nodeRuntimeSandbox?.reset();
   }
 
   private async loadTemplate(tutorialPath: string) {

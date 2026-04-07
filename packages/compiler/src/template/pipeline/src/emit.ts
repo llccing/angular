@@ -10,6 +10,7 @@
 import * as o from '../../../../src/output/output_ast';
 import {ConstantPool} from '../../../constant_pool';
 import * as ir from '../ir';
+import {CONTEXT_NAME, RENDER_FLAGS} from '../../../render3/view/util';
 
 import {
   CompilationJob,
@@ -29,6 +30,7 @@ import {chain} from './phases/chaining';
 import {collapseSingletonInterpolations} from './phases/collapse_singleton_interpolations';
 import {generateConditionalExpressions} from './phases/conditionals';
 import {collectElementConsts} from './phases/const_collection';
+import {convertAnimations} from './phases/convert_animations';
 import {convertI18nBindings} from './phases/convert_i18n_bindings';
 import {createI18nContexts} from './phases/create_i18n_contexts';
 import {deduplicateTextBindings} from './phases/deduplicate_text_bindings';
@@ -59,6 +61,7 @@ import {createVariadicPipes} from './phases/pipe_variadic';
 import {propagateI18nBlocks} from './phases/propagate_i18n_blocks';
 import {extractPureFunctions} from './phases/pure_function_extraction';
 import {generatePureLiteralStructures} from './phases/pure_literal_structures';
+import {optimizeRegularExpressions} from './phases/regular_expression_optimization';
 import {reify} from './phases/reify';
 import {removeEmptyBindings} from './phases/remove_empty_bindings';
 import {removeI18nContexts} from './phases/remove_i18n_contexts';
@@ -83,6 +86,8 @@ import {transformTwoWayBindingSet} from './phases/transform_two_way_binding_set'
 import {countVariables} from './phases/var_counting';
 import {optimizeVariables} from './phases/variable_optimization';
 import {wrapI18nIcus} from './phases/wrap_icus';
+import {generateArrowFunctions} from './phases/generate_arrow_functions';
+import {specializeControlProperties} from './phases/control_directives';
 
 type Phase =
   | {
@@ -100,6 +105,7 @@ type Phase =
 
 const phases: Phase[] = [
   {kind: Kind.Tmpl, fn: removeContentSelectors},
+  {kind: Kind.Both, fn: optimizeRegularExpressions},
   {kind: Kind.Host, fn: parseHostStyleProperties},
   {kind: Kind.Tmpl, fn: emitNamespaceChanges},
   {kind: Kind.Tmpl, fn: propagateI18nBlocks},
@@ -107,6 +113,8 @@ const phases: Phase[] = [
   {kind: Kind.Both, fn: deduplicateTextBindings},
   {kind: Kind.Both, fn: specializeStyleBindings},
   {kind: Kind.Both, fn: specializeBindings},
+  {kind: Kind.Tmpl, fn: specializeControlProperties},
+  {kind: Kind.Both, fn: convertAnimations},
   {kind: Kind.Both, fn: extractAttributes},
   {kind: Kind.Tmpl, fn: createI18nContexts},
   {kind: Kind.Both, fn: parseExtractedStyles},
@@ -116,12 +124,8 @@ const phases: Phase[] = [
   {kind: Kind.Tmpl, fn: generateConditionalExpressions},
   {kind: Kind.Tmpl, fn: createPipes},
   {kind: Kind.Tmpl, fn: configureDeferInstructions},
-  {kind: Kind.Tmpl, fn: convertI18nText},
-  {kind: Kind.Tmpl, fn: convertI18nBindings},
-  {kind: Kind.Tmpl, fn: removeUnusedI18nAttributesOps},
-  {kind: Kind.Tmpl, fn: assignI18nSlotDependencies},
-  {kind: Kind.Tmpl, fn: applyI18nExpressions},
   {kind: Kind.Tmpl, fn: createVariadicPipes},
+  {kind: Kind.Both, fn: generateArrowFunctions},
   {kind: Kind.Both, fn: generatePureLiteralStructures},
   {kind: Kind.Tmpl, fn: generateProjectionDefs},
   {kind: Kind.Tmpl, fn: generateLocalLetReferences},
@@ -143,6 +147,11 @@ const phases: Phase[] = [
   {kind: Kind.Both, fn: generateTemporaryVariables},
   {kind: Kind.Both, fn: optimizeVariables},
   {kind: Kind.Both, fn: optimizeStoreLet},
+  {kind: Kind.Tmpl, fn: convertI18nText},
+  {kind: Kind.Tmpl, fn: convertI18nBindings},
+  {kind: Kind.Tmpl, fn: removeUnusedI18nAttributesOps},
+  {kind: Kind.Tmpl, fn: assignI18nSlotDependencies},
+  {kind: Kind.Tmpl, fn: applyI18nExpressions},
   {kind: Kind.Tmpl, fn: allocateSlots},
   {kind: Kind.Tmpl, fn: resolveI18nElementPlaceholders},
   {kind: Kind.Tmpl, fn: resolveI18nExpressionPlaceholders},
@@ -238,7 +247,7 @@ function emitView(view: ViewCompilationUnit): o.FunctionExpr {
   const createCond = maybeGenerateRfBlock(1, createStatements);
   const updateCond = maybeGenerateRfBlock(2, updateStatements);
   return o.fn(
-    [new o.FnParam('rf'), new o.FnParam('ctx')],
+    [new o.FnParam(RENDER_FLAGS, o.NUMBER_TYPE), new o.FnParam(CONTEXT_NAME, o.DYNAMIC_TYPE)],
     [...createCond, ...updateCond],
     /* type */ undefined,
     /* sourceSpan */ undefined,
@@ -253,7 +262,11 @@ function maybeGenerateRfBlock(flag: number, statements: o.Statement[]): o.Statem
 
   return [
     o.ifStmt(
-      new o.BinaryOperatorExpr(o.BinaryOperator.BitwiseAnd, o.variable('rf'), o.literal(flag)),
+      new o.BinaryOperatorExpr(
+        o.BinaryOperator.BitwiseAnd,
+        o.variable(RENDER_FLAGS),
+        o.literal(flag),
+      ),
       statements,
     ),
   ];
@@ -294,7 +307,7 @@ export function emitHostBindingFunction(job: HostBindingCompilationJob): o.Funct
   const createCond = maybeGenerateRfBlock(1, createStatements);
   const updateCond = maybeGenerateRfBlock(2, updateStatements);
   return o.fn(
-    [new o.FnParam('rf'), new o.FnParam('ctx')],
+    [new o.FnParam(RENDER_FLAGS, o.NUMBER_TYPE), new o.FnParam(CONTEXT_NAME, o.DYNAMIC_TYPE)],
     [...createCond, ...updateCond],
     /* type */ undefined,
     /* sourceSpan */ undefined,

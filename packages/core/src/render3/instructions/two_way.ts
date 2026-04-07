@@ -6,12 +6,13 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
+import type {EventCallback} from '../../event_delegation_utils';
 import {bindingUpdated} from '../bindings';
 import {SanitizerFn} from '../interfaces/sanitization';
 import {RENDERER} from '../interfaces/view';
-import {isWritableSignal, WritableSignal} from '../reactivity/signal';
+import {isWritableSignal} from '../reactivity/api';
+import {WritableSignal} from '../reactivity/signal';
 import {getCurrentTNode, getLView, getSelectedTNode, getTView, nextBindingIndex} from '../state';
-import {EventCallback} from '../view/listeners';
 
 import {listenerInternal} from './listener';
 import {setPropertyAndInputs, storePropertyBindingMetadata} from './shared';

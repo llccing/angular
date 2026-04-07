@@ -6,7 +6,6 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {initMockFileSystem} from '@angular/compiler-cli/src/ngtsc/file_system/testing';
 import ts from 'typescript';
 
 import {createModuleAndProjectWithDeclarations, LanguageServiceTestEnv, Project} from '../testing';
@@ -141,7 +140,6 @@ describe('quick info', () => {
 
   describe('strict templates (happy path)', () => {
     beforeEach(() => {
-      initMockFileSystem('Native');
       env = LanguageServiceTestEnv.setup();
       project = env.addProject('test', quickInfoSkeleton());
     });
@@ -221,14 +219,6 @@ describe('quick info', () => {
         });
       });
 
-      it('should work for data-let- syntax', () => {
-        expectQuickInfo({
-          templateOverride: `<ng-template ngFor data-let-he¦ro [ngForOf]="heroes">{{hero}}</ng-template>`,
-          expectedSpanText: 'hero',
-          expectedDisplayString: '(variable) hero: Hero',
-        });
-      });
-
       it('should get tags', () => {
         const templateOverride = '<div depr¦ecated></div>';
         const text = templateOverride.replace('¦', '');
@@ -257,11 +247,6 @@ describe('quick info', () => {
         it('should work for bind- syntax', () => {
           expectQuickInfo({
             templateOverride: `<test-comp bind-tcN¦ame="name"></test-comp>`,
-            expectedSpanText: 'tcName',
-            expectedDisplayString: '(property) TestComponent.name: string',
-          });
-          expectQuickInfo({
-            templateOverride: `<test-comp data-bind-tcN¦ame="name"></test-comp>`,
             expectedSpanText: 'tcName',
             expectedDisplayString: '(property) TestComponent.name: string',
           });
@@ -318,11 +303,6 @@ describe('quick info', () => {
             expectedSpanText: 'test',
             expectedDisplayString: '(event) TestComponent.testEvent: EventEmitter<string>',
           });
-          expectQuickInfo({
-            templateOverride: `<test-comp data-on-te¦st="myClick($event)"></test-comp>`,
-            expectedSpanText: 'test',
-            expectedDisplayString: '(event) TestComponent.testEvent: EventEmitter<string>',
-          });
         });
 
         it('should work for $event from EventEmitter', () => {
@@ -337,7 +317,7 @@ describe('quick info', () => {
           expectQuickInfo({
             templateOverride: `<div (click)="myClick($e¦vent)"></div>`,
             expectedSpanText: '$event',
-            expectedDisplayString: '(parameter) $event: MouseEvent',
+            expectedDisplayString: '(parameter) $event: PointerEvent',
           });
         });
       });
@@ -350,10 +330,10 @@ describe('quick info', () => {
           expectedSpanText: 'chart',
           expectedDisplayString: '(reference) chart: HTMLDivElement',
         });
-        expect(toText(documentation)).toEqual(
-          'Provides special properties (beyond the regular HTMLElement ' +
-            'interface it also has available to it by inheritance) for manipulating <div> elements.\n\n' +
-            '[MDN Reference](https://developer.mozilla.org/docs/Web/API/HTMLDivElement)',
+        expect(toText(documentation)).toContain(
+          'The **`HTMLDivElement`** interface provides special properties ' +
+            '(beyond the regular HTMLElement interface it also has available to it by inheritance) ' +
+            'for manipulating <div> elements.',
         );
       });
 
@@ -371,11 +351,6 @@ describe('quick info', () => {
           expectedSpanText: 'chart',
           expectedDisplayString: '(reference) chart: HTMLDivElement',
         });
-        expectQuickInfo({
-          templateOverride: `<div data-ref-ch¦art></div>`,
-          expectedSpanText: 'chart',
-          expectedDisplayString: '(reference) chart: HTMLDivElement',
-        });
       });
 
       it('should work for click output from native element', () => {
@@ -384,7 +359,7 @@ describe('quick info', () => {
           expectedSpanText: 'click',
           expectedDisplayString:
             '(event) HTMLDivElement.addEventListener<"click">(type: "click", listener: ' +
-            '(this: HTMLDivElement, ev: MouseEvent) => any, options?: boolean | ' +
+            '(this: HTMLDivElement, ev: PointerEvent) => any, options?: boolean | ' +
             'AddEventListenerOptions): void (+1 overload)',
         });
       });
@@ -397,7 +372,7 @@ describe('quick info', () => {
           expectedSpanText: 'hero',
           expectedDisplayString: '(variable) hero: Hero',
         });
-        expect(toText(documentation)).toEqual('The most heroic being.');
+        expect(toText(documentation)).toEqual('');
       });
 
       it('should work for ReadonlyArray members (#36191)', () => {
@@ -412,7 +387,7 @@ describe('quick info', () => {
         expectQuickInfo({
           templateOverride: `<div *ngFor="let name of constNames">{{na¦me}}</div>`,
           expectedSpanText: 'name',
-          expectedDisplayString: '(variable) name: { readonly name: "name"; }',
+          expectedDisplayString: '(variable) name: {\n    readonly name: "name";\n}',
         });
       });
 
@@ -434,7 +409,7 @@ describe('quick info', () => {
         expectQuickInfo({
           templateOverride: `<div *ngFor="let name of constNames">{{\`Hello \${na¦me}\`}}</div>`,
           expectedSpanText: 'name',
-          expectedDisplayString: '(variable) name: { readonly name: "name"; }',
+          expectedDisplayString: '(variable) name: {\n    readonly name: "name";\n}',
         });
       });
 
@@ -442,7 +417,7 @@ describe('quick info', () => {
         expectQuickInfo({
           templateOverride: `<div *ngFor="let name of constNames">{{someTag\`Hello \${na¦me}\`}}</div>`,
           expectedSpanText: 'name',
-          expectedDisplayString: '(variable) name: { readonly name: "name"; }',
+          expectedDisplayString: '(variable) name: {\n    readonly name: "name";\n}',
         });
       });
     });
@@ -648,7 +623,7 @@ describe('quick info', () => {
         expectQuickInfo({
           templateOverride: `<div (click)="void myClick($e¦vent)"></div>`,
           expectedSpanText: '$event',
-          expectedDisplayString: '(parameter) $event: MouseEvent',
+          expectedDisplayString: '(parameter) $event: PointerEvent',
         });
       });
 
@@ -657,6 +632,14 @@ describe('quick info', () => {
           templateOverride: `<div>{{ some¦Tag\`text\` }}</div>`,
           expectedSpanText: 'someTag',
           expectedDisplayString: '(property) AppCmp.someTag: (...args: any[]) => string',
+        });
+      });
+
+      it('should work for with the in operator', () => {
+        expectQuickInfo({
+          templateOverride: `<div>{{'key' in her¦oes}}</div>`,
+          expectedSpanText: 'heroes',
+          expectedDisplayString: '(property) AppCmp.heroes: Hero[]',
         });
       });
 
@@ -745,6 +728,14 @@ describe('quick info', () => {
             });
           });
 
+          it('idle with timeout', () => {
+            expectQuickInfo({
+              templateOverride: `@defer (on i¦dle(500ms)) { } `,
+              expectedSpanText: 'idle',
+              expectedDisplayString: '(trigger) idle',
+            });
+          });
+
           it('hover', () => {
             expectQuickInfo({
               templateOverride: `@defer (on hov¦er(x)) { } <div #x></div> `,
@@ -779,7 +770,7 @@ describe('quick info', () => {
 
           it('prefetch (when)', () => {
             expectQuickInfo({
-              templateOverride: `@defer (prefet¦ch when title) { }`,
+              templateOverride: `@defer (on idle; prefet¦ch when title) { }`,
               expectedSpanText: 'prefetch',
               expectedDisplayString: '(keyword) prefetch',
             });
@@ -803,7 +794,7 @@ describe('quick info', () => {
 
           it('prefetch (on)', () => {
             expectQuickInfo({
-              templateOverride: `@defer (prefet¦ch on immediate) { }`,
+              templateOverride: `@defer (on idle; prefet¦ch on immediate) { }`,
               expectedSpanText: 'prefetch',
               expectedDisplayString: '(keyword) prefetch',
             });
@@ -855,15 +846,31 @@ describe('quick info', () => {
         expectQuickInfo({
           templateOverride: `@if (constNames; as al¦iasName) {}`,
           expectedSpanText: 'aliasName',
-          expectedDisplayString: '(variable) aliasName: [{ readonly name: "name"; }]',
+          expectedDisplayString: '(variable) aliasName: [{\n    readonly name: "name";\n}]',
         });
       });
 
-      it('if block alias variable', () => {
+      it('if block alias variable narrowed', () => {
+        expectQuickInfo({
+          templateOverride: `@if (signalValue; as al¦iasName) {}`,
+          expectedSpanText: 'aliasName',
+          expectedDisplayString: '(variable) aliasName: string | undefined',
+        });
+      });
+
+      it('if block alias function call variable', () => {
         expectQuickInfo({
           templateOverride: `@if (someObject.some¦Signal(); as aliasName) {}`,
           expectedSpanText: 'someSignal',
           expectedDisplayString: '(property) someSignal: WritableSignal\n() => number',
+        });
+      });
+
+      it('else if block alias variable', () => {
+        expectQuickInfo({
+          templateOverride: `@if (false) {} @else if (constNames; as al¦iasName) {}`,
+          expectedSpanText: 'aliasName',
+          expectedDisplayString: '(variable) aliasName: [{\n    readonly name: "name";\n}]',
         });
       });
     });
@@ -876,10 +883,17 @@ describe('quick info', () => {
           expectedDisplayString: `(let) name: "Frodo"`,
         });
       });
+
+      it('should get quick info for a let declaration initialized with a narrowed property', () => {
+        expectQuickInfo({
+          templateOverride: `@if (signalValue) { @let na¦me = signalValue; {{name}} }`,
+          expectedSpanText: `@let name = signalValue`,
+          expectedDisplayString: `(let) name: string`,
+        });
+      });
     });
 
     it('should work for object literal with shorthand property declarations', () => {
-      initMockFileSystem('Native');
       env = LanguageServiceTestEnv.setup();
       project = env.addProject(
         'test',
@@ -935,13 +949,7 @@ describe('quick info', () => {
         expectedDisplayString: string;
         expectedSpanText: string;
       }) {
-        const project = env.addProject(
-          'host-bindings',
-          {'host-bindings.ts': source},
-          {
-            typeCheckHostBindings: true,
-          },
-        );
+        const project = env.addProject('host-bindings', {'host-bindings.ts': source});
         const appFile = project.openFile('host-bindings.ts');
 
         appFile.moveCursorToText(moveTo);
@@ -988,7 +996,7 @@ describe('quick info', () => {
             }
           })
           export class AppCmp {
-            handleClick(event: MouseEvent) {}
+            handleClick(event: PointerEvent) {}
           }
         `;
 
@@ -996,7 +1004,7 @@ describe('quick info', () => {
           source,
           moveTo: `'(click)': 'handleC¦lick($event)'`,
           expectedSpanText: 'handleClick',
-          expectedDisplayString: '(method) AppCmp.handleClick(event: MouseEvent): void',
+          expectedDisplayString: '(method) AppCmp.handleClick(event: PointerEvent): void',
         });
       });
 
@@ -1012,7 +1020,7 @@ describe('quick info', () => {
             }
           })
           export class AppCmp {
-            handleClick(event: MouseEvent) {}
+            handleClick(event: PointerEvent) {}
           }
         `;
 
@@ -1020,7 +1028,7 @@ describe('quick info', () => {
           source,
           moveTo: `'(click)': 'handleClick($ev¦ent)'`,
           expectedSpanText: '$event',
-          expectedDisplayString: '(parameter) $event: MouseEvent',
+          expectedDisplayString: '(parameter) $event: PointerEvent',
         });
       });
 
@@ -1049,7 +1057,6 @@ describe('quick info', () => {
 
   describe('generics', () => {
     beforeEach(() => {
-      initMockFileSystem('Native');
       env = LanguageServiceTestEnv.setup();
     });
 
@@ -1092,7 +1099,6 @@ describe('quick info', () => {
 
   describe('non-strict compiler options', () => {
     beforeEach(() => {
-      initMockFileSystem('Native');
       env = LanguageServiceTestEnv.setup();
     });
 
@@ -1160,6 +1166,105 @@ describe('quick info', () => {
       template.moveCursorToText('{{myVa¦lue}}');
       const quickInfo = template.getQuickInfoAtPosition();
       expect(toText(quickInfo!.displayParts)).toEqual('(property) SomeCmp.myValue: string');
+    });
+  });
+
+  describe('selectorless', () => {
+    beforeEach(() => {
+      env = LanguageServiceTestEnv.setup();
+      project = env.addProject(
+        'test',
+        {
+          'app.ts': `
+            import {Component, Directive, EventEmitter, Input, Output} from '@angular/core';
+
+            @Component({template: ''})
+            export class TestComponent {
+              @Input() name!: string;
+              @Output() testEvent = new EventEmitter<string>();
+            }
+
+            @Directive()
+            export class TestDirective {
+              @Input() value!: number;
+              @Output() dirEvent = new EventEmitter<number>();
+            }
+
+            @Component({templateUrl: './app.html'})
+            export class AppCmp {
+              stringValue = 'hello';
+              numberValue = 123;
+              handleEvent() {}
+            }
+          `,
+          'app.html': 'Will be overridden',
+        },
+        {_enableSelectorless: true},
+      );
+    });
+
+    it('should work for selectorless components', () => {
+      expectQuickInfo({
+        templateOverride: '<TestComp¦onent/>',
+        expectedSpanText: '<TestComponent/>',
+        expectedDisplayString: '(component) TestComponent',
+      });
+    });
+
+    it('should work for selectorless directives', () => {
+      expectQuickInfo({
+        templateOverride: '<div @Test¦Directive></div>',
+        expectedSpanText: '@TestDirective',
+        expectedDisplayString: '(directive) TestDirective',
+      });
+    });
+
+    it('should work for selectorless component input', () => {
+      expectQuickInfo({
+        templateOverride: '<TestComponent [na¦me]="stringValue"/>',
+        expectedSpanText: 'name',
+        expectedDisplayString: '(property) TestComponent.name: string',
+      });
+    });
+
+    it('should work for selectorless component output', () => {
+      expectQuickInfo({
+        templateOverride: '<TestComponent (testEv¦ent)="handleEvent()"/>',
+        expectedSpanText: 'testEvent',
+        expectedDisplayString: '(event) TestComponent.testEvent: EventEmitter<string>',
+      });
+    });
+
+    it('should work for selectorless directive input', () => {
+      expectQuickInfo({
+        templateOverride: '<div @TestDirective([val¦ue]="numberValue")></div>',
+        expectedSpanText: 'value',
+        expectedDisplayString: '(property) TestDirective.value: number',
+      });
+    });
+
+    it('should work for selectorless directive output', () => {
+      expectQuickInfo({
+        templateOverride: '<div @TestDirective((dirEv¦ent)="handleEvent()")></div>',
+        expectedSpanText: 'dirEvent',
+        expectedDisplayString: '(event) TestDirective.dirEvent: EventEmitter<number>',
+      });
+    });
+
+    it('should work for selectorless component references', () => {
+      expectQuickInfo({
+        templateOverride: '<TestComponent #r¦ef/>',
+        expectedSpanText: 'ref',
+        expectedDisplayString: '(reference) ref: TestComponent',
+      });
+    });
+
+    it('should work for selectorless directive references', () => {
+      expectQuickInfo({
+        templateOverride: '<div @TestDirective(#r¦ef)></div>',
+        expectedSpanText: 'ref',
+        expectedDisplayString: '(reference) ref: TestDirective',
+      });
     });
   });
 

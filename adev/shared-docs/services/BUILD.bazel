@@ -1,8 +1,8 @@
-load("//tools:defaults.bzl", "karma_web_test_suite", "ng_module", "ts_library")
+load("//adev/shared-docs:defaults.bzl", "ng_project", "ts_project", "zoneless_web_test_suite")
 
 package(default_visibility = ["//visibility:private"])
 
-ts_library(
+ts_project(
     name = "services",
     srcs = [
         "index.ts",
@@ -13,7 +13,7 @@ ts_library(
     ],
 )
 
-ng_module(
+ng_project(
     name = "lib",
     srcs = glob(
         [
@@ -25,19 +25,17 @@ ng_module(
         ],
     ),
     deps = [
+        "//adev:node_modules/@angular/common",
+        "//adev:node_modules/@angular/core",
+        "//adev:node_modules/@angular/router",
+        "//adev:node_modules/algoliasearch",
+        "//adev:node_modules/rxjs",
         "//adev/shared-docs/interfaces",
         "//adev/shared-docs/providers",
-        "//adev/shared-docs/utils",
-        "//packages/common",
-        "//packages/core",
-        "//packages/core/rxjs-interop",
-        "//packages/router",
-        "@npm//algoliasearch",
-        "@npm//rxjs",
     ],
 )
 
-ts_library(
+ts_project(
     name = "test_lib",
     testonly = True,
     srcs = glob(
@@ -45,15 +43,15 @@ ts_library(
     ),
     deps = [
         ":lib",
+        "//adev:node_modules/@angular/common",
+        "//adev:node_modules/@angular/core",
         "//adev/shared-docs/interfaces",
         "//adev/shared-docs/providers",
-        "//packages/common",
-        "//packages/core",
-        "//packages/core/testing",
+        "//adev/shared-docs/testing",
     ],
 )
 
-karma_web_test_suite(
+zoneless_web_test_suite(
     name = "test",
     deps = [":test_lib"],
 )

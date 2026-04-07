@@ -7,12 +7,13 @@
  */
 
 import {
+  ControlFlowBlockType,
   DirectiveProfile,
   ElementPosition,
   ElementProfile,
   LifecycleProfile,
   ProfilerFrame,
-} from 'protocol';
+} from '../../../../protocol';
 
 import {getDirectiveName} from '../highlighter';
 import {ComponentTreeNode} from '../interfaces';
@@ -20,6 +21,7 @@ import {isCustomElement, runOutsideAngular} from '../utils';
 
 import {initializeOrGetDirectiveForestHooks} from '.';
 import {DirectiveForestHooks} from './hooks';
+import {IdentityTracker} from './identity-tracker';
 import {Hooks} from './profiler';
 
 let inProgress = false;
@@ -28,12 +30,18 @@ let eventMap: Map<any, DirectiveProfile>;
 let frameDuration = 0;
 let hooks: Partial<Hooks> = {};
 
+const DIRECTIVE_CONTROL_FLOW: {[key in ControlFlowBlockType]: ElementProfile['type']} = {
+  [ControlFlowBlockType.For]: 'for',
+  [ControlFlowBlockType.Defer]: 'defer',
+};
+
 export const start = (onFrame: (frame: ProfilerFrame) => void): void => {
   if (inProgress) {
     throw new Error('Recording already in progress');
   }
   eventMap = new Map<any, DirectiveProfile>();
   inProgress = true;
+  IdentityTracker.getInstance().setProfilingActive(true);
   hooks = getHooks(onFrame);
   initializeOrGetDirectiveForestHooks().profiler.subscribe(hooks);
 };
@@ -44,6 +52,7 @@ export const stop = (): ProfilerFrame => {
   initializeOrGetDirectiveForestHooks().profiler.unsubscribe(hooks);
   hooks = {};
   inProgress = false;
+  IdentityTracker.getInstance().setProfilingActive(false);
   return result;
 };
 
@@ -143,7 +152,7 @@ const getHooks = (onFrame: (frame: ProfilerFrame) => void): Partial<Hooks> => {
       directive: any,
       hookName: keyof LifecycleProfile,
       node: Node,
-      __: number,
+      id: number,
       isComponent: boolean,
     ): void {
       startEvent(timeStartMap, directive, hookName);
@@ -181,6 +190,7 @@ const getHooks = (onFrame: (frame: ProfilerFrame) => void): Partial<Hooks> => {
       componentOrDirective: any,
       outputName: string,
       node: Node,
+      id: number | undefined,
       isComponent: boolean,
     ): void {
       startEvent(timeStartMap, componentOrDirective, outputName);
@@ -267,6 +277,7 @@ const insertElementProfile = (
   let lastFrame: ElementProfile = {
     children: [],
     directives: [],
+    type: 'element',
   };
   if (frames[lastIdx]) {
     lastFrame = frames[lastIdx];
@@ -288,9 +299,12 @@ const prepareInitialFrame = (source: string, duration: number) => {
     let position: ElementPosition | undefined;
     if (node.component) {
       position = directiveForestHooks.getDirectivePosition(node.component.instance);
-    } else {
+    } else if (node.directives[0]) {
       position = directiveForestHooks.getDirectivePosition(node.directives[0].instance);
+    } else if (node.controlFlowBlock) {
+      position = directiveForestHooks.getDirectivePosition(node.controlFlowBlock);
     }
+
     if (position === undefined) {
       return;
     }
@@ -312,9 +326,10 @@ const prepareInitialFrame = (source: string, duration: number) => {
         name: getDirectiveName(node.component.instance),
       });
     }
-    const result = {
+    const result: ElementProfile = {
       children: [],
       directives,
+      type: !node.controlFlowBlock ? 'element' : DIRECTIVE_CONTROL_FLOW[node.controlFlowBlock.type],
     };
     children[position[position.length - 1]] = result;
     node.children.forEach((n) => traverse(n, result.children));

@@ -1,3 +1,4 @@
+load("//adev/shared-docs:defaults.bzl", "js_library")
 load("//adev/shared-docs:index.bzl", "generate_guides")
 
 generate_guides(
@@ -6,7 +7,13 @@ generate_guides(
         "*.md",
     ]),
     data = [
-        "//adev/src/content/examples/angular-linker-plugin:webpack.config.mjs",
+        "//adev/src/content/examples",
     ],
     visibility = ["//adev:__subpackages__"],
+)
+
+js_library(
+    name = "guide_files",
+    srcs = glob(["**/*.md"]),
+    visibility = ["//adev/src/content/tools:__pkg__"],
 )

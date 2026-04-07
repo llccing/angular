@@ -6,22 +6,17 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Component, NgModule} from '@angular/core';
-import {BrowserModule} from '@angular/platform-browser';
-import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
+import {Component} from '@angular/core';
+import {bootstrapApplication} from '@angular/platform-browser';
 
 @Component({
   selector: 'app-root',
   template: 'Hello {{ name }}!',
-  standalone: false,
 })
 class MyApp {
   name: string = 'World';
 }
 
-@NgModule({imports: [BrowserModule], bootstrap: [MyApp]})
-class AppModule {}
-
 export function main() {
-  platformBrowserDynamic().bootstrapModule(AppModule);
+  bootstrapApplication(MyApp);
 }

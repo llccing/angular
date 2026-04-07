@@ -1,14 +1,21 @@
 :host {
   height: 100%;
+}
 
-  ::ng-deep {
-    as-split-area {
-      overflow-y: hidden;
-    }
+.forest-breadcrumbs {
+  display: flex;
+  flex-direction: column;
 
-    .as-split-gutter-icon {
-      display: none;
-    }
+  .hydration,
+  ng-breadcrumbs {
+    border-top: 1px solid var(--color-separator);
+  }
+
+  .hydration {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.375rem;
   }
 }
 
@@ -21,8 +28,9 @@
   flex: 1;
   overflow: auto;
   width: 100%;
-}
 
-.hydration {
-  padding: 4px 8px;
+  .no-selected-element {
+    text-align: center;
+    padding: 1rem;
+  }
 }

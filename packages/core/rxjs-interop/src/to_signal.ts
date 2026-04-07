@@ -25,7 +25,7 @@ import {Observable, Subscribable} from 'rxjs';
 /**
  * Options for `toSignal`.
  *
- * @publicApi
+ * @publicApi 20.0
  */
 export interface ToSignalOptions<T> {
   /**
@@ -68,6 +68,11 @@ export interface ToSignalOptions<T> {
    * Equality comparisons are executed against the initial value if one is provided.
    */
   equal?: ValueEqualityFn<T>;
+
+  /**
+   * A debug name for the signal. Used in Angular DevTools to identify the signal.
+   */
+  debugName?: string;
 }
 
 // Base case: no options -> `undefined` in the result type.
@@ -117,6 +122,8 @@ export function toSignal<T, const U extends T>(
  * If the subscription should persist until the `Observable` itself completes, the `manualCleanup`
  * option can be specified instead, which disables the automatic subscription teardown. No injection
  * context is needed in this configuration as well.
+ *
+ * @see [RxJS interop with Angular signals](ecosystem/rxjs-interop)
  */
 export function toSignal<T, U = undefined>(
   source: Observable<T> | Subscribable<T>,
@@ -131,7 +138,11 @@ export function toSignal<T, U = undefined>(
     );
 
   const requiresCleanup = !options?.manualCleanup;
-  requiresCleanup && !options?.injector && assertInInjectionContext(toSignal);
+
+  if (ngDevMode && requiresCleanup && !options?.injector) {
+    assertInInjectionContext(toSignal);
+  }
+
   const cleanupRef = requiresCleanup
     ? (options?.injector?.get(DestroyRef) ?? inject(DestroyRef))
     : null;
@@ -143,14 +154,19 @@ export function toSignal<T, U = undefined>(
   let state: WritableSignal<State<T | U>>;
   if (options?.requireSync) {
     // Initially the signal is in a `NoValue` state.
-    state = signal({kind: StateKind.NoValue}, {equal});
+    state = signal(
+      {kind: StateKind.NoValue},
+      {equal, ...(ngDevMode ? createDebugNameObject(options?.debugName, 'state') : undefined)},
+    );
   } else {
     // If an initial value was passed, use it. Otherwise, use `undefined` as the initial value.
     state = signal<State<T | U>>(
       {kind: StateKind.Value, value: options?.initialValue as U},
-      {equal},
+      {equal, ...(ngDevMode ? createDebugNameObject(options?.debugName, 'state') : undefined)},
     );
   }
+
+  let destroyUnregisterFn: (() => void) | undefined;
 
   // Note: This code cannot run inside a reactive context (see assertion above). If we'd support
   // this, we would subscribe to the observable outside of the current reactive context, avoiding
@@ -162,6 +178,10 @@ export function toSignal<T, U = undefined>(
     next: (value) => state.set({kind: StateKind.Value, value}),
     error: (error) => {
       state.set({kind: StateKind.Error, error});
+      destroyUnregisterFn?.();
+    },
+    complete: () => {
+      destroyUnregisterFn?.();
     },
     // Completion of the Observable is meaningless to the signal. Signals don't have a concept of
     // "complete".
@@ -176,7 +196,7 @@ export function toSignal<T, U = undefined>(
   }
 
   // Unsubscribe when the current context is destroyed, if requested.
-  cleanupRef?.onDestroy(sub.unsubscribe.bind(sub));
+  destroyUnregisterFn = cleanupRef?.onDestroy(sub.unsubscribe.bind(sub));
 
   // The actual returned signal is a `computed` of the `State` signal, which maps the various states
   // to either values or errors.
@@ -197,7 +217,10 @@ export function toSignal<T, U = undefined>(
           );
       }
     },
-    {equal: options?.equal},
+    {
+      equal: options?.equal,
+      ...(ngDevMode ? createDebugNameObject(options?.debugName, 'source') : undefined),
+    },
   );
 }
 
@@ -206,6 +229,18 @@ function makeToSignalEqual<T>(
 ): ValueEqualityFn<State<T>> {
   return (a, b) =>
     a.kind === StateKind.Value && b.kind === StateKind.Value && userEquality(a.value, b.value);
+}
+
+/**
+ * Creates a debug name object for an internal toSignal signal.
+ */
+function createDebugNameObject(
+  toSignalDebugName: string | undefined,
+  internalSignalDebugName: string,
+): {debugName?: string} {
+  return {
+    debugName: `toSignal${toSignalDebugName ? '#' + toSignalDebugName : ''}.${internalSignalDebugName}`,
+  };
 }
 
 const enum StateKind {

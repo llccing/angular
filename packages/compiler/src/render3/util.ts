@@ -36,17 +36,17 @@ export interface R3CompiledExpression {
   statements: o.Statement[];
 }
 
-const ANIMATE_SYMBOL_PREFIX = '@';
+const LEGACY_ANIMATE_SYMBOL_PREFIX = '@';
 export function prepareSyntheticPropertyName(name: string) {
-  return `${ANIMATE_SYMBOL_PREFIX}${name}`;
+  return `${LEGACY_ANIMATE_SYMBOL_PREFIX}${name}`;
 }
 
 export function prepareSyntheticListenerName(name: string, phase: string) {
-  return `${ANIMATE_SYMBOL_PREFIX}${name}.${phase}`;
+  return `${LEGACY_ANIMATE_SYMBOL_PREFIX}${name}.${phase}`;
 }
 
 export function getSafePropertyAccessString(accessor: string, name: string): string {
-  const escapedName = escapeIdentifier(name, false, false);
+  const escapedName = escapeIdentifier(name, false);
   return escapedName !== name ? `${accessor}[${escapedName}]` : `${accessor}.${name}`;
 }
 
@@ -87,6 +87,10 @@ export function wrapReference(value: any): R3Reference {
 export function refsToArray(refs: R3Reference[], shouldForwardDeclare: boolean): o.Expression {
   const values = o.literalArr(refs.map((ref) => ref.value));
   return shouldForwardDeclare ? o.arrowFn([], values) : values;
+}
+
+export function tsIgnoreComment(): o.LeadingComment {
+  return o.leadingComment('@ts-ignore', true, true);
 }
 
 /**

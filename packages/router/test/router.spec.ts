@@ -7,8 +7,8 @@
  */
 
 import {Location} from '@angular/common';
-import {EnvironmentInjector, inject as coreInject} from '@angular/core';
-import {inject, TestBed} from '@angular/core/testing';
+import {EnvironmentInjector, inject, ɵConsole as Console} from '@angular/core';
+import {TestBed} from '@angular/core/testing';
 import {RouterModule} from '../index';
 import {of} from 'rxjs';
 
@@ -20,7 +20,7 @@ import {resolveData as resolveDataOperator} from '../src/operators/resolve_data'
 import {Router} from '../src/router';
 import {ChildrenOutletContexts} from '../src/router_outlet_context';
 import {createEmptyStateSnapshot, RouterStateSnapshot} from '../src/router_state';
-import {DefaultUrlSerializer, UrlTree} from '../src/url_tree';
+import {DefaultUrlSerializer, UrlSerializer, UrlTree} from '../src/url_tree';
 import {getAllRouteGuards} from '../src/utils/preactivation';
 import {TreeNode} from '../src/utils/tree';
 
@@ -90,7 +90,9 @@ describe('Router', () => {
       TestBed.configureTestingModule({imports: [RouterModule.forRoot([])]});
     });
 
-    it('should be idempotent', inject([Router, Location], (r: Router, location: Location) => {
+    it('should be idempotent', () => {
+      const r: Router = TestBed.inject(Router);
+      const location: Location = TestBed.inject(Location);
       r.setUpLocationChangeListener();
       const a = (<any>r).nonRouterCurrentEntryChangeSubscription;
       r.setUpLocationChangeListener();
@@ -103,7 +105,31 @@ describe('Router', () => {
       const c = (<any>r).nonRouterCurrentEntryChangeSubscription;
 
       expect(c).not.toBe(b);
-    }));
+    });
+  });
+
+  describe('parseUrl', () => {
+    beforeEach(() => {
+      TestBed.configureTestingModule({imports: [RouterModule.forRoot([])]});
+    });
+
+    it('should log a warning and fall back to "/" when parsing fails', () => {
+      const router: Router = TestBed.inject(Router);
+      const urlSerializer: UrlSerializer = TestBed.inject(UrlSerializer);
+      const console: Console = TestBed.inject(Console);
+      spyOn(urlSerializer, 'parse').and.callFake((url: string) => {
+        if (url === 'invalid-url') {
+          throw new Error('test error');
+        }
+        // The fallback call should not be mocked
+        return new DefaultUrlSerializer().parse(url);
+      });
+      const spy = spyOn(console, 'warn');
+
+      const result = router.parseUrl('invalid-url');
+      expect(spy.calls.argsFor(0)).toMatch(/Error parsing URL/);
+      expect(result).toEqual(new DefaultUrlSerializer().parse('/'));
+    });
   });
 
   describe('PreActivation', () => {
@@ -113,7 +139,7 @@ describe('Router', () => {
 
     function createLoggerGuard(token: string, returnValue = true as boolean | UrlTree) {
       return () => {
-        coreInject(Logger).add(token);
+        inject(Logger).add(token);
         return returnValue;
       };
     }
@@ -151,11 +177,12 @@ describe('Router', () => {
       });
     });
 
-    beforeEach(inject([Logger], (_logger: Logger) => {
-      empty = createEmptyStateSnapshot(null);
+    beforeEach(() => {
+      const _logger: Logger = TestBed.inject(Logger);
+      empty = createEmptyStateSnapshot(null, TestBed.inject(EnvironmentInjector));
       logger = _logger;
       events = [];
-    }));
+    });
 
     describe('ChildActivation', () => {
       it('should run', () => {
@@ -185,7 +212,7 @@ describe('Router', () => {
 
         of(testTransition)
           .pipe(
-            checkGuardsOperator(TestBed.inject(EnvironmentInjector), (evt) => {
+            checkGuardsOperator((evt) => {
               events.push(evt);
             }),
           )
@@ -245,7 +272,7 @@ describe('Router', () => {
 
         of(testTransition)
           .pipe(
-            checkGuardsOperator(TestBed.inject(EnvironmentInjector), (evt) => {
+            checkGuardsOperator((evt) => {
               events.push(evt);
             }),
           )
@@ -303,7 +330,7 @@ describe('Router', () => {
 
         of(testTransition)
           .pipe(
-            checkGuardsOperator(TestBed.inject(EnvironmentInjector), (evt) => {
+            checkGuardsOperator((evt) => {
               events.push(evt);
             }),
           )
@@ -379,7 +406,7 @@ describe('Router', () => {
 
         of(testTransition)
           .pipe(
-            checkGuardsOperator(TestBed.inject(EnvironmentInjector), (evt) => {
+            checkGuardsOperator((evt) => {
               events.push(evt);
             }),
           )
@@ -869,7 +896,7 @@ function checkResolveData(
   of({
     guards: getAllRouteGuards(future, curr, new ChildrenOutletContexts(injector)),
   } as NavigationTransition)
-    .pipe(resolveDataOperator('emptyOnly', injector))
+    .pipe(resolveDataOperator('emptyOnly'))
     .subscribe(check, (e) => {
       throw e;
     });
@@ -886,7 +913,7 @@ function checkGuards(
   of({
     guards: getAllRouteGuards(future, curr, new ChildrenOutletContexts(injector)),
   } as NavigationTransition)
-    .pipe(checkGuardsOperator(injector))
+    .pipe(checkGuardsOperator())
     .subscribe({
       next(t) {
         if (t.guardsResult === null) throw new Error('Guard result expected');

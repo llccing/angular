@@ -10,50 +10,69 @@ import {Injector} from '../di/injector';
 import {Signal, ValueEqualityFn} from '../render3/reactivity/api';
 import {WritableSignal} from '../render3/reactivity/signal';
 
+/** Error thrown when a `Resource` dependency of another resource errors. */
+export class ResourceDependencyError extends Error {
+  /** The dependency that errored. */
+  readonly dependency: Resource<unknown>;
+
+  constructor(dependency: Resource<unknown>) {
+    super('Dependency error', {cause: dependency.error()});
+    this.name = 'ResourceDependencyError';
+    this.dependency = dependency;
+  }
+}
+
 /**
- * Status of a `Resource`.
+ * Special status codes that can be thrown from a resource's `params` or `request` function to
+ * indicate that the resource should transition to that status.
+ */
+export class ResourceParamsStatus extends Error {
+  private readonly _brand: undefined;
+  private constructor(msg: string) {
+    super(msg);
+  }
+
+  /** Status code that transitions the resource to `idle` status. */
+  static readonly IDLE = new ResourceParamsStatus('IDLE');
+
+  /** Status code that transitions the resource to `loading` status. */
+  static readonly LOADING = new ResourceParamsStatus('LOADING');
+}
+
+/** Context received by a resource's `params` or `request` function. */
+export interface ResourceParamsContext {
+  /**
+   * Chains the current params off of the value of another resource, returning the value
+   * of the other resource if it is available, or propagating the status to the current resource by
+   * throwing the appropriate status code if the value is not available.
+   */
+  readonly chain: <T>(resource: Resource<T>) => T;
+}
+
+/**
+ * String value capturing the status of a `Resource`.
+ *
+ * Possible statuses are:
+ *
+ * `idle` - The resource has no valid request and will not perform any loading. `value()` will be
+ * `undefined`.
+ *
+ * `loading` - The resource is currently loading a new value as a result of a change in its reactive
+ * dependencies. `value()` will be `undefined`.
+ *
+ * `reloading` - The resource is currently reloading a fresh value for the same reactive
+ * dependencies. `value()` will continue to return the previously fetched value during the reloading
+ * operation.
+ *
+ * `error` - Loading failed with an error. `value()` will be `undefined`.
+ *
+ * `resolved` - Loading has completed and the resource has the value returned from the loader.
+ *
+ * `local` - The resource's value was set locally via `.set()` or `.update()`.
  *
  * @experimental
  */
-export enum ResourceStatus {
-  /**
-   * The resource has no valid request and will not perform any loading.
-   *
-   * `value()` will be `undefined`.
-   */
-  Idle,
-
-  /**
-   * Loading failed with an error.
-   *
-   * `value()` will be `undefined`.
-   */
-  Error,
-
-  /**
-   * The resource is currently loading a new value as a result of a change in its `request`.
-   *
-   * `value()` will be `undefined`.
-   */
-  Loading,
-
-  /**
-   * The resource is currently reloading a fresh value for the same request.
-   *
-   * `value()` will continue to return the previously fetched value during the reloading operation.
-   */
-  Reloading,
-
-  /**
-   * Loading has completed and the resource has the value returned from the loader.
-   */
-  Resolved,
-
-  /**
-   * The resource's value was set locally via `.set()` or `.update()`.
-   */
-  Local,
-}
+export type ResourceStatus = 'idle' | 'error' | 'loading' | 'reloading' | 'resolved' | 'local';
 
 /**
  * A Resource is an asynchronous dependency (for example, the results of an API call) that is
@@ -66,7 +85,7 @@ export enum ResourceStatus {
  */
 export interface Resource<T> {
   /**
-   * The current value of the `Resource`, or `undefined` if there is no current value.
+   * The current value of the `Resource`, or throws an error if the resource is in an error state.
    */
   readonly value: Signal<T>;
 
@@ -79,7 +98,7 @@ export interface Resource<T> {
   /**
    * When in the `error` state, this returns the last known error from the `Resource`.
    */
-  readonly error: Signal<unknown>;
+  readonly error: Signal<Error | undefined>;
 
   /**
    * Whether this resource is loading a new value (or reloading the existing one).
@@ -87,11 +106,45 @@ export interface Resource<T> {
   readonly isLoading: Signal<boolean>;
 
   /**
+   * The current state of this resource, represented as a `ResourceSnapshot`.
+   */
+  readonly snapshot: Signal<ResourceSnapshot<T>>;
+
+  /**
    * Whether this resource has a valid current value.
    *
    * This function is reactive.
    */
-  hasValue(): this is Resource<Exclude<T, undefined>>;
+  hasValue(this: T extends undefined ? this : never): this is Resource<Exclude<T, undefined>>;
+
+  hasValue(): boolean;
+}
+
+/**
+ * A `Resource` with a mutable value.
+ *
+ * Overwriting the value of a resource sets it to the 'local' state.
+ *
+ * @experimental
+ */
+export interface WritableResource<T> extends Resource<T> {
+  readonly value: WritableSignal<T>;
+  hasValue(
+    this: T extends undefined ? this : never,
+  ): this is WritableResource<Exclude<T, undefined>>;
+
+  hasValue(): boolean;
+
+  /**
+   * Convenience wrapper for `value.set`.
+   */
+  set(value: T): void;
+
+  /**
+   * Convenience wrapper for `value.update`.
+   */
+  update(updater: (value: T) => T): void;
+  asReadonly(): Resource<T>;
 
   /**
    * Instructs the resource to re-load any asynchronous dependency it may have.
@@ -105,36 +158,14 @@ export interface Resource<T> {
 }
 
 /**
- * A `Resource` with a mutable value.
- *
- * Overwriting the value of a resource sets it to the 'local' state.
- *
- * @experimental
- */
-export interface WritableResource<T> extends Resource<T> {
-  readonly value: WritableSignal<T>;
-  hasValue(): this is WritableResource<Exclude<T, undefined>>;
-
-  /**
-   * Convenience wrapper for `value.set`.
-   */
-  set(value: T): void;
-
-  /**
-   * Convenience wrapper for `value.update`.
-   */
-  update(updater: (value: T) => T): void;
-  asReadonly(): Resource<T>;
-}
-
-/**
  * A `WritableResource` created through the `resource` function.
  *
  * @experimental
  */
 export interface ResourceRef<T> extends WritableResource<T> {
-  hasValue(): this is ResourceRef<Exclude<T, undefined>>;
+  hasValue(this: T extends undefined ? this : never): this is ResourceRef<Exclude<T, undefined>>;
 
+  hasValue(): boolean;
   /**
    * Manually destroy the resource, which cancels pending requests and returns it to `idle` state.
    */
@@ -148,7 +179,7 @@ export interface ResourceRef<T> extends WritableResource<T> {
  * @experimental
  */
 export interface ResourceLoaderParams<R> {
-  request: Exclude<NoInfer<R>, undefined>;
+  params: NoInfer<Exclude<R, undefined>>;
   abortSignal: AbortSignal;
   previous: {
     status: ResourceStatus;
@@ -181,13 +212,13 @@ export interface BaseResourceOptions<T, R> {
    * A reactive function which determines the request to be made. Whenever the request changes, the
    * loader will be triggered to fetch a new value for the resource.
    *
-   * If a request function isn't provided, the loader won't rerun unless the resource is reloaded.
+   * If a params function isn't provided, the loader won't rerun unless the resource is reloaded.
    */
-  request?: () => R;
+  params?: (ctx: ResourceParamsContext) => R;
 
   /**
    * The value which will be returned from the resource when a server value is unavailable, such as
-   * when the resource is still loading, or in an error state.
+   * when the resource is still loading.
    */
   defaultValue?: NoInfer<T>;
 
@@ -240,9 +271,45 @@ export interface StreamingResourceOptions<T, R> extends BaseResourceOptions<T, R
 /**
  * @experimental
  */
-export type ResourceOptions<T, R> = PromiseResourceOptions<T, R> | StreamingResourceOptions<T, R>;
+export type ResourceOptions<T, R> = (
+  | PromiseResourceOptions<T, R>
+  | StreamingResourceOptions<T, R>
+) & {
+  /**
+   * A debug name for the reactive node. Used in Angular DevTools to identify the node.
+   */
+  debugName?: string;
+};
 
 /**
  * @experimental
  */
-export type ResourceStreamItem<T> = {value: T} | {error: unknown};
+export type ResourceStreamItem<T> = {value: T} | {error: Error};
+
+/**
+ * An explicit representation of a resource's state.
+ *
+ * @experimental
+ * @see [Resource composition with snapshots](guide/signals/resource#resource-composition-with-snapshots)
+ */
+export type ResourceSnapshot<T> =
+  | {readonly status: 'idle'; readonly value: T}
+  | {readonly status: 'loading' | 'reloading'; readonly value: T}
+  | {readonly status: 'resolved' | 'local'; readonly value: T}
+  | {readonly status: 'error'; readonly error: Error};
+
+/** Options for `debounced`. */
+export interface DebouncedOptions<T> {
+  /** The `Injector` to use for the debounced resource. */
+  injector?: Injector;
+  /** The equality function to use for comparing values. */
+  equal?: ValueEqualityFn<T>;
+}
+
+/**
+ * Represents the wait condition for item debouncing.
+ * Can be a number of milliseconds or a function that returns a Promise.
+ */
+export type DebounceTimer<T> =
+  | number
+  | ((value: T, lastValue: ResourceSnapshot<T>) => Promise<void> | void);

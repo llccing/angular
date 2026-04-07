@@ -7,8 +7,8 @@
  */
 
 module.exports = {
-  resolveExtensions: ['.mjs'],
-  // Note: `@bazel/esbuild` has a bug and does not pass-through the format from Starlark.
+  // TODO: Investigate if this can be removed once ng_module is migrated to ng_project
+  resolveExtensions: ['.mjs', '.js'],
   format: 'esm',
   banner: {
     // Workaround for: https://github.com/evanw/esbuild/issues/946

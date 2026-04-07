@@ -6,17 +6,20 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {ApplicationConfig} from '@angular/core';
-import {provideAnimations} from '@angular/platform-browser/animations';
+import {ApplicationConfig, provideAppInitializer} from '@angular/core';
 import {provideRouter} from '@angular/router';
-import {ApplicationEnvironment, ApplicationOperations} from 'ng-devtools';
+import {
+  ApplicationEnvironment,
+  ApplicationOperations,
+  provideSettings,
+} from '../../projects/ng-devtools';
 
 import {DemoApplicationEnvironment} from '../demo-application-environment';
 import {DemoApplicationOperations} from '../demo-application-operations';
+import {serializeTransferState} from './transfer-state';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideAnimations(),
     provideRouter([
       {
         path: '',
@@ -37,5 +40,8 @@ export const appConfig: ApplicationConfig = {
       provide: ApplicationEnvironment,
       useClass: DemoApplicationEnvironment,
     },
+    // We simulate a transfer state created by the server-side rendering.
+    provideAppInitializer(async () => serializeTransferState()),
+    provideSettings(),
   ],
 };

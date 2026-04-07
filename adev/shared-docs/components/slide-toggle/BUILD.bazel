@@ -1,9 +1,8 @@
-load("//tools:defaults.bzl", "karma_web_test_suite", "ng_module", "ts_library")
-load("@io_bazel_rules_sass//:defs.bzl", "sass_binary")
+load("//adev/shared-docs:defaults.bzl", "ng_project", "sass_binary", "ts_project", "zoneless_web_test_suite")
 
 package(default_visibility = ["//visibility:private"])
 
-ng_module(
+ng_project(
     name = "slide-toggle",
     srcs = [
         "slide-toggle.component.ts",
@@ -14,11 +13,12 @@ ng_module(
     ],
     visibility = [
         "//adev/shared-docs/components:__pkg__",
+        "//adev/shared-docs/components/navigation-list:__pkg__",
     ],
     deps = [
-        "//packages/common",
-        "//packages/core",
-        "//packages/forms",
+        "//adev:node_modules/@angular/common",
+        "//adev:node_modules/@angular/core",
+        "//adev:node_modules/@angular/forms",
     ],
 )
 
@@ -27,7 +27,7 @@ sass_binary(
     src = "slide-toggle.component.scss",
 )
 
-ts_library(
+ts_project(
     name = "test_lib",
     testonly = True,
     srcs = glob(
@@ -35,12 +35,11 @@ ts_library(
     ),
     deps = [
         ":slide-toggle",
-        "//packages/core",
-        "//packages/core/testing",
+        "//adev:node_modules/@angular/core",
     ],
 )
 
-karma_web_test_suite(
+zoneless_web_test_suite(
     name = "test",
     deps = [":test_lib"],
 )

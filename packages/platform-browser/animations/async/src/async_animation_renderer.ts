@@ -12,21 +12,21 @@ import {
   ɵAnimationRendererFactory as AnimationRendererFactory,
 } from '@angular/animations/browser';
 import {
+  ɵAnimationRendererType as AnimationRendererType,
+  ɵChangeDetectionScheduler as ChangeDetectionScheduler,
   inject,
   Injectable,
+  InjectionToken,
+  Injector,
   NgZone,
+  ɵNotificationSource as NotificationSource,
   OnDestroy,
   Renderer2,
   RendererFactory2,
   RendererStyleFlags2,
   RendererType2,
-  ɵAnimationRendererType as AnimationRendererType,
-  ɵChangeDetectionScheduler as ChangeDetectionScheduler,
-  ɵNotificationSource as NotificationSource,
   ɵRuntimeError as RuntimeError,
-  InjectionToken,
   type ListenerOptions,
-  Injector,
 } from '@angular/core';
 import {ɵRuntimeErrorCode as RuntimeErrorCode} from '../../../index';
 
@@ -57,7 +57,7 @@ export class AsyncAnimationRendererFactory implements OnDestroy, RendererFactory
     }>,
   ) {}
 
-  /** @nodoc */
+  /** @docs-private */
   ngOnDestroy(): void {
     // When the root view is removed, the renderer defers the actual work to the
     // `TransitionAnimationEngine` to do this, and the `TransitionAnimationEngine` doesn't actually
@@ -238,8 +238,13 @@ export class DynamicDelegationRenderer implements Renderer2 {
     this.delegate.insertBefore(parent, newChild, refChild, isMove);
   }
 
-  removeChild(parent: any, oldChild: any, isHostElement?: boolean | undefined): void {
-    this.delegate.removeChild(parent, oldChild, isHostElement);
+  removeChild(
+    parent: any,
+    oldChild: any,
+    isHostElement?: boolean | undefined,
+    requireSynchronousElementRemoval?: boolean,
+  ): void {
+    this.delegate.removeChild(parent, oldChild, isHostElement, requireSynchronousElementRemoval);
   }
 
   selectRootElement(selectorOrNode: any, preserveContent?: boolean | undefined): any {
@@ -319,5 +324,5 @@ export class DynamicDelegationRenderer implements Renderer2 {
  * Private token for investigation purposes
  */
 export const ɵASYNC_ANIMATION_LOADING_SCHEDULER_FN = new InjectionToken<<T>(loadFn: () => T) => T>(
-  ngDevMode ? 'async_animation_loading_scheduler_fn' : '',
+  typeof ngDevMode !== 'undefined' && ngDevMode ? 'async_animation_loading_scheduler_fn' : '',
 );

@@ -37,7 +37,7 @@ function viewChildRequiredFn<LocatorT, ReadT>(
  * It is a special function that also provides access to required query results via the `.required`
  * property.
  *
- * @publicAPI
+ * @publicApi
  * @docsPrivate Ignored because `viewChild` is the canonical API entry.
  */
 export interface ViewChildFunction {
@@ -97,7 +97,7 @@ export interface ViewChildFunction {
  *
  * ```angular-ts
  * @Component({template: '<div #el></div><my-component #cmp />'})
- * export class TestComponent {
+ * export class Card {
  *   divEl = viewChild<ElementRef>('el');                   // Signal<ElementRef|undefined>
  *   divElRequired = viewChild.required<ElementRef>('el');  // Signal<ElementRef>
  *   cmp = viewChild(MyComponent);                          // Signal<MyComponent|undefined>
@@ -105,8 +105,10 @@ export interface ViewChildFunction {
  * }
  * ```
  *
- * @publicAPI
+ * @publicApi 19.0
  * @initializerApiFunction
+ * @see [Referencing component children with queries](guide/components/queries)
+ * @see [Required queries](guide/components/queries#required-queries)
  */
 export const viewChild: ViewChildFunction = (() => {
   // Note: This may be considered a side-effect, but nothing will depend on
@@ -146,7 +148,9 @@ export function viewChildren<LocatorT, ReadT>(
  * ```
  *
  * @initializerApiFunction
- * @publicAPI
+ * @publicApi 19.0
+ * @see [Referencing component children with queries](guide/components/queries)
+ * @see [Required queries](guide/components/queries#required-queries)
  */
 export function viewChildren<LocatorT, ReadT>(
   locator: ProviderToken<LocatorT> | string,
@@ -189,7 +193,7 @@ function contentChildRequiredFn<LocatorT, ReadT>(
  * The contentChild function creates a singular content query. It is a special function that also
  * provides access to required query results via the `.required` property.
  *
- * @publicAPI
+ * @publicApi 19.0
  * @docsPrivate Ignored because `contentChild` is the canonical API entry.
  */
 export interface ContentChildFunction {
@@ -251,7 +255,7 @@ export interface ContentChildFunction {
  *
  * ```ts
  * @Component({...})
- * export class TestComponent {
+ * export class Card {
  *   headerEl = contentChild<ElementRef>('h');                    // Signal<ElementRef|undefined>
  *   headerElElRequired = contentChild.required<ElementRef>('h'); // Signal<ElementRef>
  *   header = contentChild(MyHeader);                             // Signal<MyHeader|undefined>
@@ -259,8 +263,12 @@ export interface ContentChildFunction {
  * }
  * ```
  *
+ * NOTE: By default `descendants` is `true` which means the query will traverse all descendants in the same template.
+ *
  * @initializerApiFunction
- * @publicAPI
+ * @publicApi 19.0
+ *
+ * @See [Content queries](guide/components/queries#content-queries)
  */
 export const contentChild: ContentChildFunction = (() => {
   // Note: This may be considered a side-effect, but nothing will depend on
@@ -304,8 +312,12 @@ export function contentChildren<LocatorT, ReadT>(
  * }
  * ```
  *
+ * Note: By default `descendants` is `false` which means the query will not traverse all descendants in the same template.
+ *
  * @initializerApiFunction
- * @publicAPI
+ * @publicApi 19.0
+ * @see [Referencing component children with queries](guide/components/queries)
+ * @see [Content queries](guide/components/queries#content-queries)
  */
 export function contentChildren<LocatorT, ReadT>(
   locator: ProviderToken<LocatorT> | string,

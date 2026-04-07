@@ -6,7 +6,13 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Component, Input, NgModule} from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Input,
+  NgModule,
+  provideZoneChangeDetection,
+} from '@angular/core';
 import {BrowserModule, DomSanitizer, SafeStyle} from '@angular/platform-browser';
 
 import {emptyTree, getMaxDepth, TreeNode} from '../util';
@@ -25,9 +31,11 @@ function createTreeComponent(level: number, isLeaf: boolean) {
     selector: `tree${level}`,
     template: template,
     standalone: false,
+    jit: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
   })
   class TreeComponent {
-    @Input() data: TreeNode;
+    @Input() data!: TreeNode;
     get bgColor() {
       return this.data.depth % 2 ? trustedEmptyColor : trustedGreyColor;
     }
@@ -40,6 +48,8 @@ function createTreeComponent(level: number, isLeaf: boolean) {
   selector: 'tree',
   template: `<tree0 *ngIf="data.left != null" [data]="data"></tree0>`,
   standalone: false,
+  jit: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class RootTreeComponent {
   @Input() data: TreeNode = emptyTree;
@@ -51,7 +61,13 @@ export function createAppModule(): any {
     components.push(createTreeComponent(i, i === getMaxDepth()));
   }
 
-  @NgModule({imports: [BrowserModule], bootstrap: [RootTreeComponent], declarations: [components]})
+  @NgModule({
+    imports: [BrowserModule],
+    bootstrap: [RootTreeComponent],
+    declarations: [components],
+    providers: [provideZoneChangeDetection()],
+    jit: true,
+  })
   class AppModule {
     constructor(sanitizer: DomSanitizer) {
       trustedEmptyColor = sanitizer.bypassSecurityTrustStyle('');

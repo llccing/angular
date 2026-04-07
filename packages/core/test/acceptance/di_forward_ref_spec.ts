@@ -8,6 +8,7 @@
 
 import {Component, Directive, forwardRef, Host, Inject, ViewChild} from '@angular/core';
 import {TestBed} from '../../testing';
+import {ERROR_DETAILS_PAGE_BASE_URL} from '../../src/error_details_base_url';
 
 // **NOTE**: More details on why tests relying on `forwardRef` are put into this
 // file can be found in the `BUILD.bazel` file declaring the forward ref test target.
@@ -39,7 +40,9 @@ describe('di with forwardRef', () => {
 
       TestBed.configureTestingModule({declarations: [DirectiveA, DirectiveB, MyComp]});
       expect(() => TestBed.createComponent(MyComp)).toThrowError(
-        'NG0200: Circular dependency in DI detected for DirectiveA. Find more at https://angular.dev/errors/NG0200',
+        'NG0200: Circular dependency detected for `DirectiveA`. ' +
+          'Path: DirectiveA -> DirectiveB -> DirectiveA. ' +
+          `Find more at ${ERROR_DETAILS_PAGE_BASE_URL}/NG0200`,
       );
     });
 

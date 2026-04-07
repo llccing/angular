@@ -11,7 +11,15 @@ import {ɵRuntimeError as RuntimeError} from '@angular/core';
 import {RuntimeErrorCode} from './errors';
 import {ActivatedRouteSnapshot} from './router_state';
 import {Params, PRIMARY_OUTLET} from './shared';
-import {createRoot, squashSegmentGroup, UrlSegment, UrlSegmentGroup, UrlTree} from './url_tree';
+import {
+  createRoot,
+  DefaultUrlSerializer,
+  squashSegmentGroup,
+  UrlSegment,
+  UrlSegmentGroup,
+  UrlSerializer,
+  UrlTree,
+} from './url_tree';
 import {last, shallowEqual} from './utils/collection';
 
 /**
@@ -28,6 +36,9 @@ import {last, shallowEqual} from './utils/collection';
  * @param queryParams The query parameters for the `UrlTree`. `null` if the `UrlTree` does not have
  *     any query parameters.
  * @param fragment The fragment for the `UrlTree`. `null` if the `UrlTree` does not have a fragment.
+ * @param urlSerializer The `UrlSerializer` to use for handling query parameter normalization.
+ * You should provide your application's custom `UrlSerializer` if one is configured to parse and
+ * serialize query parameter values to and from objects other than strings/string arrays.
  *
  * @usageNotes
  *
@@ -67,12 +78,19 @@ import {last, shallowEqual} from './utils/collection';
  */
 export function createUrlTreeFromSnapshot(
   relativeTo: ActivatedRouteSnapshot,
-  commands: any[],
+  commands: readonly any[],
   queryParams: Params | null = null,
   fragment: string | null = null,
+  urlSerializer = new DefaultUrlSerializer(),
 ): UrlTree {
   const relativeToUrlSegmentGroup = createSegmentGroupFromRoute(relativeTo);
-  return createUrlTreeFromSegmentGroup(relativeToUrlSegmentGroup, commands, queryParams, fragment);
+  return createUrlTreeFromSegmentGroup(
+    relativeToUrlSegmentGroup,
+    commands,
+    queryParams,
+    fragment,
+    urlSerializer,
+  );
 }
 
 export function createSegmentGroupFromRoute(route: ActivatedRouteSnapshot): UrlSegmentGroup {
@@ -100,9 +118,10 @@ export function createSegmentGroupFromRoute(route: ActivatedRouteSnapshot): UrlS
 
 export function createUrlTreeFromSegmentGroup(
   relativeTo: UrlSegmentGroup,
-  commands: any[],
+  commands: readonly any[],
   queryParams: Params | null,
   fragment: string | null,
+  urlSerializer: UrlSerializer,
 ): UrlTree {
   let root = relativeTo;
   while (root.parent) {
@@ -112,20 +131,20 @@ export function createUrlTreeFromSegmentGroup(
   // `UrlSegmentGroup`. All we need to do is update the `queryParams` and `fragment` without
   // applying any other logic.
   if (commands.length === 0) {
-    return tree(root, root, root, queryParams, fragment);
+    return tree(root, root, root, queryParams, fragment, urlSerializer);
   }
 
   const nav = computeNavigation(commands);
 
   if (nav.toRoot()) {
-    return tree(root, root, new UrlSegmentGroup([], {}), queryParams, fragment);
+    return tree(root, root, new UrlSegmentGroup([], {}), queryParams, fragment, urlSerializer);
   }
 
   const position = findStartingPositionForTargetGroup(nav, root, relativeTo);
   const newSegmentGroup = position.processChildren
     ? updateSegmentGroupChildren(position.segmentGroup, position.index, nav.commands)
     : updateSegmentGroup(position.segmentGroup, position.index, nav.commands);
-  return tree(root, position.segmentGroup, newSegmentGroup, queryParams, fragment);
+  return tree(root, position.segmentGroup, newSegmentGroup, queryParams, fragment, urlSerializer);
 }
 
 function isMatrixParams(command: any): boolean {
@@ -140,18 +159,47 @@ function isCommandWithOutlets(command: any): command is {outlets: {[key: string]
   return typeof command === 'object' && command != null && command.outlets;
 }
 
+/**
+ * Normalizes a query parameter value by using the `UrlSerializer` to serialize then parse the value.
+ *
+ * This ensures that the value is consistent between parsing a URL in the browser on a fresh page load (or page refresh)
+ * and a navigation where the query parameter value is passed directly to the router.
+ *
+ * This also allows custom `UrlSerializer` implementations to define how query parameter values are represented
+ * in a `UrlTree`. Since `UrlSerializer` already has a `parse` that takes a string, it already has control
+ * over how a browser URL is parsed into a `UrlTree` on initial load/page refresh.
+ */
+function normalizeQueryParams(k: string, v: unknown, urlSerializer: UrlSerializer): unknown {
+  // Hack for empty string query param, which, for whatever reason, happens
+  // in a test. Parsing drops empty key params (which might not really be necessary).
+  // It's probably really a test issue but I don't have the time to fix it...
+  k ||= 'ɵ';
+  const tree = new UrlTree();
+  tree.queryParams = {[k]: v};
+  return urlSerializer.parse(urlSerializer.serialize(tree)).queryParams[k];
+}
+
 function tree(
   oldRoot: UrlSegmentGroup,
   oldSegmentGroup: UrlSegmentGroup,
   newSegmentGroup: UrlSegmentGroup,
   queryParams: Params | null,
   fragment: string | null,
+  urlSerializer: UrlSerializer,
 ): UrlTree {
-  let qp: any = {};
-  if (queryParams) {
-    Object.entries(queryParams).forEach(([name, value]) => {
-      qp[name] = Array.isArray(value) ? value.map((v: any) => `${v}`) : `${value}`;
-    });
+  const qp: Params = {};
+  for (const [key, value] of Object.entries(queryParams ?? {})) {
+    // This retains old behavior where each item in the array was stringified individually This
+    // helps remove special-case handling for empty and single-item arrays where the default
+    // serializer removes empty arrays when serialized then parsed or converts them to non-arrays
+    // for single-item arrays. Changing this could have breaking change implications. Prior code
+    // always returned arrays of strings for array inputs so tests, applications, serializers,
+    // etc. may only be set up to handle string arrays. We could consider changing this in the
+    // future to serialize the entire array as a single value. For now, this feels safer and is
+    // at least a step in the right direction.
+    qp[key] = Array.isArray(value)
+      ? value.map((v) => normalizeQueryParams(key, v, urlSerializer))
+      : normalizeQueryParams(key, value, urlSerializer);
   }
 
   let rootCandidate: UrlSegmentGroup;
@@ -192,7 +240,7 @@ class Navigation {
   constructor(
     public isAbsolute: boolean,
     public numberOfDoubleDots: number,
-    public commands: any[],
+    public commands: readonly any[],
   ) {
     if (isAbsolute && commands.length > 0 && isMatrixParams(commands[0])) {
       throw new RuntimeError(
@@ -218,7 +266,7 @@ class Navigation {
 }
 
 /** Transforms commands to a normalized `Navigation` */
-function computeNavigation(commands: any[]): Navigation {
+function computeNavigation(commands: readonly any[]): Navigation {
   if (typeof commands[0] === 'string' && commands.length === 1 && commands[0] === '/') {
     return new Navigation(true, 0, commands);
   }
@@ -324,7 +372,7 @@ function createPositionApplyingDoubleDots(
   return new Position(g, false, ci - dd);
 }
 
-function getOutlets(commands: unknown[]): {[k: string]: unknown[] | string} {
+function getOutlets(commands: readonly unknown[]): {[k: string]: readonly unknown[] | string} {
   if (isCommandWithOutlets(commands[0])) {
     return commands[0].outlets;
   }
@@ -335,7 +383,7 @@ function getOutlets(commands: unknown[]): {[k: string]: unknown[] | string} {
 function updateSegmentGroup(
   segmentGroup: UrlSegmentGroup | undefined,
   startIndex: number,
-  commands: any[],
+  commands: readonly any[],
 ): UrlSegmentGroup {
   segmentGroup ??= new UrlSegmentGroup([], {});
   if (segmentGroup.segments.length === 0 && segmentGroup.hasChildren()) {
@@ -365,7 +413,7 @@ function updateSegmentGroup(
 function updateSegmentGroupChildren(
   segmentGroup: UrlSegmentGroup,
   startIndex: number,
-  commands: any[],
+  commands: readonly any[],
 ): UrlSegmentGroup {
   if (commands.length === 0) {
     return new UrlSegmentGroup(segmentGroup.segments, {});
@@ -425,7 +473,7 @@ function updateSegmentGroupChildren(
   }
 }
 
-function prefixedWith(segmentGroup: UrlSegmentGroup, startIndex: number, commands: any[]) {
+function prefixedWith(segmentGroup: UrlSegmentGroup, startIndex: number, commands: readonly any[]) {
   let currentCommandIndex = 0;
   let currentPathIndex = startIndex;
 
@@ -462,7 +510,7 @@ function prefixedWith(segmentGroup: UrlSegmentGroup, startIndex: number, command
 function createNewSegmentGroup(
   segmentGroup: UrlSegmentGroup,
   startIndex: number,
-  commands: any[],
+  commands: readonly any[],
 ): UrlSegmentGroup {
   const paths = segmentGroup.segments.slice(0, startIndex);
 
@@ -495,7 +543,7 @@ function createNewSegmentGroup(
   return new UrlSegmentGroup(paths, {});
 }
 
-function createNewSegmentChildren(outlets: {[name: string]: unknown[] | string}): {
+function createNewSegmentChildren(outlets: {[name: string]: readonly unknown[] | string}): {
   [outlet: string]: UrlSegmentGroup;
 } {
   const children: {[outlet: string]: UrlSegmentGroup} = {};

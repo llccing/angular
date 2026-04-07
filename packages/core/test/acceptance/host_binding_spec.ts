@@ -8,6 +8,8 @@
 
 import {state, style, transition, trigger} from '@angular/animations';
 import {CommonModule} from '@angular/common';
+import {By} from '@angular/platform-browser';
+import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 import {
   AfterContentInit,
   Component,
@@ -19,13 +21,14 @@ import {
   HostListener,
   Injectable,
   Input,
-  NgModule,
   OnChanges,
   OnInit,
+  provideZoneChangeDetection,
   QueryList,
   ViewChild,
   ViewChildren,
   ViewContainerRef,
+  ChangeDetectionStrategy,
 } from '../../src/core';
 import {
   bypassSanitizationTrustHtml,
@@ -33,14 +36,19 @@ import {
   bypassSanitizationTrustUrl,
 } from '../../src/sanitization/bypass';
 import {TestBed} from '../../testing';
-import {By} from '@angular/platform-browser';
-import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 
 describe('host bindings', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideZoneChangeDetection()],
+    });
+  });
   it('should render host bindings on the root component', () => {
     @Component({
       template: '...',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class MyApp {
       @HostBinding('style') myStylesExp = {};
@@ -75,6 +83,8 @@ describe('host bindings', () => {
         template: '...',
         host: {'class': 'foo bar'},
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class ParentCmp {}
 
@@ -82,6 +92,8 @@ describe('host bindings', () => {
         template: '...',
         host: {'class': 'foo baz'},
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class ChildCmp extends ParentCmp {}
 
@@ -100,6 +112,8 @@ describe('host bindings', () => {
         template: '...',
         host: {class: 'foo', style: 'color: red'},
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyApp {}
 
@@ -134,22 +148,26 @@ describe('host bindings', () => {
         selector: 'child',
         template: `...`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class ChildCmp {}
 
       @Component({
         selector: 'parent',
         template: `
-        <div>
-          <div #template></div>
-          <p>{{prop}}</p>
-          <p>{{prop2}}</p>
-        </div>
-      `,
+          <div>
+            <div #template></div>
+            <p>{{ prop }}</p>
+            <p>{{ prop2 }}</p>
+          </div>
+        `,
         host: {
           '[style.color]': 'color',
         },
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class ParentCmp {
         private _prop = '';
@@ -183,6 +201,8 @@ describe('host bindings', () => {
       @Component({
         template: `<parent [prop]="prop" [prop2]="prop2"></parent>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         prop = 'a';
@@ -214,6 +234,8 @@ describe('host bindings', () => {
         template: '<div animationPropDir>Some content</div>',
         animations: [trigger('myAnimation', [state('color', style({color: 'red'}))])],
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Comp {}
 
@@ -241,6 +263,8 @@ describe('host bindings', () => {
         template: 'Some content',
         animations: [trigger('myAnimation', [state('color', style({color: 'red'}))])],
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Comp {}
 
@@ -249,6 +273,8 @@ describe('host bindings', () => {
         template: '<my-comp animationPropDir></my-comp>',
         animations: [trigger('myAnimation', [state('color', style({color: 'green'}))])],
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -268,6 +294,8 @@ describe('host bindings', () => {
         template: '<div>Some content/div>',
         animations: [trigger('myAnimation', [state('color', style({color: 'red'}))])],
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Comp {
         @HostBinding('@myAnimation') myAnimation: string = 'color';
@@ -288,6 +316,8 @@ describe('host bindings', () => {
         template: '<div>Some content/div>',
         animations: [trigger('myAnimation', [state('color', style({color: 'red'}))])],
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Comp {
         @HostBinding('@myAnimation') myAnimation: string = 'color';
@@ -296,6 +326,8 @@ describe('host bindings', () => {
       @Component({
         template: '<my-comp></my-comp>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -323,6 +355,8 @@ describe('host bindings', () => {
         template: '<div>Some content</div>',
         animations: [trigger('myAnimation', [state('color', style({color: 'red'}))])],
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Comp extends AnimationDir {}
 
@@ -363,6 +397,8 @@ describe('host bindings', () => {
           trigger('myAnimation', [state('a', style({color: 'yellow'})), transition('* => a', [])]),
         ],
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Comp {}
 
@@ -388,6 +424,8 @@ describe('host bindings', () => {
           trigger('myAnimation', [state('a', style({color: 'yellow'})), transition('* => a', [])]),
         ],
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Comp {
         @HostBinding('@myAnimation') myAnimation: string = 'a';
@@ -424,6 +462,8 @@ describe('host bindings', () => {
           trigger('myAnimation', [state('a', style({color: 'yellow'})), transition('* => a', [])]),
         ],
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Comp {
         @HostBinding('@myAnimation') myAnimation: string = 'a';
@@ -442,6 +482,8 @@ describe('host bindings', () => {
       @Component({
         template: '<my-comp></my-comp>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -485,6 +527,8 @@ describe('host bindings', () => {
           trigger('myAnimation', [state('a', style({color: 'yellow'})), transition('* => a', [])]),
         ],
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Comp extends AnimationDir {}
 
@@ -503,16 +547,18 @@ describe('host bindings', () => {
   describe('via @HostBinding', () => {
     it('should render styling for parent and sub-classed components in order', () => {
       @Component({
-        template: `
-        <child-and-parent-cmp></child-and-parent-cmp>
-      `,
+        template: ` <child-and-parent-cmp></child-and-parent-cmp> `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyApp {}
 
       @Component({
         template: '...',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class ParentCmp {
         @HostBinding('style.width') width1 = '100px';
@@ -524,6 +570,8 @@ describe('host bindings', () => {
         selector: 'child-and-parent-cmp',
         template: '...',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class ChildCmp extends ParentCmp {
         @HostBinding('style.width') width2 = '200px';
@@ -545,6 +593,8 @@ describe('host bindings', () => {
       @Component({
         template: '<div child-dir sibling-dir></div>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyApp {}
 
@@ -635,9 +685,11 @@ describe('host bindings', () => {
     it('should allow class-bindings to be placed on ng-container elements', () => {
       @Component({
         template: `
-        <ng-container [class.foo]="true" dir-that-adds-other-classes>...</ng-container>
-      `,
+          <ng-container [class.foo]="true" dir-that-adds-other-classes>...</ng-container>
+        `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyApp {}
 
@@ -677,6 +729,8 @@ describe('host bindings', () => {
     @Component({
       template: '<span dir></span>',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       @ViewChild(Dir) directiveInstance!: Dir;
@@ -699,6 +753,8 @@ describe('host bindings', () => {
     @Component({
       template: '',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class HostBindingComp {
       @HostBinding() title = 'my-title';
@@ -732,6 +788,8 @@ describe('host bindings', () => {
       template: '',
       providers: [ServiceOne, ServiceTwo],
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       constructor(
@@ -767,6 +825,8 @@ describe('host bindings', () => {
       selector: 'host-title-comp',
       template: '',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class HostTitleComp {
       @HostBinding() title = 'my-title';
@@ -774,11 +834,13 @@ describe('host bindings', () => {
 
     @Component({
       template: `
-          <div hostBindingDir></div>
-          <div someDir></div>
-          <host-title-comp></host-title-comp>
-        `,
+        <div hostBindingDir></div>
+        <div someDir></div>
+        <host-title-comp></host-title-comp>
+      `,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       @ViewChild(HostBindingDir) hostBindingDir!: HostBindingDir;
@@ -804,6 +866,8 @@ describe('host bindings', () => {
       selector: 'host-binding-comp',
       template: '',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class HostBindingComp {
       @HostBinding() id = 'blue';
@@ -811,10 +875,12 @@ describe('host bindings', () => {
 
     @Component({
       template: `
-          <host-binding-comp></host-binding-comp>
-          <host-binding-comp></host-binding-comp>
-        `,
+        <host-binding-comp></host-binding-comp>
+        <host-binding-comp></host-binding-comp>
+      `,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       @ViewChildren(HostBindingComp) hostBindingComp!: QueryList<HostBindingComp>;
@@ -855,6 +921,8 @@ describe('host bindings', () => {
     @Component({
       template: '<div someDir hostBindingDir></div>',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       @ViewChild(HostBindingDir) hostBindingDir!: HostBindingDir;
@@ -877,6 +945,8 @@ describe('host bindings', () => {
       template: '',
       selector: 'init-hook-comp',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class InitHookComp implements OnInit, OnChanges, DoCheck {
       @Input() inputValue = '';
@@ -906,6 +976,8 @@ describe('host bindings', () => {
     @Component({
       template: '<init-hook-comp [inputValue]="value"></init-hook-comp>',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       value = 'input';
@@ -937,6 +1009,8 @@ describe('host bindings', () => {
     @Component({
       template: '<input hostBindingDir [disabled]="isDisabled">',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       @ViewChild(HostBindingInputDir) hostBindingInputDir!: HostBindingInputDir;
@@ -968,15 +1042,19 @@ describe('host bindings', () => {
       selector: 'parent',
       template: '<div hostBindingDir></div>',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class Parent {}
 
     @Component({
       template: `
-          <parent></parent>
-          <parent></parent>
-        `,
+        <parent></parent>
+        <parent></parent>
+      `,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {}
 
@@ -992,11 +1070,13 @@ describe('host bindings', () => {
   it('should support host bindings in for loop', () => {
     @Component({
       template: `
-          <div *ngFor="let row of rows">
-            <p hostBindingDir></p>
-          </div>
-        `,
+        <div *ngFor="let row of rows">
+          <p hostBindingDir></p>
+        </div>
+      `,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       rows: number[] = [];
@@ -1018,6 +1098,8 @@ describe('host bindings', () => {
       selector: 'host-binding-comp',
       template: '',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class HostBindingComp {
       @HostBinding() id = 'my-id';
@@ -1027,6 +1109,8 @@ describe('host bindings', () => {
       selector: 'name-comp',
       template: '',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class NameComp {
       @Input() names!: string[];
@@ -1034,10 +1118,12 @@ describe('host bindings', () => {
 
     @Component({
       template: `
-          <name-comp [names]="['Nancy', name, 'Ned']"></name-comp>
-          <host-binding-comp></host-binding-comp>
-        `,
+        <name-comp [names]="['Nancy', name, 'Ned']"></name-comp>
+        <host-binding-comp></host-binding-comp>
+      `,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       @ViewChild(NameComp) nameComp!: NameComp;
@@ -1074,6 +1160,8 @@ describe('host bindings', () => {
       selector: 'name-comp',
       template: '',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class NameComp {
       @Input() names!: string[];
@@ -1084,6 +1172,8 @@ describe('host bindings', () => {
       host: {'[id]': `['red', id]`, '[dir]': `dir`, '[title]': `[title, otherTitle]`},
       template: '',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class HostBindingComp {
       id = 'blue';
@@ -1094,10 +1184,12 @@ describe('host bindings', () => {
 
     @Component({
       template: `
-          <name-comp [names]="[name, 'Nancy', otherName]"></name-comp>
-          <host-binding-comp></host-binding-comp>
-        `,
+        <name-comp [names]="[name, 'Nancy', otherName]"></name-comp>
+        <host-binding-comp></host-binding-comp>
+      `,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       @ViewChild(HostBindingComp) hostBindingComp!: HostBindingComp;
@@ -1160,6 +1252,8 @@ describe('host bindings', () => {
     @Component({
       template: '<button hostListenerDir hostDir>Click</button>',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {}
 
@@ -1179,6 +1273,8 @@ describe('host bindings', () => {
       host: {'[id]': `['red', id]`},
       template: '',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class HostBindingComp {
       id = 'blue';
@@ -1196,6 +1292,8 @@ describe('host bindings', () => {
     @Component({
       template: '<host-binding-comp hostDir></host-binding-comp>',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       @ViewChild(HostBindingComp) hostBindingComp!: HostBindingComp;
@@ -1228,6 +1326,8 @@ describe('host bindings', () => {
         '[attr.title]': `otherCondition ? [title] : 'other title'`,
       },
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class HostBindingComp {
       condition = true;
@@ -1239,6 +1339,8 @@ describe('host bindings', () => {
     @Component({
       template: `<host-binding-comp></host-binding-comp>{{ name }}`,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       @ViewChild(HostBindingComp) hostBindingComp!: HostBindingComp;
@@ -1286,6 +1388,8 @@ describe('host bindings', () => {
     @Component({
       template: `<div dir1 dir2 id="tmpl"></div>`,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class MyComp {}
 
@@ -1321,6 +1425,8 @@ describe('host bindings', () => {
         <div superDir></div>
       `,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {
       @ViewChild(SubDirective) subDir!: SubDirective;
@@ -1368,6 +1474,8 @@ describe('host bindings', () => {
     @Component({
       template: '<div hostAttributeDir></div>',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {}
 
@@ -1382,6 +1490,8 @@ describe('host bindings', () => {
       template: '<ng-content></ng-content>',
       host: {'[id]': 'foos.length'},
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class HostBindingWithContentChildren {
       @ContentChildren('foo') foos!: QueryList<any>;
@@ -1389,12 +1499,14 @@ describe('host bindings', () => {
 
     @Component({
       template: `
-          <host-binding-comp>
-            <div #foo></div>
-            <div #foo></div>
-          </host-binding-comp>
-        `,
+        <host-binding-comp>
+          <div #foo></div>
+          <div #foo></div>
+        </host-binding-comp>
+      `,
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {}
 
@@ -1412,6 +1524,8 @@ describe('host bindings', () => {
       template: '',
       host: {'[id]': 'myValue'},
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class HostBindingWithContentHooks implements AfterContentInit {
       myValue = 'initial';
@@ -1424,6 +1538,8 @@ describe('host bindings', () => {
     @Component({
       template: '<host-binding-comp></host-binding-comp>',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class App {}
 
@@ -1442,6 +1558,8 @@ describe('host bindings', () => {
         host: {'[style.width.px]': 'width'},
         template: '',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class HostBindingToStyles {
         width = 2;
@@ -1450,6 +1568,8 @@ describe('host bindings', () => {
       @Component({
         template: '<host-binding-to-styles></host-binding-to-styles>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         @ViewChild(HostBindingToStyles) hostBindingDir!: HostBindingToStyles;
@@ -1490,6 +1610,8 @@ describe('host bindings', () => {
       @Component({
         template: '<div hostStyles containerDir></div>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         @ViewChild(HostBindingToStyles) hostBindingDir!: HostBindingToStyles;
@@ -1513,12 +1635,16 @@ describe('host bindings', () => {
         host: {'class': 'mat-toolbar'},
         template: '',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class StaticHostClass {}
 
       @Component({
         template: '<static-host-class></static-host-class>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -1544,7 +1670,7 @@ describe('host bindings', () => {
       isAttribute: boolean = true,
       throws: boolean = false,
     ) {
-      it(`should sanitize <${tag} ${prop}> ${isAttribute ? 'properties' : 'attributes'}`, () => {
+      it(`should sanitize <${tag} ${prop}> ${isAttribute ? 'properties' : 'attributes'} (value=${value})`, () => {
         @Directive({
           selector: '[unsafeUrlHostBindingDir]',
           host: {
@@ -1559,6 +1685,8 @@ describe('host bindings', () => {
         @Component({
           template: `<${tag} unsafeUrlHostBindingDir></${tag}>`,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           @ViewChild(UnsafeDir) unsafeDir!: UnsafeDir;
@@ -1602,23 +1730,6 @@ describe('host bindings', () => {
       true,
     );
     verify(
-      'blockquote',
-      'cite',
-      'javascript:alert(2)',
-      'unsafe:javascript:alert(2)',
-      bypassSanitizationTrustUrl,
-    );
-    verify('blockquote', 'cite', 'javascript:alert(2.1)', 'unsafe:javascript:alert(2.1)', identity);
-    verify(
-      'blockquote',
-      'cite',
-      'javascript:alert(2.2)',
-      'unsafe:javascript:alert(2.2)',
-      bypassSanitizationTrustHtml,
-      true,
-      true,
-    );
-    verify(
       'b',
       'innerHTML',
       '<img src="javascript:alert(3)">',
@@ -1655,6 +1766,8 @@ describe('host bindings', () => {
           <ng-container [ngTemplateOutlet]="ref" staticHostAtt dynamicHostAtt></ng-container>
         `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -1672,6 +1785,8 @@ describe('host bindings', () => {
         selector: 'my-app',
         template: ` <ng-template staticHostAtt dynamicHostAtt></ng-template> `,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {}
 
@@ -1703,6 +1818,8 @@ describe('host bindings', () => {
       @Component({
         template: '<span dir></span>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyApp {
         @ViewChild(MyDirective) dir!: MyDirective;
@@ -1735,6 +1852,8 @@ describe('host bindings', () => {
       @Component({
         template: '<span dir></span>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyApp {
         @ViewChild(MyDirective) dir!: MyDirective;

@@ -22,6 +22,8 @@ export {CompilerOptions as AngularCompilerOptions} from './src/transformers/api'
 // TODO: Remove this when the CLI has switched to the private entry-point.
 export * from './private/tooling';
 
+export * from './private/hybrid_analysis';
+
 // Exposed as they are needed for relying on the `linker`.
 export * from './src/ngtsc/logging';
 export * from './src/ngtsc/file_system';
@@ -35,10 +37,18 @@ export {OptimizeFor} from './src/ngtsc/typecheck/api';
 // needing to use a default import. NodeJS will expose named CJS exports as named ESM exports.
 // TODO(devversion): Remove these duplicate exports once devmode&prodmode is combined/ESM.
 export {ConsoleLogger, Logger, LogLevel} from './src/ngtsc/logging';
-export {NodeJSFileSystem, absoluteFrom} from './src/ngtsc/file_system';
+export {
+  NodeJSFileSystem,
+  absoluteFrom,
+  FileSystem,
+  AbsoluteFsPath,
+  NgtscCompilerHost,
+  getFileSystem,
+  setFileSystem,
+  isLocalRelativePath,
+} from './src/ngtsc/file_system';
 
 // Export documentation entities for Angular-internal API doc generation.
-export * from './src/ngtsc/docs/src/entities';
 export * from './src/ngtsc/docs';
 
 // Exposed for usage in 1P Angular plugin.

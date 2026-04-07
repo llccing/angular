@@ -7,8 +7,8 @@
  */
 
 import {Fragment, h} from 'preact';
-import {CliCommandRenderable} from '../entities/renderables';
-import {REFERENCE_MEMBERS} from '../styling/css-classes';
+import {CliCommandRenderable} from '../entities/renderables.mjs';
+import {REFERENCE_MEMBERS} from '../styling/css-classes.mjs';
 import {CliCard} from './cli-card';
 import {HeaderCli} from './header-cli';
 import {RawHtml} from './raw-html';
@@ -26,19 +26,15 @@ export function CliCommandReference(entry: CliCommandRenderable) {
               <code>
                 <div className={'shiki line cli'}>
                   ng {commandName(entry, command)}
-                  {entry.argumentsLabel ? (
-                    <button member-id={'Arguments'} className="shiki-ln-line-argument">
+                  {entry.argumentsLabel && (
+                    <span member-id={'Arguments'} className="shiki-ln-line-argument">
                       {entry.argumentsLabel}
-                    </button>
-                  ) : (
-                    <></>
+                    </span>
                   )}
-                  {entry.hasOptions ? (
-                    <button member-id={'Options'} className="shiki-ln-line-option">
-                      [options]
-                    </button>
-                  ) : (
-                    <></>
+                  {entry.optionsLabel && (
+                    <span member-id={'Options'} className="shiki-ln-line-option">
+                      {entry.optionsLabel}
+                    </span>
                   )}
                 </div>
               </code>

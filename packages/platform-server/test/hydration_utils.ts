@@ -13,19 +13,18 @@ import {
   Injectable,
   Provider,
   Type,
+  ɵConsole as Console,
+  ɵHydrationStatus as HydrationStatus,
+  ɵreadHydrationInfo as readHydrationInfo,
+  ɵSSR_CONTENT_INTEGRITY_MARKER as SSR_CONTENT_INTEGRITY_MARKER,
 } from '@angular/core';
-import {Console} from '@angular/core/src/console';
-import {
-  HydrationStatus,
-  readHydrationInfo,
-  SSR_CONTENT_INTEGRITY_MARKER,
-} from '@angular/core/src/hydration/utils';
 import {
   bootstrapApplication,
+  BootstrapContext,
   HydrationFeature,
   provideClientHydration,
+  HydrationFeatureKind,
 } from '@angular/platform-browser';
-import {HydrationFeatureKind} from '@angular/platform-browser/src/hydration';
 
 import {provideServerRendering} from '../public_api';
 import {EVENT_DISPATCH_SCRIPT_ID, renderApplication} from '../src/utils';
@@ -42,7 +41,7 @@ export const EMPTY_TEXT_NODE_COMMENT = 'ngetn';
 export const TEXT_NODE_SEPARATOR_COMMENT = 'ngtns';
 
 export const SKIP_HYDRATION_ATTR_NAME = 'ngSkipHydration';
-export const SKIP_HYDRATION_ATTR_NAME_LOWER_CASE = SKIP_HYDRATION_ATTR_NAME.toLowerCase();
+export const SKIP_HYDRATION_ATTR_NAME_LOWER_CASE: string = SKIP_HYDRATION_ATTR_NAME.toLowerCase();
 
 export const TRANSFER_STATE_TOKEN_ID = '__nghData__';
 
@@ -204,7 +203,7 @@ export function timeout(delay: number): Promise<void> {
 }
 
 export function getHydrationInfoFromTransferState(input: string): string | undefined {
-  return input.match(/<script[^>]+>(.*?)<\/script>/)?.[1];
+  return input.match(/<script.*application\/json[^>]+>(.*?)<\/script>/)?.[1];
 }
 
 export function withNoopErrorHandler() {
@@ -253,19 +252,28 @@ export async function ssr(
     enableHydration?: boolean;
   } = {},
 ): Promise<string> {
-  const defaultHtml = DEFAULT_DOCUMENT;
-  const {enableHydration = true, envProviders = [], hydrationFeatures = () => []} = options;
-  const providers = [
-    ...envProviders,
-    provideServerRendering(),
-    enableHydration ? provideClientHydration(...hydrationFeatures()) : [],
-  ];
+  try {
+    // Enter server mode for the duration of this function.
+    globalThis['ngServerMode'] = true;
 
-  const bootstrap = () => bootstrapApplication(component, {providers});
+    const defaultHtml = DEFAULT_DOCUMENT;
+    const {enableHydration = true, envProviders = [], hydrationFeatures = () => []} = options;
+    const providers = [
+      ...envProviders,
+      provideServerRendering(),
+      enableHydration ? provideClientHydration(...hydrationFeatures()) : [],
+    ];
 
-  return renderApplication(bootstrap, {
-    document: options?.doc ?? defaultHtml,
-  });
+    const bootstrap = (context: BootstrapContext) =>
+      bootstrapApplication(component, {providers}, context);
+
+    return await renderApplication(bootstrap, {
+      document: options?.doc ?? defaultHtml,
+    });
+  } finally {
+    // Leave server mode so the remaining test is back in "client mode".
+    globalThis['ngServerMode'] = undefined;
+  }
 }
 
 /**

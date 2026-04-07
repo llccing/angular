@@ -7,12 +7,13 @@
  */
 
 import {RuntimeError, RuntimeErrorCode} from '../../errors';
+import type {EventCallback, WrappedEventCallback} from '../../event_delegation_utils';
 import {assertIndexInRange} from '../../util/assert';
 import {DirectiveDef} from '../interfaces/definition';
 import {TNode} from '../interfaces/node';
 import {LView, TVIEW} from '../interfaces/view';
 import {stringifyForError} from '../util/stringify_utils';
-import {EventCallback, storeListenerCleanup, wrapListener, WrappedEventCallback} from './listeners';
+import {storeListenerCleanup, wrapListener} from './listeners';
 
 /** Describes a subscribable output field value. */
 interface SubscribableOutput<T> {
@@ -41,7 +42,7 @@ export function createOutputListener(
 }
 
 /** Listens to an output on a specific directive. */
-function listenToDirectiveOutput(
+export function listenToDirectiveOutput(
   tNode: TNode,
   lView: LView,
   target: DirectiveDef<unknown>,

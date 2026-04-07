@@ -7,10 +7,12 @@
  */
 
 import {CommonModule} from '@angular/common';
-import {PLATFORM_BROWSER_ID} from '@angular/common/src/platform_id';
+import {By} from '@angular/platform-browser';
+import {expect} from '@angular/private/testing/matchers';
+import {timeout} from '@angular/private/testing';
+import {BehaviorSubject} from 'rxjs';
 import {
   ApplicationRef,
-  NgZone,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
@@ -22,32 +24,40 @@ import {
   EventEmitter,
   inject,
   Input,
-  NgModule,
+  ɵViewRef as InternalViewRef,
   OnInit,
   Output,
+  provideCheckNoChangesConfig,
+  provideZoneChangeDetection,
+  provideZonelessChangeDetection,
   QueryList,
+  ɵRuntimeError as RuntimeError,
+  ɵRuntimeErrorCode as RuntimeErrorCode,
+  signal,
   TemplateRef,
   Type,
   ViewChild,
   ViewChildren,
   ViewContainerRef,
-  provideExperimentalCheckNoChangesForDebug,
-  provideExperimentalZonelessChangeDetection,
-  ɵRuntimeError as RuntimeError,
-  ɵRuntimeErrorCode as RuntimeErrorCode,
-  afterRender,
-  PLATFORM_ID,
-  provideZoneChangeDetection,
 } from '../../src/core';
-import {ComponentFixture, fakeAsync, TestBed, tick} from '../../testing';
-import {expect} from '@angular/platform-browser/testing/src/matchers';
-import {BehaviorSubject} from 'rxjs';
+import {
+  ComponentFixture,
+  ComponentFixtureAutoDetect,
+  fakeAsync,
+  TestBed,
+  tick,
+} from '../../testing';
 
 describe('change detection', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideZoneChangeDetection()],
+    });
+  });
   it('can provide zone and zoneless (last one wins like any other provider) in TestBed', () => {
     expect(() => {
       TestBed.configureTestingModule({
-        providers: [provideExperimentalZonelessChangeDetection(), provideZoneChangeDetection()],
+        providers: [provideZonelessChangeDetection(), provideZoneChangeDetection()],
       });
       TestBed.inject(ApplicationRef);
     }).not.toThrow();
@@ -56,7 +66,6 @@ describe('change detection', () => {
     @Directive({
       selector: '[viewManipulation]',
       exportAs: 'vm',
-      standalone: false,
     })
     class ViewManipulation {
       constructor(
@@ -78,15 +87,14 @@ describe('change detection', () => {
 
     @Component({
       selector: 'test-cmp',
-      template: `
-        <ng-template #vm="vm" viewManipulation>{{'change-detected'}}</ng-template>
-      `,
-      standalone: false,
+      template: ` <ng-template #vm="vm" viewManipulation>{{ 'change-detected' }}</ng-template> `,
+      imports: [ViewManipulation],
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class TestCmpt {}
 
     it('should detect changes for embedded views inserted through ViewContainerRef', () => {
-      TestBed.configureTestingModule({declarations: [TestCmpt, ViewManipulation]});
       const fixture = TestBed.createComponent(TestCmpt);
       const vm = fixture.debugElement.childNodes[0].references['vm'] as ViewManipulation;
 
@@ -97,7 +105,6 @@ describe('change detection', () => {
     });
 
     it('should detect changes for embedded views attached to ApplicationRef', () => {
-      TestBed.configureTestingModule({declarations: [TestCmpt, ViewManipulation]});
       const fixture = TestBed.createComponent(TestCmpt);
       const vm = fixture.debugElement.childNodes[0].references['vm'] as ViewManipulation;
 
@@ -124,7 +131,10 @@ describe('change detection', () => {
         }
       }
 
-      @Component({template: '<ng-template #template></ng-template>'})
+      @Component({
+        template: '<ng-template #template></ng-template>',
+        changeDetection: ChangeDetectionStrategy.Eager,
+      })
       class Container {
         @ViewChild('template', {read: ViewContainerRef, static: true}) vcr!: ViewContainerRef;
       }
@@ -142,15 +152,47 @@ describe('change detection', () => {
       expect(ref.instance.checks).toBe(2);
     });
 
+    it('should detect changes for Eager embedded views (alias for Default)', () => {
+      @Component({
+        selector: 'eager',
+        template: '',
+        changeDetection: ChangeDetectionStrategy.Eager,
+      })
+      class EagerComponent {
+        checks = 0;
+        ngDoCheck() {
+          this.checks++;
+        }
+      }
+
+      @Component({
+        template: '<ng-template #template></ng-template>',
+        changeDetection: ChangeDetectionStrategy.Eager,
+      })
+      class Container {
+        @ViewChild('template', {read: ViewContainerRef, static: true}) vcr!: ViewContainerRef;
+      }
+      const fixture = TestBed.createComponent(Container);
+      const ref = fixture.componentInstance.vcr!.createComponent(EagerComponent);
+
+      fixture.detectChanges(false);
+      expect(ref.instance.checks).toBe(1);
+
+      fixture.detectChanges(false);
+      expect(ref.instance.checks).toBe(2);
+    });
+
     it('should not detect changes in child embedded views while they are detached', () => {
       const counters = {componentView: 0, embeddedView: 0};
 
       @Component({
         template: `
-          <div>{{increment('componentView')}}</div>
-          <ng-template #vm="vm" viewManipulation>{{increment('embeddedView')}}</ng-template>
+          <div>{{ increment('componentView') }}</div>
+          <ng-template #vm="vm" viewManipulation>{{ increment('embeddedView') }}</ng-template>
         `,
-        standalone: false,
+        imports: [ViewManipulation],
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class App {
         increment(counter: 'componentView' | 'embeddedView') {
@@ -158,7 +200,6 @@ describe('change detection', () => {
         }
       }
 
-      TestBed.configureTestingModule({declarations: [App, ViewManipulation]});
       const fixture = TestBed.createComponent(App);
       const vm: ViewManipulation = fixture.debugElement.childNodes[1].references['vm'];
       const viewRef = vm.insertIntoVcRef();
@@ -180,17 +221,16 @@ describe('change detection', () => {
       @Component({
         template: `<ng-template #vm="vm" viewManipulation></ng-template>`,
         changeDetection: ChangeDetectionStrategy.OnPush,
-        standalone: false,
+        imports: [ViewManipulation],
       })
       class App {}
 
       @Component({
         template: `
           <button (click)="noop()">Trigger change detection</button>
-          <div>{{increment()}}</div>
+          <div>{{ increment() }}</div>
         `,
         changeDetection: ChangeDetectionStrategy.OnPush,
-        standalone: false,
       })
       class DynamicComp {
         increment() {
@@ -199,7 +239,6 @@ describe('change detection', () => {
         noop() {}
       }
 
-      TestBed.configureTestingModule({declarations: [App, ViewManipulation, DynamicComp]});
       const fixture = TestBed.createComponent(App);
       const vm: ViewManipulation = fixture.debugElement.childNodes[0].references['vm'];
       const componentRef = vm.vcRef.createComponent(DynamicComp);
@@ -225,13 +264,54 @@ describe('change detection', () => {
 
       expect(counter).toBe(3);
     });
+
+    it('updating signal inside an EmbeddedView in a child component with OnPush inside a parent component with Default CD', async () => {
+      const data = signal('initial');
+
+      @Component({
+        selector: 'child',
+        template: '<ng-container *viewManipulation>{{data()}}</ng-container>',
+        imports: [ViewManipulation],
+        changeDetection: ChangeDetectionStrategy.OnPush,
+      })
+      class ChildComponent {
+        data = data;
+      }
+
+      @Component({
+        template: '<child/>',
+        changeDetection: ChangeDetectionStrategy.Eager,
+        imports: [ChildComponent],
+      })
+      class ParentComponent {}
+
+      TestBed.configureTestingModule({
+        providers: [{provide: ComponentFixtureAutoDetect, useValue: true}],
+      });
+
+      const fixture = TestBed.createComponent(ParentComponent);
+      await fixture.whenStable();
+      expect(fixture.nativeElement.innerText).toBe('');
+
+      fixture.debugElement
+        .queryAllNodes(By.directive(ViewManipulation))[0]
+        .injector.get(ViewManipulation)
+        .insertIntoVcRef();
+      await fixture.whenStable();
+      expect(fixture.nativeElement.innerText).toBe(data());
+
+      data.set('new');
+      expect(fixture.isStable()).toBe(false);
+      await fixture.whenStable();
+      expect(fixture.nativeElement.innerText).toBe(data());
+    });
   });
 
   describe('markForCheck', () => {
     it('should mark OnPush ancestor of dynamically created component views as dirty', () => {
       @Component({
         selector: `test-cmpt`,
-        template: `{{counter}}|<ng-template #vc></ng-template>`,
+        template: `{{ counter }}|<ng-template #vc></ng-template>`,
         changeDetection: ChangeDetectionStrategy.OnPush,
       })
       class TestCmpt {
@@ -245,7 +325,7 @@ describe('change detection', () => {
 
       @Component({
         selector: 'dynamic-cmpt',
-        template: `dynamic|{{binding}}`,
+        template: `dynamic|{{ binding }}`,
         changeDetection: ChangeDetectionStrategy.OnPush,
       })
       class DynamicCmpt {
@@ -296,6 +376,8 @@ describe('change detection', () => {
           '[class.x]': 'x',
         },
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class HasHostBinding {
         x = true;
@@ -306,6 +388,8 @@ describe('change detection', () => {
         template: '<has-host-binding></has-host-binding>',
         inputs: ['input'],
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Child {
         /**
@@ -329,6 +413,8 @@ describe('change detection', () => {
         selector: 'root',
         template: '<child [input]="3"></child>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class Root {}
 
@@ -362,6 +448,8 @@ describe('change detection', () => {
       selector: 'my-app',
       template: '<my-comp [name]="name"></my-comp>',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class MyApp {
       @ViewChild(MyComponent) comp!: MyComponent;
@@ -455,6 +543,8 @@ describe('change detection', () => {
         selector: 'button-parent',
         template: '<my-comp></my-comp><button id="parent" (click)="noop()"></button>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class ButtonParent {
         @ViewChild(MyComponent) comp!: MyComponent;
@@ -497,6 +587,8 @@ describe('change detection', () => {
         selector: 'my-button-app',
         template: '<button-parent></button-parent>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyButtonApp {
         @ViewChild(ButtonParent) parent!: ButtonParent;
@@ -590,8 +682,10 @@ describe('change detection', () => {
 
       @Component({
         selector: 'parent-comp',
-        template: `{{ doCheckCount}} - <my-comp></my-comp>`,
+        template: `{{ doCheckCount }} - <my-comp></my-comp>`,
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class ParentComp implements DoCheck {
         @ViewChild(MyComp) myComp!: MyComp;
@@ -682,6 +776,8 @@ describe('change detection', () => {
         @Component({
           template: '<my-comp dir></my-comp>',
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyApp {
           @ViewChild(MyComp) myComp!: MyComp;
@@ -703,6 +799,8 @@ describe('change detection', () => {
         @Component({
           template: '{{ value }}<div dir></div>',
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyApp {
           @ViewChild(MyComp) myComp!: MyComp;
@@ -727,6 +825,8 @@ describe('change detection', () => {
         @Component({
           template: '{{ name }}<div *ngIf="showing" dir></div>',
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class MyApp {
           @ViewChild(Dir) dir!: Dir;
@@ -749,6 +849,8 @@ describe('change detection', () => {
         @Component({
           template: '{{ value }}',
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class DetectChangesComp implements OnInit {
           value = 0;
@@ -773,6 +875,8 @@ describe('change detection', () => {
           @Component({
             template: '<child-comp [inp]="true"></child-comp>',
             standalone: false,
+
+            changeDetection: ChangeDetectionStrategy.Eager,
           })
           class ParentComp {
             constructor(public cdr: ChangeDetectorRef) {}
@@ -785,6 +889,8 @@ describe('change detection', () => {
             template: '{{inp}}',
             selector: 'child-comp',
             standalone: false,
+
+            changeDetection: ChangeDetectionStrategy.Eager,
           })
           class ChildComp {
             @Input() inp: any = '';
@@ -827,6 +933,8 @@ describe('change detection', () => {
         @Component({
           template: '{{doCheckCount}}',
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class DetectChangesComp {
           doCheckCount = 0;
@@ -849,10 +957,10 @@ describe('change detection', () => {
       it('should support change detection triggered as a result of View queries processing', () => {
         @Component({
           selector: 'app',
-          template: `
-            <div *ngIf="visible" #ref>Visible text</div>
-          `,
+          template: ` <div *ngIf="visible" #ref>Visible text</div> `,
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class App {
           @ViewChildren('ref') ref!: QueryList<any>;
@@ -889,6 +997,8 @@ describe('change detection', () => {
           selector: 'structural-comp',
           template: '{{ value }}',
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class StructuralComp {
           @Input() tmp!: TemplateRef<any>;
@@ -906,6 +1016,8 @@ describe('change detection', () => {
             template:
               '<ng-template #foo let-ctx="ctx">{{ ctx.value }}</ng-template><structural-comp [tmp]="foo"></structural-comp>',
             standalone: false,
+
+            changeDetection: ChangeDetectionStrategy.Eager,
           })
           class App {
             @ViewChild(StructuralComp) structuralComp!: StructuralComp;
@@ -936,6 +1048,8 @@ describe('change detection', () => {
           @Component({
             template: '<ng-template #foo>Template text</ng-template><structural-comp [tmp]="foo">',
             standalone: false,
+
+            changeDetection: ChangeDetectionStrategy.Eager,
           })
           class App {
             @ViewChild(StructuralComp) structuralComp!: StructuralComp;
@@ -959,6 +1073,8 @@ describe('change detection', () => {
         selector: 'detached-comp',
         template: '{{ value }}',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class DetachedComp implements DoCheck {
         value = 'one';
@@ -974,6 +1090,8 @@ describe('change detection', () => {
       @Component({
         template: '<detached-comp></detached-comp>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class MyApp {
         @ViewChild(DetachedComp) comp!: DetachedComp;
@@ -1087,6 +1205,8 @@ describe('change detection', () => {
         @Component({
           template: '<on-push-comp [value]="value"></on-push-comp>',
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class OnPushApp {
           @ViewChild(OnPushComp) onPushComp!: OnPushComp;
@@ -1251,10 +1371,10 @@ describe('change detection', () => {
         @Component({
           changeDetection: ChangeDetectionStrategy.OnPush,
           template: `
-          <insertion [template]="ref"></insertion>
-          <ng-template #ref>
-            <span>{{value | async}}</span>
-          </ng-template>
+            <insertion [template]="ref"></insertion>
+            <ng-template #ref>
+              <span>{{ value | async }}</span>
+            </ng-template>
           `,
           standalone: false,
         })
@@ -1282,6 +1402,8 @@ describe('change detection', () => {
         selector: 'no-changes-comp',
         template: '{{ value }}',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class NoChangesComp {
         value = 1;
@@ -1309,6 +1431,8 @@ describe('change detection', () => {
       @Component({
         template: '{{ value }} - <no-changes-comp></no-changes-comp>',
         standalone: false,
+
+        changeDetection: ChangeDetectionStrategy.Eager,
       })
       class AppComp {
         value = 1;
@@ -1332,7 +1456,7 @@ describe('change detection', () => {
         const fixture = TestBed.createComponent(NoChangesComp);
 
         expect(() => {
-          fixture.componentInstance.cdr.checkNoChanges();
+          (fixture.componentInstance.cdr as InternalViewRef<unknown>).checkNoChanges();
         }).toThrowError(
           /ExpressionChangedAfterItHasBeenCheckedError: .+ Previous value: '.*undefined'. Current value: '.*1'/gi,
         );
@@ -1345,7 +1469,9 @@ describe('change detection', () => {
         });
         const fixture = TestBed.createComponent(AppComp);
 
-        expect(() => fixture.componentInstance.cdr.checkNoChanges()).toThrowError(
+        expect(() =>
+          (fixture.componentInstance.cdr as InternalViewRef<unknown>).checkNoChanges(),
+        ).toThrowError(
           /ExpressionChangedAfterItHasBeenCheckedError: .+ Previous value: '.*undefined'. Current value: '.*1'/gi,
         );
       });
@@ -1354,6 +1480,8 @@ describe('change detection', () => {
         @Component({
           template: '<span *ngIf="showing">{{ showing }}</span>',
           standalone: false,
+
+          changeDetection: ChangeDetectionStrategy.Eager,
         })
         class EmbeddedViewApp {
           showing = true;
@@ -1367,7 +1495,9 @@ describe('change detection', () => {
         });
         const fixture = TestBed.createComponent(EmbeddedViewApp);
 
-        expect(() => fixture.componentInstance.cdr.checkNoChanges()).toThrowError(
+        expect(() =>
+          (fixture.componentInstance.cdr as InternalViewRef<unknown>).checkNoChanges(),
+        ).toThrowError(
           /ExpressionChangedAfterItHasBeenCheckedError: .+ Previous value: '.*undefined'. Current value: '.*true'/gi,
         );
       });
@@ -1386,7 +1516,9 @@ describe('change detection', () => {
         expect(comp.viewCheckCount).toEqual(1);
 
         comp.value = 2;
-        expect(() => fixture.componentInstance.cdr.checkNoChanges()).toThrow();
+        expect(() =>
+          (fixture.componentInstance.cdr as InternalViewRef<unknown>).checkNoChanges(),
+        ).toThrow();
         expect(comp.doCheckCount).toEqual(1);
         expect(comp.contentCheckCount).toEqual(1);
         expect(comp.viewCheckCount).toEqual(1);
@@ -1423,117 +1555,12 @@ describe('change detection', () => {
           }
         }
 
-        it('throws error if used after zoneless provider', async () => {
-          TestBed.configureTestingModule({
-            providers: [
-              {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
-              provideExperimentalCheckNoChangesForDebug({useNgZoneOnStable: true}),
-              provideExperimentalZonelessChangeDetection(),
-            ],
-          });
-
-          expect(() => {
-            TestBed.createComponent(MyApp);
-          }).toThrowError(/must be after any other provider for `NgZone`/);
-        });
-
-        it('throws error if used after zone provider', async () => {
-          TestBed.configureTestingModule({
-            providers: [
-              {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
-              provideExperimentalCheckNoChangesForDebug({useNgZoneOnStable: true}),
-              provideZoneChangeDetection(),
-            ],
-          });
-
-          expect(() => {
-            TestBed.createComponent(MyApp);
-          }).toThrowError(/must be after any other provider for `NgZone`/);
-        });
-
-        it('throws expression changed with useNgZoneOnStable', async () => {
-          let error: RuntimeError | undefined = undefined;
-          TestBed.configureTestingModule({
-            providers: [
-              {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
-              provideExperimentalZonelessChangeDetection(),
-              provideExperimentalCheckNoChangesForDebug({useNgZoneOnStable: true}),
-              {
-                provide: ErrorHandler,
-                useValue: {
-                  handleError(e: unknown) {
-                    error = e as RuntimeError;
-                  },
-                },
-              },
-            ],
-          });
-
-          let renderHookCalls = 0;
-          TestBed.runInInjectionContext(() => {
-            afterRender(() => {
-              renderHookCalls++;
-            });
-          });
-
-          const fixture = TestBed.createComponent(MyApp);
-          await fixture.whenStable();
-          expect(renderHookCalls).toBe(1);
-
-          fixture.componentInstance.createReadPromise();
-          TestBed.inject(NgZone).run(() => {
-            fixture.componentInstance.state = 'new';
-          });
-          await fixture.componentInstance.promise;
-          // should not have run appplicationRef.tick again
-          expect(renderHookCalls).toBe(1);
-          expect(error).toBeDefined();
-          expect(error!.code).toEqual(RuntimeErrorCode.EXPRESSION_CHANGED_AFTER_CHECKED);
-        });
-
-        it('does not throw expression changed with useNgZoneOnStable if there is a change detection scheduled', async () => {
-          let error: RuntimeError | undefined = undefined;
-          TestBed.configureTestingModule({
-            providers: [
-              provideExperimentalZonelessChangeDetection(),
-              provideExperimentalCheckNoChangesForDebug({useNgZoneOnStable: true}),
-              {
-                provide: ErrorHandler,
-                useValue: {
-                  handleError(e: unknown) {
-                    error = e as RuntimeError;
-                  },
-                },
-              },
-            ],
-          });
-
-          const fixture = TestBed.createComponent(MyApp);
-          await fixture.whenStable();
-
-          fixture.componentInstance.createReadPromise();
-          TestBed.inject(NgZone).run(() => {
-            setTimeout(() => {
-              fixture.componentInstance.state = 'new';
-              fixture.componentInstance.changeDetectorRef.markForCheck();
-            }, 20);
-          });
-          await fixture.componentInstance.promise;
-          // checkNoChanges runs from zone.run call
-          expect(error).toBeUndefined();
-
-          // checkNoChanges runs from the timeout
-          fixture.componentInstance.createReadPromise();
-          await fixture.componentInstance.promise;
-          expect(error).toBeUndefined();
-        });
-
         it('throws expression changed with interval', async () => {
           let error: RuntimeError | undefined = undefined;
           TestBed.configureTestingModule({
             providers: [
-              provideExperimentalZonelessChangeDetection(),
-              provideExperimentalCheckNoChangesForDebug({interval: 5}),
+              provideZonelessChangeDetection(),
+              provideCheckNoChangesConfig({interval: 5, exhaustive: true}),
               {
                 provide: ErrorHandler,
                 useValue: {
@@ -1549,7 +1576,7 @@ describe('change detection', () => {
           fixture.detectChanges();
 
           fixture.componentInstance.state = 'new';
-          await new Promise<void>((resolve) => setTimeout(resolve, 10));
+          await timeout(10);
 
           expect(error!.code).toEqual(RuntimeErrorCode.EXPRESSION_CHANGED_AFTER_CHECKED);
         });
@@ -1558,8 +1585,8 @@ describe('change detection', () => {
           let error: RuntimeError | undefined = undefined;
           TestBed.configureTestingModule({
             providers: [
-              provideExperimentalZonelessChangeDetection(),
-              provideExperimentalCheckNoChangesForDebug({interval: 0}),
+              provideZonelessChangeDetection(),
+              provideCheckNoChangesConfig({interval: 0, exhaustive: true}),
               {
                 provide: ErrorHandler,
                 useValue: {
@@ -1578,35 +1605,29 @@ describe('change detection', () => {
           // markForCheck schedules change detection
           fixture.componentInstance.changeDetectorRef.markForCheck();
           // wait beyond the exhaustive check interval
-          await new Promise<void>((resolve) => setTimeout(resolve, 1));
+          await timeout(1);
 
           expect(error).toBeUndefined();
         });
 
-        it('does not throw expression changed with interval if OnPush component an no exhaustive', async () => {
-          let error: RuntimeError | undefined = undefined;
+        it('throws expression changed OnPush components', () => {
           TestBed.configureTestingModule({
-            providers: [
-              provideExperimentalZonelessChangeDetection(),
-              provideExperimentalCheckNoChangesForDebug({interval: 0, exhaustive: false}),
-              {
-                provide: ErrorHandler,
-                useValue: {
-                  handleError(e: unknown) {
-                    error = e as RuntimeError;
-                  },
-                },
-              },
-            ],
+            providers: [provideCheckNoChangesConfig({exhaustive: true})],
           });
 
-          const fixture = TestBed.createComponent(MyApp);
-          fixture.detectChanges();
-
-          fixture.componentInstance.state = 'new';
-          // wait beyond the exhaustive check interval
-          await new Promise<void>((resolve) => setTimeout(resolve, 1));
-          expect(error).toBeUndefined();
+          @Component({
+            template: '{{state}}',
+            changeDetection: ChangeDetectionStrategy.OnPush,
+          })
+          class NotUnidirectionalDataFlow {
+            state = 1;
+            ngAfterViewChecked() {
+              this.state++;
+            }
+          }
+          expect(() =>
+            TestBed.createComponent(NotUnidirectionalDataFlow).detectChanges(),
+          ).toThrowError(/.*ExpressionChanged.*/);
         });
       });
     });
@@ -1633,7 +1654,7 @@ describe('change detection', () => {
             @Component({
               selector: 'on-push-comp',
               changeDetection: ChangeDetectionStrategy.OnPush,
-              template: `<p>{{text}}</p>`,
+              template: `<p>{{ text }}</p>`,
               standalone: false,
             })
             class OnPushComp {
@@ -1649,6 +1670,8 @@ describe('change detection', () => {
             @Component({
               template: `<on-push-comp></on-push-comp>`,
               standalone: false,
+
+              changeDetection: ChangeDetectionStrategy.Eager,
             })
             class TestApp {
               @ViewChild(OnPushComp) onPushComp!: OnPushComp;
@@ -1683,7 +1706,7 @@ describe('change detection', () => {
           @Component({
             selector: 'on-push-comp',
             changeDetection: ChangeDetectionStrategy.OnPush,
-            template: `<p>{{text}}</p>`,
+            template: `<p>{{ text }}</p>`,
             standalone: false,
           })
           class OnPushComp {
@@ -1699,6 +1722,8 @@ describe('change detection', () => {
           @Component({
             template: `<on-push-comp></on-push-comp>`,
             standalone: false,
+
+            changeDetection: ChangeDetectionStrategy.Eager,
           })
           class TestApp {
             @ViewChild(OnPushComp) onPushComp!: OnPushComp;
@@ -1728,6 +1753,8 @@ describe('change detection', () => {
     @Component({
       template: '...',
       standalone: false,
+
+      changeDetection: ChangeDetectionStrategy.Eager,
     })
     class MyApp {
       a: string = 'a';
@@ -1770,15 +1797,6 @@ describe('change detection', () => {
       );
     });
 
-    it('should include field name in case of property interpolation', () => {
-      const message = `Previous value for 'id': 'Expressions: a and initial!'. Current value: 'Expressions: a and changed!'`;
-      expect(() =>
-        initWithTemplate(
-          '<div id="Expressions: {{ a }} and {{ unstableStringExpression }}!"></div>',
-        ),
-      ).toThrowError(new RegExp(message));
-    });
-
     it('should include field name in case of attribute binding', () => {
       const message = `Previous value for 'attr.id': 'initial'. Current value: 'changed'`;
       expect(() =>
@@ -1787,7 +1805,7 @@ describe('change detection', () => {
     });
 
     it('should include field name in case of attribute interpolation', () => {
-      const message = `Previous value for 'attr.id': 'Expressions: a and initial!'. Current value: 'Expressions: a and changed!'`;
+      const message = `Expression has changed after it was checked. Previous value: 'initial'. Current value: 'changed'`;
       expect(() =>
         initWithTemplate(
           '<div attr.id="Expressions: {{ a }} and {{ unstableStringExpression }}!"></div>',

@@ -34,6 +34,7 @@ import {
   TVIEW,
 } from './interfaces/view';
 import {assertTNodeType} from './node_assert';
+import {cleanupLView as cleanupDehydratedLView} from '../hydration/cleanup';
 import {destroyLView, removeViewFromDOM} from './node_manipulation';
 import {RendererFactory} from './interfaces/renderer';
 import {NgZone} from '../zone';
@@ -51,6 +52,19 @@ type ImportMetaExtended = ImportMeta & {
     send?: (name: string, payload: unknown) => void;
   };
 };
+
+/**
+ * Gets the URL from which the client will fetch a new version of a component's metadata so it
+ * can be replaced during hot module reloading.
+ * @param id Unique ID for the component, generated during compile time.
+ * @param timestamp Time at which the request happened.
+ * @param base Base URL against which to resolve relative paths.
+ * @codeGenApi
+ */
+export function ɵɵgetReplaceMetadataURL(id: string, timestamp: string, base: string): string {
+  const url = `./@ng/component?c=${id}&t=${encodeURIComponent(timestamp)}`;
+  return new URL(url, base).href;
+}
 
 /**
  * Replaces the metadata of a component type and re-renders all live instances of the component.
@@ -232,7 +246,10 @@ function recreateLView(
     // shadow root. The browser will throw if we attempt to attach another one and there's no way
     // to detach it. Our only option is to make a clone only of the root node, replace the node
     // with the clone and use it for the newly-created LView.
-    if (oldDef.encapsulation === ViewEncapsulation.ShadowDom) {
+    if (
+      oldDef.encapsulation === ViewEncapsulation.ShadowDom ||
+      oldDef.encapsulation === ViewEncapsulation.ExperimentalIsolatedShadowDom
+    ) {
       const newHost = host.cloneNode(false) as HTMLElement;
       host.replaceWith(newHost);
       host = newHost;
@@ -262,6 +279,12 @@ function recreateLView(
 
     // Destroy the detached LView.
     destroyLView(lView[TVIEW], lView);
+
+    // Clean up any dehydrated views left over from SSR hydration.
+    // Neither destroyLView nor removeViewFromDOM handle DOM nodes
+    // stored in LContainer[DEHYDRATED_VIEWS], which causes duplicated
+    // content when the view is re-rendered during HMR.
+    cleanupDehydratedLView(lView);
 
     // Always force the creation of a new renderer to ensure state captured during construction
     // stays consistent with the new component definition by clearing any old ached factories.

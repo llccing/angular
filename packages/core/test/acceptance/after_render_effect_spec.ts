@@ -11,10 +11,14 @@ import {
   ApplicationRef,
   computed,
   PLATFORM_ID,
-  provideExperimentalZonelessChangeDetection,
+  provideZonelessChangeDetection,
   signal,
 } from '../../src/core';
-import {afterRenderEffect} from '../../src/render3/reactivity/after_render_effect';
+import {
+  afterRenderEffect,
+  AfterRenderEffectSequence,
+} from '../../src/render3/reactivity/after_render_effect';
+import {AfterRenderPhase} from '../../src/render3/after_render/api';
 import {TestBed} from '../../testing';
 
 describe('afterRenderEffect', () => {
@@ -191,6 +195,37 @@ describe('afterRenderEffect', () => {
     expect(log).toEqual(['cleanup earlyRead', 'earlyRead: 4', 'cleanup write', 'write: true']);
   });
 
+  it('should disconnect the consummer from the graph when destroyed', () => {
+    const log: string[] = [];
+    const appRef = TestBed.inject(ApplicationRef);
+    const counter = signal(0);
+
+    const ref = afterRenderEffect(
+      {
+        earlyRead: () => counter() % 2 === 0,
+        write: (isEven) => isEven(),
+        mixedReadWrite: (isEven) => isEven(),
+        read: (isEven) => isEven(),
+      },
+      {injector: appRef.injector},
+    ) as AfterRenderEffectSequence;
+
+    appRef.tick();
+
+    const phaseNodes = ref['nodes'];
+    expect(phaseNodes[AfterRenderPhase.EarlyRead]?.consumers).toBeDefined();
+    expect(phaseNodes[AfterRenderPhase.Write]?.consumers).toBeDefined();
+    expect(phaseNodes[AfterRenderPhase.MixedReadWrite]?.consumers).toBeDefined();
+    expect(phaseNodes[AfterRenderPhase.Read]?.producers).toBeDefined();
+
+    ref.destroy();
+
+    expect(phaseNodes[AfterRenderPhase.EarlyRead]?.consumers).toBeUndefined();
+    expect(phaseNodes[AfterRenderPhase.Write]?.consumers).toBeUndefined();
+    expect(phaseNodes[AfterRenderPhase.MixedReadWrite]?.consumers).toBeUndefined();
+    expect(phaseNodes[AfterRenderPhase.Read]?.producers).toBeUndefined();
+  });
+
   it('should run cleanup functions when destroyed', () => {
     const log: string[] = [];
     const appRef = TestBed.inject(ApplicationRef);
@@ -227,10 +262,7 @@ describe('afterRenderEffect', () => {
 
   it('should schedule CD when dirty', async () => {
     TestBed.configureTestingModule({
-      providers: [
-        provideExperimentalZonelessChangeDetection(),
-        {provide: PLATFORM_ID, useValue: 'browser'},
-      ],
+      providers: [provideZonelessChangeDetection(), {provide: PLATFORM_ID, useValue: 'browser'}],
     });
 
     const log: string[] = [];

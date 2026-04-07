@@ -6,24 +6,28 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
+import {expect} from '@angular/private/testing/matchers';
 import {
   AbsoluteSourceSpan,
+  ArrowFunction,
   ASTWithSource,
   BindingPipe,
+  BindingPipeType,
   Call,
   EmptyExpr,
   Interpolation,
   LiteralMap,
-  ParserError,
+  LiteralMapPropertyKey,
+  ParseSpan,
   PropertyRead,
   TemplateBinding,
   VariableBinding,
-  TemplateLiteral,
 } from '../../src/expression_parser/ast';
 import {Lexer} from '../../src/expression_parser/lexer';
 import {Parser, SplitInterpolation} from '../../src/expression_parser/parser';
-import {expect} from '@angular/platform-browser/testing/src/matchers';
+import {ParseError} from '../../src/parse_util';
 
+import {getFakeSpan} from './utils/span';
 import {unparse, unparseWithSpan} from './utils/unparser';
 import {validate} from './utils/validator';
 
@@ -84,6 +88,8 @@ describe('parser', () => {
       checkAction('2 > 3');
       checkAction('2 <= 2');
       checkAction('2 >= 2');
+      checkAction(`"key" in obj`);
+      checkAction(`foo instanceof Foo`);
     });
 
     it('should parse equality expressions', () => {
@@ -117,8 +123,28 @@ describe('parser', () => {
       checkAction('(1 + 2) * 3');
     });
 
+    it('should parse in expressions', () => {
+      checkAction(`'key' in obj`, `"key" in obj`);
+      checkAction(`('key' in obj) && true`, `("key" in obj) && true`);
+      checkAction(`'in' in {in: foo}`, `"in" in {in: foo}`);
+    });
+
+    it('should throw on invalid in expressions', () => {
+      expectActionError('in', 'Unexpected token in');
+      expectActionError('in foo', 'Unexpected token in');
+      expectActionError(
+        `'foo' in`,
+        `Unexpected end of expression: 'foo' in at the end of the expression ['foo' in]`,
+      );
+    });
+
     it('should ignore comments in expressions', () => {
       checkAction('a //comment', 'a');
+    });
+
+    it('should parse instanceof expressions', () => {
+      checkAction(`obj instanceof MyClass`, `obj instanceof MyClass`);
+      checkAction(`(obj instanceof MyClass) || false`, `(obj instanceof MyClass) || false`);
     });
 
     it('should retain // in string literals', () => {
@@ -127,6 +153,32 @@ describe('parser', () => {
 
     it('should parse an empty string', () => {
       checkAction('');
+    });
+
+    it('should parse assignment operators with property reads', () => {
+      checkAction('a = b');
+      checkAction('a += b');
+      checkAction('a -= b');
+      checkAction('a *= b');
+      checkAction('a /= b');
+      checkAction('a %= b');
+      checkAction('a **= b');
+      checkAction('a &&= b');
+      checkAction('a ||= b');
+      checkAction('a ??= b');
+    });
+
+    it('should parse assignment operators with keyed reads', () => {
+      checkAction('a[0] = b');
+      checkAction('a[0] += b');
+      checkAction('a[0] -= b');
+      checkAction('a[0] *= b');
+      checkAction('a[0] /= b');
+      checkAction('a[0] %= b');
+      checkAction('a[0] **= b');
+      checkAction('a[0] &&= b');
+      checkAction('a[0] ||= b');
+      checkAction('a[0] ??= b');
     });
 
     describe('literals', () => {
@@ -167,6 +219,21 @@ describe('parser', () => {
         expectActionError('{a.b}', 'expected } at column 3');
         expectActionError('{a["b"]}', 'expected } at column 3');
         expectActionError('{1234}', ' expected identifier, keyword, or string at column 2');
+      });
+
+      it('should parse spread assignments in object literals', () => {
+        checkAction('{...foo}');
+        checkAction('{one: 1, ...foo, two: 2}');
+        checkAction('{...foo, middle: true, ...bar}');
+        checkAction('{...{...{...{foo: 1}}}}');
+      });
+
+      it('should spread elements in array literals', () => {
+        checkAction('[...foo]');
+        checkAction('[1, ...foo, 2]');
+        checkAction('[...foo, middle, ...bar]');
+        checkAction('[...[...[...[1]]]]');
+        checkAction('[a, ...b, ...[1, 2, 3]]');
       });
     });
 
@@ -239,7 +306,7 @@ describe('parser', () => {
           validate(ast);
 
           expect(ast.errors.length).toBe(1);
-          expect(ast.errors[0].message).toContain("Unexpected token '='");
+          expect(ast.errors[0].msg).toContain("Unexpected token '='");
         });
       });
     });
@@ -267,6 +334,20 @@ describe('parser', () => {
         checkAction('a?.add?.(1, 2)');
         checkAction('fn?.().add?.(1, 2)');
         checkAction('fn?.()?.(1, 2)');
+      });
+
+      it('should parse rest arguments in calls', () => {
+        checkAction('fn(...foo)');
+        checkAction('fn(1, ...foo, 2)');
+        checkAction('fn(...foo, middle, ...bar)');
+        checkAction('fn(a, ...b, ...[1, 2, 3])');
+      });
+
+      it('should parse rest arguments in safe calls', () => {
+        checkAction('fn?.(...foo)');
+        checkAction('fn?.(1, ...foo, 2)');
+        checkAction('fn?.(...foo, middle, ...bar)');
+        checkAction('fn?.(a, ...b, ...[1, 2, 3])');
       });
     });
 
@@ -348,7 +429,7 @@ describe('parser', () => {
           expect(unparse(ast)).toEqual('a[1 + ] = 1');
           validate(ast);
 
-          const errors = ast.errors.map((e) => e.message);
+          const errors = ast.errors.map((e) => e.msg);
           expect(errors.length).toBe(2);
           expect(errors[0]).toContain('Unexpected token =');
           expect(errors[1]).toContain('Missing expected ]');
@@ -360,7 +441,7 @@ describe('parser', () => {
           validate(ast);
 
           expect(ast.errors.length).toBe(1);
-          expect(ast.errors[0].message).toContain("Unexpected token '='");
+          expect(ast.errors[0].msg).toContain("Unexpected token '='");
         });
 
         it('should recover on parenthesized empty rvalues', () => {
@@ -369,7 +450,7 @@ describe('parser', () => {
           validate(ast);
 
           expect(ast.errors.length).toBe(1);
-          expect(ast.errors[0].message).toContain("Unexpected token '='");
+          expect(ast.errors[0].msg).toContain("Unexpected token '='");
         });
       });
     });
@@ -403,14 +484,6 @@ describe('parser', () => {
 
     it('should error when using pipes', () => {
       expectActionError('x|blah', 'Cannot have a pipe');
-    });
-
-    it('should store the source in the result', () => {
-      expect(parseAction('someExpr', 'someExpr'));
-    });
-
-    it('should store the passed-in location', () => {
-      expect(parseAction('someExpr', 'location').location).toBe('location');
     });
 
     it('should report when encountering interpolation', () => {
@@ -448,11 +521,15 @@ describe('parser', () => {
         checkBinding('`hello ${(name | capitalize)}!!!`', '`hello ${((name | capitalize))}!!!`');
       });
 
+      it('should parse template literals in objects literals', () => {
+        checkBinding('{"a": `${name}`}');
+        checkBinding('{"a": `hello ${name}!`}');
+        checkBinding('{"a": `hello ${`hello ${`hello`}`}!`}');
+        checkBinding('{"a": `hello ${{"b": `hello`}}`}');
+      });
+
       it('should report error if interpolation is empty', () => {
-        expectBindingError(
-          '`hello ${}`',
-          'Template literal interpolation cannot be empty at the end of the expression',
-        );
+        expectBindingError('`hello ${}`', 'Template literal interpolation cannot be empty');
       });
 
       it('should parse tagged template literals with no interpolations', () => {
@@ -476,6 +553,36 @@ describe('parser', () => {
       it('should not mistake operator for tagged literal tag', () => {
         checkBinding('typeof `hello!`');
         checkBinding('typeof `hello ${name}!`');
+      });
+    });
+
+    describe('regular expression literals', () => {
+      it('should parse a regular expression literal without flags', () => {
+        checkBinding('/abc/');
+        checkBinding('/[a/]$/');
+        checkBinding('/a\\w+/');
+        checkBinding('/^http:\\/\\/foo\\.bar/');
+      });
+
+      it('should parse a regular expression literal with flags', () => {
+        checkBinding('/abc/g');
+        checkBinding('/[a/]$/gi');
+        checkBinding('/a\\w+/gim');
+        checkBinding('/^http:\\/\\/foo\\.bar/i');
+      });
+
+      it('should parse a regular expression that is a part of other expressions', () => {
+        checkBinding('/abc/.test("foo")');
+        checkBinding('"foo".match(/(abc)/)[1].toUpperCase()');
+        checkBinding('/abc/.test("foo") && something || somethingElse');
+      });
+
+      it('should report invalid regular expression flag', () => {
+        expectBindingError('"foo".match(/abc/O)', 'Unsupported regular expression flag "O"');
+      });
+
+      it('should report duplicated regular expression flags', () => {
+        expectBindingError('"foo".match(/abc/gig)', 'Duplicate regular expression flag "g"');
       });
     });
   });
@@ -520,13 +627,13 @@ describe('parser', () => {
     it('should record property write span', () => {
       const ast = parseAction('a = b');
       expect(unparseWithSpan(ast)).toContain(['a = b', 'a = b']);
-      expect(unparseWithSpan(ast)).toContain(['a = b', '[nameSpan] a']);
+      expect(unparseWithSpan(ast)).toContain(['a', '[nameSpan] a']);
     });
 
     it('should record accessed property write span', () => {
       const ast = parseAction('a.b = c');
       expect(unparseWithSpan(ast)).toContain(['a.b = c', 'a.b = c']);
-      expect(unparseWithSpan(ast)).toContain(['a.b = c', '[nameSpan] b']);
+      expect(unparseWithSpan(ast)).toContain(['a.b', '[nameSpan] b']);
     });
 
     it('should record spans for untagged template literals with no interpolations', () => {
@@ -600,6 +707,33 @@ describe('parser', () => {
       ]);
     });
 
+    it('should record spans for binary assignment operations', () => {
+      expect(unparseWithSpan(parseAction('a.b ??= c'))).toEqual([
+        ['a.b ??= c', 'a.b ??= c'],
+        ['a.b', 'a.b'],
+        ['a.b', '[nameSpan] b'],
+        ['a', 'a'],
+        ['a', '[nameSpan] a'],
+        ['', ''],
+        ['c', 'c'],
+        ['c', '[nameSpan] c'],
+        ['', ' '],
+      ]);
+      expect(unparseWithSpan(parseAction('a[b] ||= c'))).toEqual([
+        ['a[b] ||= c', 'a[b] ||= c'],
+        ['a[b]', 'a[b]'],
+        ['a', 'a'],
+        ['a', '[nameSpan] a'],
+        ['', ''],
+        ['b', 'b'],
+        ['b', '[nameSpan] b'],
+        ['', ''],
+        ['c', 'c'],
+        ['c', '[nameSpan] c'],
+        ['', ' '],
+      ]);
+    });
+
     it('should include parenthesis in spans', () => {
       // When a LHS expression is parenthesized, the parenthesis on the left used to be
       // excluded from the span. This test verifies that the parenthesis are properly included
@@ -632,6 +766,89 @@ describe('parser', () => {
         expect(unparseWithSpan(parseBinding(input))).toContain([jasmine.any(String), input]);
       }
     });
+
+    it('should produce correct span for typeof expression', () => {
+      const ast = parseAction('foo = typeof bar');
+
+      expect(unparseWithSpan(ast)).toEqual([
+        ['foo = typeof bar', 'foo = typeof bar'],
+        ['foo', 'foo'],
+        ['foo', '[nameSpan] foo'],
+        ['', ''],
+        ['typeof bar', 'typeof bar'],
+        ['bar', 'bar'],
+        ['bar', '[nameSpan] bar'],
+        ['', ' '],
+      ]);
+    });
+
+    it('should produce correct span for void expression', () => {
+      const ast = parseAction('foo = void bar');
+
+      expect(unparseWithSpan(ast)).toEqual([
+        ['foo = void bar', 'foo = void bar'],
+        ['foo', 'foo'],
+        ['foo', '[nameSpan] foo'],
+        ['', ''],
+        ['void bar', 'void bar'],
+        ['bar', 'bar'],
+        ['bar', '[nameSpan] bar'],
+        ['', ' '],
+      ]);
+    });
+
+    it('should record span for a regex without flags', () => {
+      const ast = parseBinding('/^http:\\/\\/foo\\.bar/');
+      expect(unparseWithSpan(ast)).toContain([
+        '/^http:\\/\\/foo\\.bar/',
+        '/^http:\\/\\/foo\\.bar/',
+      ]);
+    });
+
+    it('should record span for a regex with flags', () => {
+      const ast = parseBinding('/^http:\\/\\/foo\\.bar/gim');
+      expect(unparseWithSpan(ast)).toContain([
+        '/^http:\\/\\/foo\\.bar/gim',
+        '/^http:\\/\\/foo\\.bar/gim',
+      ]);
+    });
+
+    it('should record span for literal map keys', () => {
+      const ast = parseBinding('{one: 1, two: "the number two", three, "four": 4, ...five}');
+      const literal = ast.ast as LiteralMap;
+      const getSource = (span: ParseSpan) => ast.source?.substring(span.start, span.end);
+
+      expect(getSource(literal.keys[0].span)).toBe('one');
+      expect(getSource(literal.keys[1].span)).toBe('two');
+      expect(getSource(literal.keys[2].span)).toBe('three');
+      expect(getSource(literal.keys[3].span)).toBe('"four"');
+      expect(getSource(literal.keys[4].span)).toBe('...');
+    });
+
+    it('should record span for spread elements', () => {
+      expect(unparseWithSpan(parseBinding('[...foo]'))).toEqual([
+        ['[...foo]', '[...foo]'],
+        ['...foo', '...foo'],
+        ['foo', 'foo'],
+        ['foo', '[nameSpan] foo'],
+        ['', ''],
+      ]);
+    });
+
+    it('should record span for rest arguments in functions', () => {
+      expect(unparseWithSpan(parseBinding('fn(1, ...foo)'))).toEqual([
+        ['fn(1, ...foo)', 'fn(1, ...foo)'],
+        ['fn(1, ...foo)', '[argumentSpan] 1, ...foo'],
+        ['fn', 'fn'],
+        ['fn', '[nameSpan] fn'],
+        ['', ''],
+        ['1', '1'],
+        ['...foo', '...foo'],
+        ['foo', 'foo'],
+        ['foo', '[nameSpan] foo'],
+        ['', ''],
+      ]);
+    });
   });
 
   describe('general error handling', () => {
@@ -645,6 +862,19 @@ describe('parser', () => {
 
     it('should report a missing expected token', () => {
       expectActionError('a(b', 'Missing expected ) at the end of the expression [a(b]');
+    });
+
+    it('should report a single error for an `as` expression inside a parenthesized expression', () => {
+      expectActionError(
+        `foo(($event.target as HTMLElement).value)`,
+        'Missing closing parentheses at column 20',
+        1,
+      );
+      expectActionError(
+        `foo(((($event.target as HTMLElement))).value)`,
+        'Missing closing parentheses at column 22',
+        1,
+      );
     });
   });
 
@@ -718,6 +948,24 @@ describe('parser', () => {
           // The nameSpan should be positioned at the end of the input.
           expect(rawSpan(binding.nameSpan)).toEqual([bindingText.length, bindingText.length]);
         });
+
+        it('should parse pipes with the correct type when supportsDirectPipeReferences is enabled', () => {
+          expect((parseBinding('0 | Foo', true).ast as BindingPipe).type).toBe(
+            BindingPipeType.ReferencedDirectly,
+          );
+          expect((parseBinding('0 | foo', true).ast as BindingPipe).type).toBe(
+            BindingPipeType.ReferencedByName,
+          );
+        });
+
+        it('should parse pipes with the correct type when supportsDirectPipeReferences is disabled', () => {
+          expect((parseBinding('0 | Foo', false).ast as BindingPipe).type).toBe(
+            BindingPipeType.ReferencedByName,
+          );
+          expect((parseBinding('0 | foo', false).ast as BindingPipe).type).toBe(
+            BindingPipeType.ReferencedByName,
+          );
+        });
       });
 
       it('should only allow identifier or keyword as formatter names', () => {
@@ -734,10 +982,6 @@ describe('parser', () => {
 
     it('should store the source in the result', () => {
       expect(parseBinding('someExpr').source).toBe('someExpr');
-    });
-
-    it('should store the passed-in location', () => {
-      expect(parseBinding('someExpr', 'location').location).toBe('location');
     });
 
     it('should report chain expressions', () => {
@@ -773,10 +1017,139 @@ describe('parser', () => {
 
     it('should expose object shorthand information in AST', () => {
       const parser = new Parser(new Lexer());
-      const ast = parser.parseBinding('{bla}', '', 0);
-      expect(ast.ast instanceof LiteralMap).toBe(true);
-      expect((ast.ast as LiteralMap).keys.length).toBe(1);
-      expect((ast.ast as LiteralMap).keys[0].isShorthandInitialized).toBe(true);
+      const ast = parser.parseBinding('{bla}', getFakeSpan(), 0);
+      const map = ast.ast as LiteralMap;
+      expect(map instanceof LiteralMap).toBe(true);
+      expect(map.keys.length).toBe(1);
+      expect((map.keys[0] as LiteralMapPropertyKey).isShorthandInitialized).toBe(true);
+    });
+
+    describe('arrow functions', () => {
+      it('should parse a single-parameter arrow function', () => {
+        checkBinding('a => a');
+      });
+
+      it('should parse a single-parameter arrow function with parentheses', () => {
+        checkBinding('(a) => a', 'a => a');
+      });
+
+      it('should parse an arrow function with not parameters', () => {
+        checkBinding('() => 1');
+      });
+
+      it('should parse an arrow function with multiple parameters', () => {
+        checkBinding('(a, b, c, d, e) => a / b + c * d');
+      });
+
+      it('should parse an immediately-invoked arrow function', () => {
+        checkBinding('((a, b) => a + b)(1, 2)');
+      });
+
+      it('should parse an arrow function that returns other arrow functions', () => {
+        checkBinding('(a, b) => c => (d, e) => () => a + b + c + d + e');
+      });
+
+      it('should parse an arrow function that returns an object literal', () => {
+        checkBinding('() => ({a: 1, b: 2})');
+      });
+
+      it('should parse an arrow function containing an assignment', () => {
+        checkBinding('(a, b) => c = a + b');
+      });
+
+      it('should be able to pass an arrow function through a pipe', () => {
+        checkBinding('(a, b) => a + b | pipe', '((a, b) => a + b | pipe)');
+      });
+
+      it('should parse an arrow function that returns an array', () => {
+        checkBinding('(a, b) => [a, b, foo]');
+      });
+
+      describe('arrow function spans', () => {
+        it('should produce spans for the entire arrow function', () => {
+          expect(unparseWithSpan(parseBinding('a => a'))).toEqual([
+            ['a => a', 'a => a'],
+            ['a', 'a'],
+            ['a', '[nameSpan] a'],
+            ['', ' '],
+          ]);
+          expect(unparseWithSpan(parseBinding('(a, b, c) => a + b + c'))).toEqual([
+            ['(a, b, c) => a + b + c', '(a, b, c) => a + b + c'],
+            ['a + b + c', 'a + b + c'],
+            ['a + b', 'a + b'],
+            ['a', 'a'],
+            ['a', '[nameSpan] a'],
+            ['', ' '],
+            ['b', 'b'],
+            ['b', '[nameSpan] b'],
+            ['', ' '],
+            ['c', 'c'],
+            ['c', '[nameSpan] c'],
+            ['', ' '],
+          ]);
+        });
+
+        it('should produce spans for the arrow function parameters', () => {
+          const ast = parseBinding('(foo, bar, baz) => foo + bar + baz');
+          const arrowFn = ast.ast as ArrowFunction;
+          const getSource = (span: ParseSpan) => ast.source?.substring(span.start, span.end);
+
+          expect(getSource(arrowFn.parameters[0].span)).toBe('foo');
+          expect(getSource(arrowFn.parameters[1].span)).toBe('bar');
+          expect(getSource(arrowFn.parameters[2].span)).toBe('baz');
+        });
+      });
+
+      describe('arrow function validations', () => {
+        it('should not allow pipe to be used inside an arrow function', () => {
+          expectBindingError(
+            '(a, b) => (a + b | pipe)',
+            'Cannot have a pipe in an action expression',
+          );
+        });
+
+        it('should report an error for an arrow function with a body', () => {
+          expectBindingError('() => {}', 'Multi-line arrow functions are not supported');
+        });
+
+        it('should report missing comma between arrow function parameters', () => {
+          expectBindingError('(a b) => a + b', 'Missing expected ,');
+        });
+
+        it('should report arrow function parameter starting with a comma', () => {
+          expectBindingError('(, a) => a', 'Unexpected token ,');
+        });
+
+        it('should report arrow function parameter with a trailing comma', () => {
+          expectBindingError('(a, ) => a', 'Unexpected token )');
+        });
+
+        it('should report an arrow function without a closing paren', () => {
+          expectBindingError(
+            '(a => a + 1',
+            'Missing closing parentheses at the end of the expression',
+          );
+        });
+
+        it('should report an arrow function without an opening paren', () => {
+          expectBindingError('a) => a + 1', "Unexpected token ')'");
+        });
+
+        it('should report an error inside the arrow function expression', () => {
+          expectBindingError('(a) => a. + 1', 'Unexpected token +, expected identifier or keyword');
+        });
+
+        it('should report an error for chained expression in arrow function', () => {
+          expectBindingError(
+            '() => foo(); bar()',
+            'Binding expression cannot contain chained expression',
+          );
+          expectBindingError(
+            '() => (foo; bar)',
+            'Binding expression cannot contain chained expression',
+          );
+        });
+      });
     });
   });
 
@@ -857,7 +1230,7 @@ describe('parser', () => {
         ['a', '1', false],
         ['aB', '2', false],
       ]);
-      expect((bindings[0].value as ASTWithSource).location).toEqual('/foo/bar.html');
+      expect((bindings[0].value as ASTWithSource).location).toEqual('/foo/bar.html@0:0');
     });
 
     it('should support common usage of ngIf', () => {
@@ -1061,7 +1434,7 @@ describe('parser', () => {
 
         expectParseTemplateBindingsError(
           attr,
-          'Parser Error: Unexpected token {, expected identifier, keyword, or string at column 10 in [name && {{name}}] in foo.html',
+          'Parser Error: Unexpected token {, expected identifier, keyword, or string at column 10 in [name && {{name}}] in foo.html@0:0',
         );
       });
 
@@ -1163,6 +1536,11 @@ describe('parser', () => {
         parseInterpolation('foo {{  }}')!,
         'Parser Error: Blank expressions are not allowed in interpolated strings',
       );
+
+      expectError(
+        parseInterpolation('{{  }}')!,
+        'Parser Error: Blank expressions are not allowed in interpolated strings',
+      );
     });
 
     it('should produce an empty expression ast for empty interpolations', () => {
@@ -1179,18 +1557,16 @@ describe('parser', () => {
       checkInterpolation(`{{ 'foo' +\n 'bar' +\r 'baz' }}`, `{{ "foo" + "bar" + "baz" }}`);
     });
 
-    it('should support custom interpolation', () => {
-      const parser = new Parser(new Lexer());
-      const ast = parser.parseInterpolation('{% a %}', '', 0, null, {start: '{%', end: '%}'})!
-        .ast as any;
-      expect(ast.strings).toEqual(['', '']);
-      expect(ast.expressions.length).toEqual(1);
-      expect(ast.expressions[0].name).toEqual('a');
-    });
-
     describe('comments', () => {
       it('should ignore comments in interpolation expressions', () => {
         checkInterpolation('{{a //comment}}', '{{ a }}');
+      });
+
+      it('should error when interpolation only contains a comment', () => {
+        expectError(
+          parseInterpolation('{{ // foobar  }}')!,
+          'Parser Error: Interpolation expression cannot only contain a comment at column 0 in [{{ // foobar  }}]',
+        );
       });
 
       it('should retain // in single quote strings', () => {
@@ -1343,6 +1719,18 @@ describe('parser', () => {
     it('should be able to recover from a missing selector', () => recover('a.'));
     it('should be able to recover from a missing selector in a array literal', () =>
       recover('[[a.], b, c]'));
+
+    it('should recover from parenthesized `as` expressions', () => {
+      recover('foo(($event.target as HTMLElement).value)', 'foo(($event.target).value)');
+      recover('foo(((($event.target as HTMLElement))).value)', 'foo(((($event.target))).value)');
+      recover('foo(((bar as HTMLElement) as Something).value)', 'foo(((bar)).value)');
+    });
+
+    it('should be able to recover from a broken expression in a template literal', () => {
+      recover('`before ${expr.}`', '`before ${expr.}`');
+      recover('`${expr.} after`', '`${expr.} after`');
+      recover('`before ${expr.} after`', '`before ${expr.} after`');
+    });
   });
 
   describe('offsets', () => {
@@ -1359,16 +1747,16 @@ describe('parser', () => {
   });
 });
 
-function createParser() {
-  return new Parser(new Lexer());
+function createParser(supportsDirectPipeReferences = false) {
+  return new Parser(new Lexer(), supportsDirectPipeReferences);
 }
 
-function parseAction(text: string, location: any = null, offset: number = 0): ASTWithSource {
-  return createParser().parseAction(text, location, offset);
+function parseAction(text: string): ASTWithSource {
+  return createParser().parseAction(text, getFakeSpan(), 0);
 }
 
-function parseBinding(text: string, location: any = null, offset: number = 0): ASTWithSource {
-  return createParser().parseBinding(text, location, offset);
+function parseBinding(text: string, supportsDirectPipeReferences?: boolean): ASTWithSource {
+  return createParser(supportsDirectPipeReferences).parseBinding(text, getFakeSpan(), 0);
 }
 
 function parseTemplateBindings(attribute: string, templateUrl = 'foo.html'): TemplateBinding[] {
@@ -1380,33 +1768,35 @@ function parseTemplateBindings(attribute: string, templateUrl = 'foo.html'): Tem
 
 function expectParseTemplateBindingsError(attribute: string, error: string) {
   const result = _parseTemplateBindings(attribute, 'foo.html');
-  expect(result.errors[0].message).toEqual(error);
+  expect(result.errors[0].msg).toEqual(error);
 }
 
 function _parseTemplateBindings(attribute: string, templateUrl: string) {
   const match = attribute.match(/^\*(.+)="(.*)"$/);
-  expect(match).toBeTruthy(`failed to extract key and value from ${attribute}`);
+  expect(match).withContext(`failed to extract key and value from ${attribute}`).toBeTruthy();
   const [_, key, value] = match!;
   const absKeyOffset = 1; // skip the * prefix
   const absValueOffset = attribute.indexOf('=') + '="'.length;
   const parser = createParser();
-  return parser.parseTemplateBindings(key, value, templateUrl, absKeyOffset, absValueOffset);
+  return parser.parseTemplateBindings(
+    key,
+    value,
+    getFakeSpan(templateUrl),
+    absKeyOffset,
+    absValueOffset,
+  );
 }
 
-function parseInterpolation(
-  text: string,
-  location: any = null,
-  offset: number = 0,
-): ASTWithSource | null {
-  return createParser().parseInterpolation(text, location, offset, null);
+function parseInterpolation(text: string): ASTWithSource | null {
+  return createParser().parseInterpolation(text, getFakeSpan(), 0, null);
 }
 
-function splitInterpolation(text: string, location: any = null): SplitInterpolation | null {
-  return createParser().splitInterpolation(text, location, null);
+function splitInterpolation(text: string): SplitInterpolation | null {
+  return createParser().splitInterpolation(text, getFakeSpan(), [], null);
 }
 
-function parseSimpleBinding(text: string, location: any = null, offset: number = 0): ASTWithSource {
-  return createParser().parseSimpleBinding(text, location, offset);
+function parseSimpleBinding(text: string): ASTWithSource {
+  return createParser().parseSimpleBinding(text, getFakeSpan(), 0);
 }
 
 function checkInterpolation(exp: string, expected?: string) {
@@ -1433,20 +1823,26 @@ function checkAction(exp: string, expected?: string) {
   validate(ast);
 }
 
-function expectError(ast: {errors: ParserError[]}, message: string) {
+function expectError(ast: {errors: ParseError[]}, message: string, errorCount?: number) {
+  if (errorCount != null) {
+    expect(ast.errors.length).toBe(errorCount);
+  } else {
+    expect(ast.errors.length).toBeGreaterThan(0);
+  }
+
   for (const error of ast.errors) {
-    if (error.message.indexOf(message) >= 0) {
+    if (error.msg.indexOf(message) >= 0) {
       return;
     }
   }
-  const errMsgs = ast.errors.map((err) => err.message).join('\n');
+  const errMsgs = ast.errors.map((err) => err.msg).join('\n');
   throw Error(
     `Expected an error containing "${message}" to be reported, but got the errors:\n` + errMsgs,
   );
 }
 
-function expectActionError(text: string, message: string) {
-  expectError(validate(parseAction(text)), message);
+function expectActionError(text: string, message: string, errorCount?: number) {
+  expectError(validate(parseAction(text)), message, errorCount);
 }
 
 function expectBindingError(text: string, message: string) {

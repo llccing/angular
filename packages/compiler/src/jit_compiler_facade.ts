@@ -10,6 +10,7 @@ import {
   CompilerFacade,
   CoreEnvironment,
   ExportedCompilerFacade,
+  FactoryTarget,
   LegacyInputPartialMapping,
   OpaqueValue,
   R3ComponentMetadataFacade,
@@ -44,7 +45,6 @@ import {
   ViewEncapsulation,
 } from './core';
 import {compileInjectable} from './injectable_compiler_2';
-import {DEFAULT_INTERPOLATION_CONFIG, InterpolationConfig} from './ml_parser/defaults';
 import {
   DeclareVarStmt,
   Expression,
@@ -57,7 +57,7 @@ import {
 import {JitEvaluator} from './output/output_jit';
 import {ParseError, ParseSourceSpan, r3JitTypeSourceSpan} from './parse_util';
 import {DeferredBlock} from './render3/r3_ast';
-import {compileFactoryFunction, FactoryTarget, R3DependencyMetadata} from './render3/r3_factory';
+import {compileFactoryFunction, R3DependencyMetadata} from './render3/r3_factory';
 import {compileInjector, R3InjectorMetadata} from './render3/r3_injector_compiler';
 import {R3JitReflector} from './render3/r3_jit';
 import {
@@ -82,7 +82,6 @@ import {
   R3ComponentMetadata,
   R3DirectiveDependencyMetadata,
   R3DirectiveMetadata,
-  R3HostDirectiveMetadata,
   R3HostMetadata,
   R3InputMetadata,
   R3PipeDependencyMetadata,
@@ -104,7 +103,6 @@ import {R3TargetBinder} from './render3/view/t2_binder';
 import {makeBindingParser, parseTemplate} from './render3/view/template';
 import {ResourceLoader} from './resource_loader';
 import {DomElementSchemaRegistry} from './schema/dom_element_schema_registry';
-import {SelectorMatcher} from './selector';
 import {getJitStandaloneDefaultForVersion} from './util';
 
 export class CompilerFacadeImpl implements CompilerFacade {
@@ -293,12 +291,11 @@ export class CompilerFacadeImpl implements CompilerFacade {
     facade: R3ComponentMetadataFacade,
   ): any {
     // Parse the template and check for errors.
-    const {template, interpolation, defer} = parseJitTemplate(
+    const {template, defer} = parseJitTemplate(
       facade.template,
       facade.name,
       sourceMapUrl,
       facade.preserveWhitespaces,
-      facade.interpolation,
       undefined,
     );
 
@@ -314,7 +311,6 @@ export class CompilerFacadeImpl implements CompilerFacade {
 
       styles: [...facade.styles, ...template.styles],
       encapsulation: facade.encapsulation,
-      interpolation,
       changeDetection: facade.changeDetection ?? null,
       animations: facade.animations != null ? new WrappedNodeExpr(facade.animations) : null,
       viewProviders:
@@ -347,7 +343,7 @@ export class CompilerFacadeImpl implements CompilerFacade {
     meta: R3ComponentMetadata<R3TemplateDependency>,
   ): any {
     const constantPool = new ConstantPool();
-    const bindingParser = makeBindingParser(meta.interpolation);
+    const bindingParser = makeBindingParser();
     const res = compileComponentFromMetadata(meta, constantPool, bindingParser);
     return this.jitExpression(
       res.expression,
@@ -533,7 +529,6 @@ function convertDirectiveFacadeToMetadata(facade: R3DirectiveMetadataFacade): R3
     queries: facade.queries.map(convertToR3QueryMetadata),
     providers: facade.providers != null ? new WrappedNodeExpr(facade.providers) : null,
     viewQueries: facade.viewQueries.map(convertToR3QueryMetadata),
-    fullInheritance: false,
     hostDirectives,
   };
 }
@@ -565,10 +560,10 @@ function convertDeclareDirectiveFacadeToMetadata(
       declaration.providers !== undefined ? new WrappedNodeExpr(declaration.providers) : null,
     exportAs: declaration.exportAs ?? null,
     usesInheritance: declaration.usesInheritance ?? false,
+    controlCreate: declaration.controlCreate ?? null,
     lifecycle: {usesOnChanges: declaration.usesOnChanges ?? false},
     deps: null,
     typeArgumentCount: 0,
-    fullInheritance: false,
     isStandalone:
       declaration.isStandalone ?? getJitStandaloneDefaultForVersion(declaration.version),
     isSignal: declaration.isSignal ?? false,
@@ -620,12 +615,11 @@ function convertDeclareComponentFacadeToMetadata(
   typeSourceSpan: ParseSourceSpan,
   sourceMapUrl: string,
 ): R3ComponentMetadata<R3TemplateDependencyMetadata> {
-  const {template, interpolation, defer} = parseJitTemplate(
+  const {template, defer} = parseJitTemplate(
     decl.template,
     decl.type.name,
     sourceMapUrl,
     decl.preserveWhitespaces ?? false,
-    decl.interpolation,
     decl.deferBlockDependencies,
   );
 
@@ -658,6 +652,11 @@ function convertDeclareComponentFacadeToMetadata(
     decl.pipes && declarations.push(...convertPipeMapToMetadata(decl.pipes));
   }
 
+  const hasDirectiveDependencies = declarations.some(
+    ({kind}) =>
+      kind === R3TemplateDependencyKind.Directive || kind === R3TemplateDependencyKind.NgModule,
+  );
+
   return {
     ...convertDeclareDirectiveFacadeToMetadata(decl, typeSourceSpan),
     template,
@@ -667,14 +666,13 @@ function convertDeclareComponentFacadeToMetadata(
       decl.viewProviders !== undefined ? new WrappedNodeExpr(decl.viewProviders) : null,
     animations: decl.animations !== undefined ? new WrappedNodeExpr(decl.animations) : null,
     defer,
-
-    changeDetection: decl.changeDetection ?? ChangeDetectionStrategy.Default,
+    changeDetection: decl.changeDetection ?? ChangeDetectionStrategy.OnPush,
     encapsulation: decl.encapsulation ?? ViewEncapsulation.Emulated,
-    interpolation,
     declarationListEmitMode: DeclarationListEmitMode.ClosureResolved,
     relativeContextFilePath: '',
     i18nUseExternalIds: true,
     relativeTemplatePath: null,
+    hasDirectiveDependencies,
   };
 }
 
@@ -733,27 +731,19 @@ function parseJitTemplate(
   typeName: string,
   sourceMapUrl: string,
   preserveWhitespaces: boolean,
-  interpolation: [string, string] | undefined,
   deferBlockDependencies: (() => Promise<unknown> | null)[] | undefined,
 ) {
-  const interpolationConfig = interpolation
-    ? InterpolationConfig.fromArray(interpolation)
-    : DEFAULT_INTERPOLATION_CONFIG;
   // Parse the template and check for errors.
-  const parsed = parseTemplate(template, sourceMapUrl, {
-    preserveWhitespaces,
-    interpolationConfig,
-  });
+  const parsed = parseTemplate(template, sourceMapUrl, {preserveWhitespaces});
   if (parsed.errors !== null) {
     const errors = parsed.errors.map((err) => err.toString()).join(', ');
     throw new Error(`Errors during JIT compilation of template for ${typeName}: ${errors}`);
   }
-  const binder = new R3TargetBinder(new SelectorMatcher());
+  const binder = new R3TargetBinder(null);
   const boundTarget = binder.bind({template: parsed.nodes});
 
   return {
     template: parsed,
-    interpolation: interpolationConfig,
     defer: createR3ComponentDeferMetadata(boundTarget, deferBlockDependencies),
   };
 }

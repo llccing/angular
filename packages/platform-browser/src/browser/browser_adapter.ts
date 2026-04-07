@@ -9,9 +9,8 @@
 import {
   ɵparseCookieValue as parseCookieValue,
   ɵsetRootDomAdapter as setRootDomAdapter,
+  ɵDomAdapter as DomAdapter,
 } from '@angular/common';
-
-import {GenericBrowserDomAdapter} from './generic_browser_adapter';
 
 /**
  * A `DomAdapter` powered by full browser DOM APIs.
@@ -19,7 +18,9 @@ import {GenericBrowserDomAdapter} from './generic_browser_adapter';
  * @security Tread carefully! Interacting with the DOM directly is dangerous and
  * can introduce XSS risks.
  */
-export class BrowserDomAdapter extends GenericBrowserDomAdapter {
+export class BrowserDomAdapter extends DomAdapter {
+  override readonly supportsDOMEvents: boolean = true;
+
   static makeCurrent() {
     setRootDomAdapter(new BrowserDomAdapter());
   }
@@ -85,7 +86,7 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
 
 let baseElement: HTMLElement | null = null;
 function getBaseElementHref(): string | null {
-  baseElement = baseElement || document.querySelector('base');
+  baseElement = baseElement || document.head.querySelector('base');
   return baseElement ? baseElement.getAttribute('href') : null;
 }
 

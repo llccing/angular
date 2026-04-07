@@ -79,10 +79,7 @@ export class Parser {
     const tokenizeResult = tokenize(source, url, this.getTagDefinition, options);
     const parser = new _TreeBuilder(tokenizeResult.tokens, this.getTagDefinition);
     parser.build();
-    return new ParseTreeResult(
-      parser.rootNodes,
-      (tokenizeResult.errors as ParseError[]).concat(parser.errors),
-    );
+    return new ParseTreeResult(parser.rootNodes, [...tokenizeResult.errors, ...parser.errors]);
   }
 }
 
@@ -398,13 +395,13 @@ class _TreeBuilder {
     this._consumeAttributesAndDirectives(attrs, directives);
 
     const fullName = this._getElementFullName(startTagToken, this._getClosestElementLikeParent());
+    const tagDef = this._getTagDefinition(fullName);
     let selfClosing = false;
     // Note: There could have been a tokenizer error
     // so that we don't get a token for the end tag...
     if (this._peek.type === TokenType.TAG_OPEN_END_VOID) {
       this._advance();
       selfClosing = true;
-      const tagDef = this._getTagDefinition(fullName);
       if (!(tagDef?.canSelfClose || getNsPrefix(fullName) !== null || tagDef?.isVoid)) {
         this.errors.push(
           TreeError.create(
@@ -430,7 +427,17 @@ class _TreeBuilder {
       end,
       startTagToken.sourceSpan.fullStart,
     );
-    const el = new html.Element(fullName, attrs, directives, [], span, startSpan, undefined);
+    const el = new html.Element(
+      fullName,
+      attrs,
+      directives,
+      [],
+      selfClosing,
+      span,
+      startSpan,
+      undefined,
+      tagDef?.isVoid ?? false,
+    );
     const parent = this._getContainer();
     const isClosedByChild =
       parent !== null && !!this._getTagDefinition(parent)?.isClosedByChild(el.name);
@@ -482,6 +489,7 @@ class _TreeBuilder {
       attrs,
       directives,
       [],
+      selfClosing,
       span,
       startSpan,
       undefined,
@@ -745,13 +753,30 @@ class _TreeBuilder {
   }
 
   private _consumeBlockClose(token: BlockCloseToken) {
+    const initialStackLength = this._containerStack.length;
+    const topNode = this._containerStack[initialStackLength - 1];
     if (!this._popContainer(null, html.Block, token.sourceSpan)) {
+      if (this._containerStack.length < initialStackLength) {
+        const nodeName = topNode instanceof html.Component ? topNode.fullName : topNode.name;
+        this.errors.push(
+          TreeError.create(
+            null,
+            token.sourceSpan,
+            `Unexpected closing block. The block may have been closed earlier. ` +
+              `Did you forget to close the <${nodeName}> element? ` +
+              `If you meant to write the \`}\` character, you should use the "&#125;" ` +
+              `HTML entity instead.`,
+          ),
+        );
+        return;
+      }
+
       this.errors.push(
         TreeError.create(
           null,
           token.sourceSpan,
           `Unexpected closing block. The block may have been closed earlier. ` +
-            `If you meant to write the } character, you should use the "&#125;" ` +
+            `If you meant to write the \`}\` character, you should use the "&#125;" ` +
             `HTML entity instead.`,
         ),
       );

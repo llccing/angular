@@ -7,6 +7,7 @@
  */
 
 import {
+  ChangeDetectionStrategy,
   Component,
   Directive,
   DoCheck,
@@ -216,6 +217,7 @@ describe('exports', () => {
       fixture.detectChanges();
       fixture.componentInstance.outer = true;
       fixture.componentInstance.inner = true;
+      fixture.changeDetectorRef.markForCheck();
       fixture.detectChanges();
 
       // result should be <input value="one"><div>one <input value="two"><div>one - two</div></div>
@@ -229,7 +231,12 @@ describe('exports', () => {
 });
 
 function initWithTemplate(compType: Type<any>, template: string) {
-  TestBed.overrideComponent(compType, {set: new Component({template})});
+  TestBed.overrideComponent(compType, {
+    set: new Component({
+      template,
+      changeDetection: ChangeDetectionStrategy.Eager,
+    }),
+  });
   return TestBed.createComponent(compType);
 }
 
@@ -237,6 +244,8 @@ function initWithTemplate(compType: Type<any>, template: string) {
   selector: 'comp-to-ref',
   template: '',
   standalone: false,
+
+  changeDetection: ChangeDetectionStrategy.Eager,
 })
 class ComponentToReference {
   name = 'Nancy';
@@ -246,6 +255,8 @@ class ComponentToReference {
   selector: 'app-comp',
   template: ``,
   standalone: false,
+
+  changeDetection: ChangeDetectionStrategy.Eager,
 })
 class AppComp {
   outer = false;

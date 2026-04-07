@@ -7,15 +7,13 @@
  */
 
 import {DOCUMENT} from '@angular/common';
-import {provideHttpClient, withFetch} from '@angular/common/http';
 import {
   ApplicationConfig,
   ErrorHandler,
-  VERSION,
   inject,
-  provideExperimentalZonelessChangeDetection,
   provideEnvironmentInitializer,
 } from '@angular/core';
+import {UrlSerializer} from '@angular/router';
 import {
   DOCS_CONTENT_LOADER,
   ENVIRONMENT,
@@ -32,21 +30,16 @@ import {AnalyticsService} from './core/services/analytics/analytics.service';
 import {ContentLoader} from './core/services/content-loader.service';
 import {CustomErrorHandler} from './core/services/errors-handling/error-handler';
 import {ExampleContentLoader} from './core/services/example-content-loader.service';
-import {CURRENT_MAJOR_VERSION} from './core/providers/current-version';
-import {routerProviders} from './router_providers';
+import {routerProviders} from './routing/router_providers';
+import {TYPESCRIPT_VFS_WORKER_PROVIDER} from './editor/code-editor/workers/factory-provider';
+import {AdevUrlSerializer} from './core/services/routing/adev-url-serializer';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     routerProviders,
-    provideExperimentalZonelessChangeDetection(),
     provideClientHydration(),
-    provideHttpClient(withFetch()),
     provideEnvironmentInitializer(() => inject(AnalyticsService)),
     provideAlgoliaSearchClient(environment),
-    {
-      provide: CURRENT_MAJOR_VERSION,
-      useValue: Number(VERSION.major),
-    },
     {provide: ENVIRONMENT, useValue: environment},
     {provide: ErrorHandler, useClass: CustomErrorHandler},
     {provide: PREVIEWS_COMPONENTS, useValue: PREVIEWS_COMPONENTS_MAP},
@@ -56,6 +49,11 @@ export const appConfig: ApplicationConfig = {
       provide: WINDOW,
       useFactory: (document: Document) => windowProvider(document),
       deps: [DOCUMENT],
+    },
+    TYPESCRIPT_VFS_WORKER_PROVIDER,
+    {
+      provide: UrlSerializer,
+      useClass: AdevUrlSerializer,
     },
   ],
 };

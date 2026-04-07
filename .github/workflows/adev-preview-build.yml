@@ -15,24 +15,25 @@ permissions: read-all
 
 jobs:
   adev-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8core
     if: |
       (github.event.action == 'labeled' && github.event.label.name == 'adev: preview') ||
       (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'adev: preview'))
     steps:
       - name: Initialize environment
-        uses: angular/dev-infra/github-actions/npm/checkout-and-setup-node@f172f3f62ce52d6e91f63b8fd6f3ed83df157aa5
+        uses: angular/dev-infra/github-actions/npm/checkout-and-setup-node@616a50d0b747031b7ea052733adf3771fa6cace9
       - name: Setup Bazel
-        uses: angular/dev-infra/github-actions/bazel/setup@f172f3f62ce52d6e91f63b8fd6f3ed83df157aa5
+        uses: angular/dev-infra/github-actions/bazel/setup@616a50d0b747031b7ea052733adf3771fa6cace9
       - name: Setup Bazel RBE
-        uses: angular/dev-infra/github-actions/bazel/configure-remote@f172f3f62ce52d6e91f63b8fd6f3ed83df157aa5
+        uses: angular/dev-infra/github-actions/bazel/configure-remote@616a50d0b747031b7ea052733adf3771fa6cace9
       - name: Install node modules
-        run: yarn install --frozen-lockfile
-      - name: Build adev to ensure it continues to work
-        run: yarn bazel build //adev:build --full_build_adev --config=release
-      - uses: angular/dev-infra/github-actions/previews/pack-and-upload-artifact@f172f3f62ce52d6e91f63b8fd6f3ed83df157aa5
+        run: pnpm install --frozen-lockfile
+      - name: Build adev
+        # `snapshot-build` config is used to stamp the exact version with sha in the footer.
+        run: pnpm bazel build //adev:build.production --config=snapshot-build
+      - uses: angular/dev-infra/github-actions/previews/pack-and-upload-artifact@616a50d0b747031b7ea052733adf3771fa6cace9
         with:
           workflow-artifact-name: 'adev-preview'
           pull-number: '${{github.event.pull_request.number}}'
           artifact-build-revision: '${{github.event.pull_request.head.sha}}'
-          deploy-directory: './dist/bin/adev/build/browser'
+          deploy-directory: './dist/bin/adev/dist/browser'

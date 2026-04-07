@@ -29,6 +29,7 @@ export {
   inject,
   InjectSetupWrapper,
   withModule,
+  TestComponentOptions,
 } from './test_bed';
 export {
   TestComponentRenderer,
@@ -38,7 +39,6 @@ export {
   TestEnvironmentOptions,
   ModuleTeardownOptions,
 } from './test_bed_common';
-export * from './test_hooks';
 export * from './metadata_override';
 export {MetadataOverrider as ɵMetadataOverrider} from './metadata_overrider';
 export {

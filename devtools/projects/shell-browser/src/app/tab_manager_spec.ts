@@ -6,6 +6,8 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
+/// <reference types="chrome"/>
+
 import {DevToolsConnection, TabManager, Tabs} from './tab_manager';
 
 interface MockSender {
@@ -202,7 +204,7 @@ describe('Tab Manager - ', () => {
       }
     });
 
-    it('should set frame connection as enabled when an enableFrameConnection message is recieved', async () => {
+    it('should set frame connection as enabled when an enableFrameConnection message is received', async () => {
       for await (const {tab, devtoolsPort} of eachOrderingOfDevToolsInitialization()) {
         expect(tab?.contentScripts[contentScriptFrameId]?.enabled).toBe(false);
 
@@ -256,7 +258,7 @@ describe('Tab Manager - ', () => {
       }
     });
 
-    it('should set backendReady when the contentPort recieves the backendReady message', async () => {
+    it('should set backendReady when the contentPort receives the backendReady message', async () => {
       for await (const {
         contentScriptPort,
         devtoolsPort,
@@ -418,7 +420,7 @@ describe('Tab Manager - ', () => {
       }
     });
 
-    it('should set the correct frame connection as enabled when an enableFrameConnection message is recieved', async () => {
+    it('should set the correct frame connection as enabled when an enableFrameConnection message is received', async () => {
       for await (const {tab, devtoolsPort} of eachOrderingOfDevToolsInitialization()) {
         expect(tab?.contentScripts[topLevelFrameId]?.enabled).toBe(false);
         expect(tab?.contentScripts[childFrameId]?.enabled).toBe(false);

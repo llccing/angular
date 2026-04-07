@@ -19,6 +19,9 @@ import {CompilationJob, CompilationUnit} from '../compilation';
  */
 export function resolveNames(job: CompilationJob): void {
   for (const unit of job.units) {
+    for (const expr of unit.functions) {
+      processLexicalScope(unit, expr.ops, null);
+    }
     processLexicalScope(unit, unit.create, null);
     processLexicalScope(unit, unit.update, null);
   }
@@ -74,6 +77,8 @@ function processLexicalScope(
             break;
         }
         break;
+      case ir.OpKind.Animation:
+      case ir.OpKind.AnimationListener:
       case ir.OpKind.Listener:
       case ir.OpKind.TwoWayListener:
         // Listener functions have separate variable declarations, so process them as a separate
@@ -92,7 +97,12 @@ function processLexicalScope(
   // scope. Also, look for `ir.RestoreViewExpr`s and match them with the snapshotted view context
   // variable.
   for (const op of ops) {
-    if (op.kind == ir.OpKind.Listener || op.kind === ir.OpKind.TwoWayListener) {
+    if (
+      op.kind === ir.OpKind.Listener ||
+      op.kind === ir.OpKind.TwoWayListener ||
+      op.kind === ir.OpKind.Animation ||
+      op.kind === ir.OpKind.AnimationListener
+    ) {
       // Listeners were already processed above with their own scopes.
       continue;
     }

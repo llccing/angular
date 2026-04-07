@@ -1,3 +1,4 @@
+load("//adev/shared-docs:defaults.bzl", "copy_to_bin")
 load("//adev/shared-docs:index.bzl", "generate_guides")
 
 generate_guides(
@@ -8,5 +9,11 @@ generate_guides(
     data = [
         "//adev/src/assets/images:overview.svg",
     ],
+    visibility = ["//adev:__subpackages__"],
+)
+
+copy_to_bin(
+    name = "guide_files",
+    srcs = glob(["**/*.md"]),
     visibility = ["//adev:__subpackages__"],
 )
