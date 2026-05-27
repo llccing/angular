@@ -3,7 +3,7 @@
 
 ## Overview
 
-A pattern that combines readonly combobox with multi-enabled listbox to create multiple-selection dropdowns with keyboard navigation and screen reader support.
+The multiselect pattern combines a read-only combobox trigger with a multi-select listbox popup to create highly accessible multiple-selection dropdowns with keyboard navigation and screen reader support.
 
 <docs-tab-group>
   <docs-tab label="Basic">
@@ -157,40 +157,58 @@ Forms sometimes need to limit the number of selections or validate user choices.
   </docs-tab>
 </docs-tab-group>
 
-This example limits selections to three items. When the limit is reached, unselected options become disabled, preventing additional selections. A message informs users about the constraint.
+This example limits selections to two items. When the limit is reached, unselected options are disabled to prevent further selections, and the combobox display updates to reflect the choices.
 
 ## APIs
 
 The multiselect pattern uses the following directives from Angular's Aria library. See the full API documentation in the linked guides.
 
-### Combobox Directives
+### Combobox directives
 
-The multiselect pattern uses `ngCombobox` with the `readonly` attribute to prevent text input while preserving keyboard navigation.
+The multiselect pattern uses `ngCombobox` directly on the trigger element (such as a `div` or `button`) to create a select-like multiselect dropdown.
 
 #### Inputs
 
-| Property   | Type      | Default | Description                               |
-| ---------- | --------- | ------- | ----------------------------------------- |
-| `readonly` | `boolean` | `false` | Set to `true` to create dropdown behavior |
-| `disabled` | `boolean` | `false` | Disables the entire multiselect           |
+| Property   | Type      | Default | Description                     |
+| ---------- | --------- | ------- | ------------------------------- |
+| `disabled` | `boolean` | `false` | Disables the entire multiselect |
 
 See the [Combobox API documentation](guide/aria/combobox#apis) for complete details on all available inputs and signals.
 
-### Listbox Directives
+#### Popup directives
+
+The structural `ngComboboxPopup` directive marks the overlay template and requires a reference to the parent combobox:
+
+| Property   | Type       | Description                                 |
+| ---------- | ---------- | ------------------------------------------- |
+| `combobox` | `Combobox` | Required reference to the parent `Combobox` |
+
+#### ComboboxWidget directive
+
+The `ngComboboxWidget` directive bridges the listbox with the combobox trigger to support active-descendant focus tracking.
+
+| Property           | Type                  | Description                                                                                                                                  |
+| ------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `activeDescendant` | `string \| undefined` | The ID of the currently active option (bound to `listbox.activeDescendant()`) to update the `aria-activedescendant` attribute on the trigger |
+
+### Listbox directives
 
 The multiselect pattern uses `ngListbox` with the `multi` attribute for multiple selection and `ngOption` for each selectable item.
 
 #### Inputs
 
-| Property | Type      | Default | Description                                |
-| -------- | --------- | ------- | ------------------------------------------ |
-| `multi`  | `boolean` | `false` | Set to `true` to enable multiple selection |
+| Property        | Type                               | Default    | Description                                                                                                                     |
+| --------------- | ---------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `multi`         | `boolean`                          | `false`    | Set to `true` to enable multiple selection                                                                                      |
+| `selectionMode` | `'follow'` \| `'explicit'`         | `'follow'` | Set to `'explicit'` so options are toggled explicitly via click/Space instead of following active focus                         |
+| `focusMode`     | `'roving'` \| `'activedescendant'` | `'roving'` | The focus strategy used by the listbox. Set to `'activedescendant'` so browser focus remains on the combobox trigger.           |
+| `tabIndex`      | `number`                           | `0`        | The tabindex of the listbox. Set to `-1` to prevent keyboard focus from entering the popup container in active-descendant mode. |
 
 #### Model
 
-| Property | Type    | Description                               |
-| -------- | ------- | ----------------------------------------- |
-| `values` | `any[]` | Two-way bindable array of selected values |
+| Property | Type                 | Description                               |
+| -------- | -------------------- | ----------------------------------------- |
+| `value`  | `ModelSignal<any[]>` | Two-way bindable array of selected values |
 
 When `multi` is true, users can select multiple options using Space to toggle selection. The popup remains open after selection, allowing additional choices.
 

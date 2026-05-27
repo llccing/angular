@@ -543,7 +543,7 @@ runInEachFileSystem(() => {
     });
 
     it('should type check a two-way binding to a generic property', () => {
-      env.tsconfig({strictTemplates: true, _checkTwoWayBoundEvents: true});
+      env.tsconfig({strictTemplates: true});
       env.write(
         'test.ts',
         `
@@ -566,21 +566,16 @@ runInEachFileSystem(() => {
       );
 
       const diags = env.driveDiagnostics();
-      expect(diags.length).toBe(2);
+      expect(diags.length).toBe(1);
       expect(diags[0].messageText).toEqual(
         jasmine.objectContaining({
           messageText: `Type '{ id: number; }' is not assignable to type '{ id: string; }'.`,
         }),
       );
-      expect(diags[1].messageText).toEqual(
-        jasmine.objectContaining({
-          messageText: `Type '{ id: string; }' is not assignable to type '{ id: number; }'.`,
-        }),
-      );
     });
 
     it('should use the setter type when assigning using a two-way binding to an input with different getter and setter types', () => {
-      env.tsconfig({strictTemplates: true, _checkTwoWayBoundEvents: true});
+      env.tsconfig({strictTemplates: true});
       env.write(
         'test.ts',
         `
@@ -615,7 +610,7 @@ runInEachFileSystem(() => {
     });
 
     it('should type check a two-way binding to a function value', () => {
-      env.tsconfig({strictTemplates: true, _checkTwoWayBoundEvents: true});
+      env.tsconfig({strictTemplates: true});
       env.write(
         'test.ts',
         `
@@ -640,21 +635,16 @@ runInEachFileSystem(() => {
       );
 
       const diags = env.driveDiagnostics();
-      expect(diags.length).toBe(2);
+      expect(diags.length).toBe(1);
       expect(diags[0].messageText).toEqual(
         jasmine.objectContaining({
           messageText: `Type '(val: string) => number' is not assignable to type 'TestFn'.`,
         }),
       );
-      expect(diags[1].messageText).toEqual(
-        jasmine.objectContaining({
-          messageText: `Type 'TestFn' is not assignable to type '(val: string) => number'.`,
-        }),
-      );
     });
 
     it('should be able to cast to any in a two-way binding', () => {
-      env.tsconfig({strictTemplates: true, _checkTwoWayBoundEvents: true});
+      env.tsconfig({strictTemplates: true});
       env.write(
         'test.ts',
         `
@@ -678,34 +668,6 @@ runInEachFileSystem(() => {
 
       const diags = env.driveDiagnostics();
       expect(diags.length).toBe(0);
-    });
-
-    it('should type check a two-way binding to input/output pair where the input has a wider type than the output', () => {
-      env.tsconfig({strictTemplates: true, _checkTwoWayBoundEvents: true});
-      env.write(
-        'test.ts',
-        `
-          import {Component, Directive, Input, Output, EventEmitter} from '@angular/core';
-
-          @Directive({selector: '[dir]'})
-          export class Dir {
-            @Input() value: string | number;
-            @Output() valueChange = new EventEmitter<number>();
-          }
-
-          @Component({
-            template: '<div dir [(value)]="value"></div>',
-            imports: [Dir],
-          })
-          export class App {
-            value = 'hello';
-          }
-        `,
-      );
-
-      const diags = env.driveDiagnostics();
-      expect(diags.length).toBe(1);
-      expect(diags[0].messageText).toBe(`Type 'number' is not assignable to type 'string'.`);
     });
 
     it('should check the fallback content of ng-content', () => {
@@ -1048,6 +1010,39 @@ runInEachFileSystem(() => {
         expect(diags[0].messageText).toEqual(
           `Property 'invalid' does not exist on type 'TestCmp'.`,
         );
+      });
+
+      it('should narrow the type of safe navigation expressions in an if guard when enabled', () => {
+        env.tsconfig({
+          fullTemplateTypeCheck: true,
+          strictInputTypes: true,
+          strictNullInputTypes: true,
+          strictSafeNavigationTypes: true,
+        });
+
+        env.write(
+          'test.ts',
+          `
+          import {Component, NgModule} from '@angular/core';
+
+          @Component({
+            selector: 'test',
+            template: '@if (user?.isMember) { {{user.isMember}} }',
+            standalone: false,
+          })
+          class TestCmp {
+            user?: {isMember: boolean};
+          }
+
+          @NgModule({
+            declarations: [TestCmp],
+          })
+          class Module {}
+        `,
+        );
+
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toBe(0);
       });
     });
 
@@ -2191,6 +2186,142 @@ runInEachFileSystem(() => {
       );
     });
 
+    describe('foreign component template semantics', () => {
+      const foreignSetupCode = `
+        // We must redeclare foreignImports and ForeignComponent to test them since they are marked @internal.
+        declare module '@angular/core' {
+          export interface ForeignComponent {}
+          export function foreignImport(render: Function): ForeignComponent;
+
+          interface Component {
+            foreignImports?: ForeignComponent[];
+          }
+        }
+
+        import {Component, ForeignComponent, foreignImport} from '@angular/core';
+
+
+        function FancyButton() {}
+
+        function frameworkImport(component: unknown): ForeignComponent {
+          return foreignImport(() => {});
+        }
+      `;
+
+      it('should detect an unsupported event binding on a foreign component', () => {
+        env.write(
+          'test.ts',
+          `
+          ${foreignSetupCode}
+
+          @Component({
+            selector: 'test',
+            template: '<FancyButton (click)="click()"></FancyButton>',
+            foreignImports: [frameworkImport(FancyButton)],
+          })
+          export class TestCmp {
+            click() {}
+          }
+        `,
+        );
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toEqual(1);
+        expect(diags[0].code).toEqual(ngErrorCode(ErrorCode.FOREIGN_COMPONENT_UNSUPPORTED_BINDING));
+        expect(diags[0].messageText).toEqual('Foreign components do not support event bindings.');
+        expect(getSourceCodeForDiagnostic(diags[0])).toEqual(
+          '<FancyButton (click)="click()"></FancyButton>',
+        );
+      });
+
+      it('should detect an unsupported template reference on a foreign component', () => {
+        env.write(
+          'test.ts',
+          `
+          ${foreignSetupCode}
+
+          @Component({
+            selector: 'test',
+            template: '<FancyButton #btn></FancyButton>',
+            foreignImports: [frameworkImport(FancyButton)],
+          })
+          export class TestCmp {}
+        `,
+        );
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toEqual(1);
+        expect(diags[0].code).toEqual(ngErrorCode(ErrorCode.FOREIGN_COMPONENT_UNSUPPORTED_BINDING));
+        expect(diags[0].messageText).toEqual('Foreign components do not support references.');
+        expect(getSourceCodeForDiagnostic(diags[0])).toEqual('<FancyButton #btn></FancyButton>');
+      });
+
+      it('should detect unsupported non-property bindings on a foreign component', () => {
+        env.write(
+          'test.ts',
+          `
+          ${foreignSetupCode}
+
+          @Component({
+            selector: 'test',
+            template: '<FancyButton [class.blue]="true"></FancyButton>',
+            foreignImports: [frameworkImport(FancyButton)],
+          })
+          export class TestCmp {}
+        `,
+        );
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toEqual(1);
+        expect(diags[0].code).toEqual(ngErrorCode(ErrorCode.FOREIGN_COMPONENT_UNSUPPORTED_BINDING));
+        expect(diags[0].messageText).toEqual(
+          'Foreign components only support static attributes and property bindings.',
+        );
+        expect(getSourceCodeForDiagnostic(diags[0])).toEqual(
+          '<FancyButton [class.blue]="true"></FancyButton>',
+        );
+      });
+
+      it('should allow static attributes and property bindings on a foreign component', () => {
+        env.write(
+          'test.ts',
+          `
+          ${foreignSetupCode}
+
+          @Component({
+            selector: 'test',
+            template: '<FancyButton title="Click me" [disabled]="false"></FancyButton>',
+            foreignImports: [frameworkImport(FancyButton)],
+          })
+          export class TestCmp {}
+        `,
+        );
+        const diags = env.driveDiagnostics();
+        expect(diags.length).toEqual(0);
+      });
+
+      it('should support import aliases for matching foreign components', () => {
+        env.write(
+          'original.ts',
+          `
+          export function Original() {}
+          `,
+        );
+        env.write(
+          'test.ts',
+          `
+          ${foreignSetupCode}
+          import {Original as Alias} from './original';
+
+          @Component({
+            selector: 'test',
+            template: '<Alias />',
+            foreignImports: [frameworkImport(Alias)],
+          })
+          export class TestCmp {}
+        `,
+        );
+        env.driveMain();
+      });
+    });
+
     it('should detect a duplicate variable declaration', () => {
       env.write(
         'test.ts',
@@ -3051,7 +3182,7 @@ runInEachFileSystem(() => {
       });
 
       it('should type check a two-way binding to an input with a transform', () => {
-        env.tsconfig({strictTemplates: true, _checkTwoWayBoundEvents: true});
+        env.tsconfig({strictTemplates: true});
         env.write(
           'test.ts',
           `
@@ -6576,6 +6707,32 @@ suppress
         const diags = env.driveDiagnostics();
         expect(diags.map((d) => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
           `Type 'number' is not assignable to type 'string'.`,
+        ]);
+      });
+
+      it('should type check a @for loop without a `track` expression', () => {
+        env.write(
+          'test.ts',
+          `
+          import {Component} from '@angular/core';
+
+          @Component({
+            template: \`
+              @for (item of items) {
+                {{does_not_exist}}
+              }
+            \`,
+          })
+          export class Main {
+            items = [];
+          }
+        `,
+        );
+
+        const diags = env.driveDiagnostics();
+        expect(diags.map((d) => ts.flattenDiagnosticMessageText(d.messageText, ''))).toEqual([
+          `Property 'does_not_exist' does not exist on type 'Main'.`,
+          `@for loop must have a "track" expression`,
         ]);
       });
     });

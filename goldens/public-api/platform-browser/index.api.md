@@ -116,7 +116,9 @@ export enum HydrationFeatureKind {
     // (undocumented)
     IncrementalHydration = 4,
     // (undocumented)
-    NoHttpTransferCache = 0
+    NoHttpTransferCache = 0,
+    // (undocumented)
+    NoIncrementalHydration = 5
 }
 
 // @public
@@ -157,7 +159,9 @@ export const platformBrowser: (extraProviders?: StaticProvider[]) => PlatformRef
 export function provideClientHydration(...features: HydrationFeature<HydrationFeatureKind>[]): EnvironmentProviders;
 
 // @public
-export function provideProtractorTestingSupport(): Provider[];
+export function provideProtractorTestingSupport(options?: {
+    usePendingTasksForStability?: boolean;
+}): Provider[];
 
 // @public
 export const REMOVE_STYLES_ON_COMPONENT_DESTROY: InjectionToken<boolean>;
@@ -209,11 +213,14 @@ export function withHttpTransferCacheOptions(options: HttpTransferCacheOptions):
 // @public
 export function withI18nSupport(): HydrationFeature<HydrationFeatureKind.I18nSupport>;
 
-// @public
+// @public @deprecated
 export function withIncrementalHydration(): HydrationFeature<HydrationFeatureKind.IncrementalHydration>;
 
 // @public
 export function withNoHttpTransferCache(): HydrationFeature<HydrationFeatureKind.NoHttpTransferCache>;
+
+// @public
+export function withNoIncrementalHydration(): HydrationFeature<HydrationFeatureKind.NoIncrementalHydration>;
 
 // (No @packageDocumentation comment for this package)
 

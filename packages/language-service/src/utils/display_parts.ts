@@ -6,7 +6,6 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {isNamedClassDeclaration} from '@angular/compiler-cli/src/ngtsc/reflection';
 import {
   LetDeclarationSymbol,
   PotentialDirective,
@@ -16,7 +15,9 @@ import {
   TcbLocation,
   TemplateTypeChecker,
   VariableSymbol,
-} from '@angular/compiler-cli/src/ngtsc/typecheck/api';
+  isNamedClassDeclaration,
+} from '@angular/compiler-cli';
+
 import ts from 'typescript';
 
 // Reverse mappings of enum would generate strings
@@ -166,17 +167,11 @@ export function getDirectiveDisplayInfo(
   dir: PotentialDirective,
 ): DisplayInfo {
   const kind = dir.isComponent ? DisplayInfoKind.COMPONENT : DisplayInfoKind.DIRECTIVE;
-  const decl = dir.ref.node;
-  if (decl === undefined || decl.name === undefined) {
-    return {
-      kind,
-      displayParts: [],
-      documentation: [],
-      tags: undefined,
-    };
-  }
+  const filePath = dir.ref.filePath;
+  const position = dir.ref.position;
+  const name = dir.ref.name;
 
-  const res = tsLS.getQuickInfoAtPosition(decl.getSourceFile().fileName, decl.name.getStart());
+  const res = tsLS.getQuickInfoAtPosition(filePath, position);
   if (res === undefined) {
     return {
       kind,
@@ -186,12 +181,7 @@ export function getDirectiveDisplayInfo(
     };
   }
 
-  const displayParts = createDisplayParts(
-    decl.name.text,
-    kind,
-    dir.ngModule?.name?.text,
-    undefined,
-  );
+  const displayParts = createDisplayParts(name, kind, dir.ngModule?.name?.text, undefined);
 
   return {
     kind,

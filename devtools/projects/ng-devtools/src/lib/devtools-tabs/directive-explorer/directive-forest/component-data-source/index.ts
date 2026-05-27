@@ -54,11 +54,12 @@ const getId = (node: IndexedNode) => {
   if (node.component) {
     prefix = node.component.id.toString();
   }
-  const dirIds = node.directives
-    .map((d) => d.id)
-    .sort((a, b) => {
-      return a - b;
-    });
+  const dirIds =
+    node.directives
+      ?.map((d) => d.id)
+      .sort((a, b) => {
+        return a - b;
+      }) ?? [];
   return prefix + '-' + dirIds.join('-');
 };
 
@@ -103,8 +104,8 @@ export class ComponentDataSource extends DataSource<FlatNode> {
         // based on this identifier directly, since it's a reference type
         // and the reference is preserved after transformation.
         position: node.position,
-        name: node.component ? node.component.name : node.element,
-        directives: node.directives.map((d) => d.name),
+        name: node.component ? node.component.name : (node.element ?? ''),
+        directives: node.directives?.map((d) => d.name) ?? [],
         original: node,
         level,
         hydration: node.hydration,

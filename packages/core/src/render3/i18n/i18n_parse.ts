@@ -9,14 +9,17 @@ import '../../util/ng_dev_mode';
 import '../../util/ng_i18n_closure_mode';
 
 import {XSS_SECURITY_URL} from '../../error_details_base_url';
-import {
-  getTemplateContent,
-  SENSITIVE_ATTRS,
-  VALID_ATTRS,
-  VALID_ELEMENTS,
-} from '../../sanitization/html_sanitizer';
+import {getTemplateContent, VALID_ATTRS, VALID_ELEMENTS} from '../../sanitization/html_sanitizer';
 import {getInertBodyHelper} from '../../sanitization/inert_body';
 import {_sanitizeUrl} from '../../sanitization/url_sanitizer';
+import {
+  ɵɵsanitizeHtml as _sanitizeHtml,
+  ɵɵsanitizeStyle as _sanitizeStyle,
+  ɵɵsanitizeScript as _sanitizeScript,
+  ɵɵsanitizeResourceUrl as _sanitizeResourceUrl,
+  ɵɵvalidateAttribute as _validateAttribute,
+} from '../../sanitization/sanitization';
+import {SECURITY_SCHEMA, SecurityContext} from '../../sanitization/dom_security_schema';
 import {
   assertDefined,
   assertEqual,
@@ -382,13 +385,16 @@ export function i18nAttributesFirstPass(tView: TView, index: number, values: str
         // the compiler treats static i18n attributes as regular attribute bindings.
         // Since this may not be the first i18n attribute on this element we need to pass in how
         // many previous bindings there have already been.
+        const tagName = previousElement.namespace
+          ? `:${previousElement.namespace}:${previousElement.value}`
+          : previousElement.value;
         generateBindingUpdateOpCodes(
           updateOpCodes,
           message,
           previousElementIndex,
           attrName,
           countBindings(updateOpCodes),
-          SENSITIVE_ATTRS[attrName.toLowerCase()] ? _sanitizeUrl : null,
+          i18nResolveSanitizer(attrName, tagName),
         );
       }
     }
@@ -808,6 +814,13 @@ function walkIcuTree(
             const attr = elAttrs.item(i)!;
             const lowerAttrName = attr.name.toLowerCase();
             const hasBinding = !!attr.value.match(BINDING_REGEXP);
+            const elementNS = element.namespaceURI;
+            const tagNameWithNamespace =
+              elementNS === 'http://www.w3.org/2000/svg'
+                ? `:svg:${tagName}`
+                : elementNS === 'http://www.w3.org/1998/Math/MathML'
+                  ? `:math:${tagName}`
+                  : tagName;
             if (hasBinding) {
               if (VALID_ATTRS.hasOwnProperty(lowerAttrName)) {
                 generateBindingUpdateOpCodes(
@@ -816,7 +829,7 @@ function walkIcuTree(
                   newIndex,
                   attr.name,
                   0,
-                  SENSITIVE_ATTRS[lowerAttrName] ? _sanitizeUrl : null,
+                  i18nResolveSanitizer(lowerAttrName, tagNameWithNamespace),
                 );
               } else {
                 ngDevMode &&
@@ -827,9 +840,9 @@ function walkIcuTree(
                   );
               }
             } else if (VALID_ATTRS[lowerAttrName]) {
-              if (SENSITIVE_ATTRS[lowerAttrName]) {
-                // Don't sanitize, because no value is acceptable in sensitive attributes.
-                // Translators are not allowed to create URIs.
+              let val = attr.value;
+              const sanitizer = i18nResolveSanitizer(lowerAttrName, tagNameWithNamespace);
+              if (sanitizer) {
                 if (typeof ngDevMode !== 'undefined' && ngDevMode) {
                   console.warn(
                     `WARNING: ignoring unsafe attribute ` +
@@ -837,9 +850,10 @@ function walkIcuTree(
                       `(see ${XSS_SECURITY_URL})`,
                   );
                 }
+
                 addCreateAttribute(create, newIndex, attr.name, 'unsafe:blocked');
               } else {
-                addCreateAttribute(create, newIndex, attr.name, attr.value);
+                addCreateAttribute(create, newIndex, attr.name, val);
               }
             } else {
               if (typeof ngDevMode !== 'undefined' && ngDevMode) {
@@ -968,4 +982,31 @@ function addCreateAttribute(
   attrValue: string,
 ) {
   create.push((newIndex << IcuCreateOpCode.SHIFT_REF) | IcuCreateOpCode.Attr, attrName, attrValue);
+}
+
+function i18nResolveSanitizer(attrName: string, tagName?: string): SanitizerFn | null {
+  const lowerAttrName = attrName.toLowerCase();
+  const lowerTagName = tagName ? tagName.toLowerCase() : '*';
+  const schema = SECURITY_SCHEMA();
+  const schemaContext =
+    schema[`${lowerTagName}|${lowerAttrName}`] ||
+    schema[`*|${lowerAttrName}`] ||
+    SecurityContext.NONE;
+
+  switch (schemaContext) {
+    case SecurityContext.HTML:
+      return _sanitizeHtml;
+    case SecurityContext.STYLE:
+      return _sanitizeStyle;
+    case SecurityContext.SCRIPT:
+      return _sanitizeScript;
+    case SecurityContext.URL:
+      return _sanitizeUrl;
+    case SecurityContext.RESOURCE_URL:
+      return _sanitizeResourceUrl;
+    case SecurityContext.ATTRIBUTE_NO_BINDING:
+      return _validateAttribute;
+    default:
+      return null;
+  }
 }

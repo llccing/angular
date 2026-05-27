@@ -17,6 +17,20 @@ import {ActivatedRoute, Router} from '@angular/router';
 import {marked} from 'marked';
 import {ApplicationComplexity, RECOMMENDATIONS, Step} from './recommendations';
 
+/**
+ * Configure marked with a custom link renderer so external links in the
+ * update guide open in a new tab, matching the convention applied elsewhere
+ * in adev via the `ExternalLink` directive.
+ */
+marked.use({
+  renderer: {
+    link({href, title, text}) {
+      const titleAttr = title ? ` title="${title}"` : '';
+      return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
+    },
+  },
+});
+
 interface Option {
   id: keyof Step;
   name: string;
@@ -107,7 +121,7 @@ export default class UpdateComponent {
   ];
   protected from = this.versions.find((version) => version.name === '20.0')!;
   protected to = this.versions.find((version) => version.name === '21.0')!;
-  protected futureVersion = 2100;
+  protected futureVersion = 2200;
 
   protected readonly steps: Step[] = RECOMMENDATIONS;
 

@@ -392,16 +392,14 @@ describe('quick info', () => {
       });
 
       it('should work for safe keyed reads', () => {
-        expectQuickInfo({
-          templateOverride: `<div>{{constNamesOptional?.[0¦]}}</div>`,
-          expectedSpanText: '0',
-          expectedDisplayString: '(property) 0: {\n    readonly name: "name";\n}',
-        });
+        // TypeScript Language Service natively does not provide quick info for numeric/string literals
+        // in an optional element access chain (e.g. `a?.[0]`). Because TCB now uses optional chaining,
+        // we can no longer expect a result here. It's consistent with TS behavior natively!
 
         expectQuickInfo({
           templateOverride: `<div>{{constNamesOptional?.[0]?.na¦me}}</div>`,
           expectedSpanText: 'constNamesOptional?.[0]?.name',
-          expectedDisplayString: '(property) name: "name"',
+          expectedDisplayString: '(property) name: "name" | undefined',
         });
       });
 
@@ -879,7 +877,7 @@ describe('quick info', () => {
       it('should get quick info for a let declaration', () => {
         expectQuickInfo({
           templateOverride: `@let na¦me = 'Frodo'; {{name}}`,
-          expectedSpanText: `@let name = 'Frodo'`,
+          expectedSpanText: `@let name = 'Frodo';`,
           expectedDisplayString: `(let) name: "Frodo"`,
         });
       });
@@ -887,7 +885,7 @@ describe('quick info', () => {
       it('should get quick info for a let declaration initialized with a narrowed property', () => {
         expectQuickInfo({
           templateOverride: `@if (signalValue) { @let na¦me = signalValue; {{name}} }`,
-          expectedSpanText: `@let name = signalValue`,
+          expectedSpanText: `@let name = signalValue;`,
           expectedDisplayString: `(let) name: string`,
         });
       });
@@ -1264,6 +1262,148 @@ describe('quick info', () => {
         templateOverride: '<div @TestDirective(#r¦ef)></div>',
         expectedSpanText: 'ref',
         expectedDisplayString: '(reference) ref: TestDirective',
+      });
+    });
+
+    it('should get quick info for a component with non-exported generic bound requiring external copy', () => {
+      project = env.addProject('test', {
+        'app.ts': `
+          import {Component, NgModule} from '@angular/core';
+
+          interface PrivateInterface {
+            title: string;
+          }
+
+          @Component({
+            selector: 'some-cmp',
+            templateUrl: './app.html',
+            standalone: false,
+          })
+          export class SomeCmp<T extends PrivateInterface> {
+            title = 'Hello';
+          }
+
+          @NgModule({
+            declarations: [SomeCmp],
+          })
+          export class AppModule {}
+        `,
+        'app.html': ``,
+      });
+
+      expectQuickInfo({
+        templateOverride: `<div>{{tit¦le}}</div>`,
+        expectedSpanText: 'title',
+        expectedDisplayString: '(property) SomeCmp<T extends PrivateInterface>.title: string',
+      });
+    });
+
+    it('should get quick info for a non-exported standalone component', () => {
+      project = env.addProject('test', {
+        'app.ts': `
+          import {Component} from '@angular/core';
+
+          @Component({
+            selector: 'some-cmp',
+            templateUrl: './app.html',
+            standalone: true,
+          })
+          class SomeCmp {
+            title = 'Hello';
+          }
+        `,
+        'app.html': ``,
+      });
+
+      expectQuickInfo({
+        templateOverride: `<div>{{tit¦le}}</div>`,
+        expectedSpanText: 'title',
+        expectedDisplayString: '(property) SomeCmp.title: string',
+      });
+    });
+
+    it('should get quick info for a standalone component defined in a closure', () => {
+      project = env.addProject('test', {
+        'app.ts': `
+          import {Component} from '@angular/core';
+
+          (function() {
+            @Component({
+              selector: 'some-cmp',
+              templateUrl: './app.html',
+              standalone: true,
+            })
+            class TestComponent {
+              value = 0;
+            }
+          })();
+        `,
+        'app.html': ``,
+      });
+
+      expectQuickInfo({
+        templateOverride: `<div>{{val¦ue}}</div>`,
+        expectedSpanText: 'value',
+        expectedDisplayString: '(property) TestComponent.value: number',
+      });
+    });
+
+    it('should get quick info for a component with constrained generic types requiring inline TCB', () => {
+      project = env.addProject('test', {
+        'app.ts': `
+          import {Component} from '@angular/core';
+
+          interface InternalBound {}
+
+          @Component({
+            selector: 'some-cmp',
+            templateUrl: './app.html',
+            standalone: true,
+          })
+          export class SomeCmp<T extends InternalBound> {
+            title = 'Hello';
+          }
+        `,
+        'app.html': ``,
+      });
+
+      expectQuickInfo({
+        templateOverride: `<div>{{tit¦le}}</div>`,
+        expectedSpanText: 'title',
+        expectedDisplayString: '(property) SomeCmp<T extends InternalBound>.title: string',
+      });
+    });
+
+    it('should get quick info when using a non-exported pipe requiring inline TCB', () => {
+      project = env.addProject('test', {
+        'app.ts': `
+          import {Component, Pipe, PipeTransform} from '@angular/core';
+
+          @Pipe({
+            name: 'internalPipe',
+            standalone: true,
+          })
+          class InternalPipe implements PipeTransform {
+            transform(value: string): string { return value; }
+          }
+
+          @Component({
+            selector: 'some-cmp',
+            templateUrl: './app.html',
+            standalone: true,
+            imports: [InternalPipe],
+          })
+          export class SomeCmp {
+            title = 'Hello';
+          }
+        `,
+        'app.html': ``,
+      });
+
+      expectQuickInfo({
+        templateOverride: `<div>{{tit¦le | internalPipe}}</div>`,
+        expectedSpanText: 'title',
+        expectedDisplayString: '(property) SomeCmp.title: string',
       });
     });
   });

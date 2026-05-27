@@ -25,7 +25,9 @@ import {
   TmplAstBoundText,
   TmplAstDeferredBlock,
   TmplAstForLoopBlock,
+  TmplAstIcu,
   TmplAstIfBlockBranch,
+  TmplAstLetDeclaration,
   TmplAstNode,
   TmplAstRecursiveVisitor,
   TmplAstSwitchBlock,
@@ -174,7 +176,11 @@ export class TemplateReferenceVisitor<
 
   override visitForLoopBlock(block: TmplAstForLoopBlock): void {
     this.checkExpressionForReferencedFields(block, block.expression);
-    this.checkExpressionForReferencedFields(block, block.trackBy);
+
+    if (block.trackBy !== null) {
+      this.checkExpressionForReferencedFields(block, block.trackBy);
+    }
+
     super.visitForLoopBlock(block);
   }
 
@@ -221,6 +227,21 @@ export class TemplateReferenceVisitor<
     // keep track of all referenced inputs to see if they actually are.
     if (this.templateAttributeReferencedFields !== null) {
       this.templateAttributeReferencedFields.push(...referencedFields);
+    }
+  }
+
+  override visitLetDeclaration(decl: TmplAstLetDeclaration): void {
+    this.checkExpressionForReferencedFields(decl, decl.value);
+  }
+
+  override visitIcu(icu: TmplAstIcu): void {
+    for (const v of Object.values(icu.vars)) {
+      this.checkExpressionForReferencedFields(icu, v.value);
+    }
+    for (const p of Object.values(icu.placeholders)) {
+      if (p instanceof TmplAstBoundText) {
+        this.checkExpressionForReferencedFields(icu, p.value);
+      }
     }
   }
 }

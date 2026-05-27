@@ -25,6 +25,7 @@ import {
   LiteralMap,
   TmplAstIfBlock,
   TmplAstLetDeclaration,
+  TypeCheckingConfig,
   ParseTemplateOptions,
   TmplAstComponent,
   MatchSource,
@@ -49,9 +50,9 @@ import {
   SelectorlessDirectiveSymbol,
   Symbol,
   SymbolKind,
+  SymbolReference,
   TemplateSymbol,
   TemplateTypeChecker,
-  TypeCheckingConfig,
   VariableSymbol,
 } from '../api';
 import {
@@ -254,7 +255,8 @@ runInEachFileSystem(() => {
           expect(
             program.getTypeChecker().typeToString(templateTypeChecker.getTypeOfSymbol(symbol)!),
           ).toEqual('TestDir');
-          expect((symbol.target as ts.ClassDeclaration).name!.getText()).toEqual('TestDir');
+          expect((symbol.target as SymbolReference).filePath).toContain('dir.ts');
+          assertTargetClassName(program, symbol.target, 'TestDir');
           expect(symbol.declaration.name).toEqual('ref1');
         }
 
@@ -571,7 +573,7 @@ runInEachFileSystem(() => {
         });
 
         it('should retrieve a symbol for the track expression', () => {
-          const userSymbol = templateTypeChecker.getSymbolOfNode(forLoopNode.trackBy.ast, cmp)!;
+          const userSymbol = templateTypeChecker.getSymbolOfNode(forLoopNode.trackBy!.ast, cmp)!;
           expectUserSymbol(userSymbol);
         });
 
@@ -1097,12 +1099,14 @@ runInEachFileSystem(() => {
 
         const ref1Declaration = templateTypeChecker.getSymbolOfNode(nodes[0].references[0], cmp)!;
         assertReferenceSymbol(ref1Declaration);
-        expect((ref1Declaration.target as ts.ClassDeclaration).name!.getText()).toEqual('TestDir');
+        expect((ref1Declaration.target as any).filePath).toContain('dir.ts');
+        assertTargetClassName(program, ref1Declaration.target, 'TestDir');
         expect((ref1Declaration.declaration as TmplAstReference).name).toEqual('myDir1');
 
         const ref2Declaration = templateTypeChecker.getSymbolOfNode(nodes[1].references[0], cmp)!;
         assertReferenceSymbol(ref2Declaration);
-        expect((ref2Declaration.target as ts.ClassDeclaration).name!.getText()).toEqual('TestDir');
+        expect((ref2Declaration.target as SymbolReference).filePath).toContain('dir.ts');
+        assertTargetClassName(program, ref2Declaration.target, 'TestDir');
         expect((ref2Declaration.declaration as TmplAstReference).name).toEqual('myDir2');
 
         const dirValueSymbol = templateTypeChecker.getSymbolOfNode(nodes[2].inputs[0].value, cmp)!;
@@ -1120,12 +1124,14 @@ runInEachFileSystem(() => {
 
         const dir1Symbol = templateTypeChecker.getSymbolOfNode(nodes[2].inputs[1].value, cmp)!;
         assertReferenceSymbol(dir1Symbol);
-        expect((dir1Symbol.target as ts.ClassDeclaration).name!.getText()).toEqual('TestDir');
+        expect((dir1Symbol.target as SymbolReference).filePath).toContain('dir.ts');
+        assertTargetClassName(program, dir1Symbol.target, 'TestDir');
         expect((dir1Symbol.declaration as TmplAstReference).name).toEqual('myDir1');
 
         const dir2Symbol = templateTypeChecker.getSymbolOfNode(nodes[3].inputs[1].value, cmp)!;
         assertReferenceSymbol(dir2Symbol);
-        expect((dir2Symbol.target as ts.ClassDeclaration).name!.getText()).toEqual('TestDir');
+        expect((dir2Symbol.target as SymbolReference).filePath).toContain('dir.ts');
+        assertTargetClassName(program, dir2Symbol.target, 'TestDir');
         expect((dir2Symbol.declaration as TmplAstReference).name).toEqual('myDir2');
       });
 
@@ -2392,9 +2398,46 @@ runInEachFileSystem(() => {
         const nodes = templateTypeChecker.getTemplate(cmp)!;
         const symbol = templateTypeChecker.getSymbolOfNode(nodes[0] as TmplAstComponent, cmp)!;
         assertSelectorlessComponentSymbol(symbol);
-        expect(symbol.directives.map((d) => d.ref.node.name.text)).toEqual(['Dep']);
+        expect(symbol.directives.map((d) => d.ref.name)).toEqual(['Dep']);
       });
 
+      it('should get symbol for a selector attribute when there are multiple directives', () => {
+        const fileName = absoluteFrom('/main.ts');
+        const matListItem = {
+          name: 'MatListItem',
+          selector: '[mat-list-item]',
+          file: absoluteFrom('/list.ts'),
+          type: 'directive' as const,
+        };
+        const routerLink = {
+          name: 'RouterLink',
+          selector: '[routerLink]',
+          file: absoluteFrom('/router.ts'),
+          type: 'directive' as const,
+          inputs: {routerLink: 'routerLink'},
+        };
+        const {program, templateTypeChecker} = setup([
+          {
+            fileName,
+            templates: {'Cmp': '<a mat-list-item routerLink="path"></a>'},
+            declarations: [matListItem, routerLink],
+          },
+          {fileName: matListItem.file, source: 'export class MatListItem {}'},
+          {fileName: routerLink.file, source: 'export class RouterLink { routerLink!: string; }'},
+        ]);
+        const sf = getSourceFileOrError(program, fileName);
+        const cmp = getClass(sf, 'Cmp');
+        const elements = getAstElements(templateTypeChecker, cmp);
+        const element = elements[0];
+        const matListItemAttr = element.attributes.find((a) => a.name === 'mat-list-item')!;
+
+        const symbol = templateTypeChecker.getSymbolOfNode(matListItemAttr, cmp);
+
+        expect(symbol).toBeTruthy();
+        assertDomBindingSymbol(symbol!);
+        assertElementSymbol(symbol!.host);
+        expect(symbol!.host.directives.map((d) => d.ref.name)).toContain('MatListItem');
+      });
       it('should get symbol of a selectorless directive', () => {
         const fileName = absoluteFrom('/main.ts');
         const dep = getDep('Dep', '/dep.ts');
@@ -2414,7 +2457,7 @@ runInEachFileSystem(() => {
         const element = nodes[0] as TmplAstElement;
         const symbol = templateTypeChecker.getSymbolOfNode(element.directives[0], cmp)!;
         assertSelectorlessDirectiveSymbol(symbol);
-        expect(symbol.directives.map((d) => d.ref.node.name.text)).toEqual(['Dep']);
+        expect(symbol.directives.map((d) => d.ref.name)).toEqual(['Dep']);
       });
 
       it('should get symbol on a node that has both selectorless components and directives', () => {
@@ -2440,10 +2483,10 @@ runInEachFileSystem(() => {
         const directiveSymbol = templateTypeChecker.getSymbolOfNode(component.directives[0], cmp)!;
 
         assertSelectorlessComponentSymbol(componentSymbol);
-        expect(componentSymbol.directives.map((d) => d.ref.node.name.text)).toEqual(['DepComp']);
+        expect(componentSymbol.directives.map((d) => d.ref.name)).toEqual(['DepComp']);
 
         assertSelectorlessDirectiveSymbol(directiveSymbol);
-        expect(directiveSymbol.directives.map((d) => d.ref.node.name.text)).toEqual(['DepDir']);
+        expect(directiveSymbol.directives.map((d) => d.ref.name)).toEqual(['DepDir']);
       });
 
       it('should get symbol of selectorless directives with host directives', () => {
@@ -2498,16 +2541,13 @@ runInEachFileSystem(() => {
         const directiveSymbol = templateTypeChecker.getSymbolOfNode(component.directives[0], cmp)!;
 
         assertSelectorlessComponentSymbol(componentSymbol);
-        expect(componentSymbol.directives.map((d) => d.ref.node.name.text)).toEqual([
+        expect(componentSymbol.directives.map((d) => d.ref.name)).toEqual([
           'DepCompHost',
           'DepComp',
         ]);
 
         assertSelectorlessDirectiveSymbol(directiveSymbol);
-        expect(directiveSymbol.directives.map((d) => d.ref.node.name.text)).toEqual([
-          'DepDirHost',
-          'DepDir',
-        ]);
+        expect(directiveSymbol.directives.map((d) => d.ref.name)).toEqual(['DepDirHost', 'DepDir']);
       });
 
       it('should get symbol of a selectorless component input', () => {
@@ -2675,7 +2715,8 @@ runInEachFileSystem(() => {
         const component = nodes[0] as TmplAstComponent;
         const symbol = templateTypeChecker.getSymbolOfNode(component.references[0], cmp)!;
         assertReferenceSymbol(symbol);
-        expect((symbol.target as ts.ClassDeclaration).name?.text).toBe('Dep');
+        expect((symbol.target as any).filePath).toContain('dep.ts');
+        assertTargetClassName(program, symbol.target, 'Dep');
         expect(symbol.declaration.name).toBe('ref');
       });
 
@@ -2698,7 +2739,8 @@ runInEachFileSystem(() => {
         const directive = (nodes[0] as TmplAstElement).directives[0];
         const symbol = templateTypeChecker.getSymbolOfNode(directive.references[0], cmp)!;
         assertReferenceSymbol(symbol);
-        expect((symbol.target as ts.ClassDeclaration).name?.text).toBe('Dep');
+        expect((symbol.target as SymbolReference).filePath).toContain('dep.ts');
+        assertTargetClassName(program, symbol.target, 'Dep');
         expect(symbol.declaration.name).toBe('ref');
       });
     });
@@ -3050,16 +3092,20 @@ runInEachFileSystem(() => {
       const element = nodes[0] as TmplAstElement;
       const symbol = templateTypeChecker.getSymbolOfNode(element, cmp)!;
       assertElementSymbol(symbol);
-      expect(
-        symbol.directives.map((d) => ({
-          name: d.ref.node.name.text,
-          matchSource: d.matchSource,
-        })),
-      ).toEqual([
+      const actual = symbol.directives.map((d) => ({
+        name: d.ref.name,
+        matchSource: d.matchSource,
+      }));
+      actual.sort((a, b) => a.name.localeCompare(b.name));
+
+      const expected = [
         {name: 'DepInnerHost', matchSource: MatchSource.HostDirective},
         {name: 'DepHost', matchSource: MatchSource.HostDirective},
         {name: 'Dep', matchSource: MatchSource.Selector},
-      ]);
+      ];
+      expected.sort((a, b) => a.name.localeCompare(b.name));
+
+      expect(actual).toEqual(expected);
     });
   });
 });
@@ -3140,6 +3186,18 @@ function assertSelectorlessDirectiveSymbol(
   tSymbol: Symbol,
 ): asserts tSymbol is SelectorlessDirectiveSymbol {
   expect(tSymbol.kind).toEqual(SymbolKind.SelectorlessDirective);
+}
+
+function assertTargetClassName(program: ts.Program, target: any, expectedName: string) {
+  const symbolRef = target as SymbolReference;
+  const sf = program.getSourceFile(symbolRef.filePath)!;
+  const classDecl = findNodeInFile(
+    sf,
+    (n): n is ts.ClassDeclaration =>
+      ts.isClassDeclaration(n) && n.pos <= symbolRef.position && symbolRef.position < n.end,
+  );
+  expect(classDecl).toBeTruthy();
+  expect(classDecl!.name!.text).toEqual(expectedName);
 }
 
 export function setup(

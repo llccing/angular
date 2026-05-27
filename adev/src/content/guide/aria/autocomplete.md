@@ -52,7 +52,7 @@ Angular's autocomplete provides a fully accessible combobox implementation with:
 
 - **Keyboard Navigation** - Navigate options with arrow keys, select with Enter, close with Escape
 - **Screen Reader Support** - Built-in ARIA attributes for assistive technologies
-- **Three Filter Modes** - Choose between auto-select, manual selection, or highlighting behavior
+- **Dynamic Highlight Behavior** - Built-in support for inline selection suggestions
 - **Signal-Based Reactivity** - Reactive state management using Angular signals
 - **Popover API Integration** - Leverages the native HTML Popover API for optimal positioning
 - **Bidirectional Text Support** - Automatically handles right-to-left (RTL) languages
@@ -153,38 +153,69 @@ Highlight mode allows the user to navigate options with arrow keys without chang
 
 ### Combobox Directive
 
-The `ngCombobox` directive provides the container for autocomplete functionality.
+The `ngCombobox` directive is applied directly onto the editable text `<input>` or `<textarea>` to manage keyboard triggers and popover states.
 
 #### Inputs
 
-| Property     | Type                                           | Default    | Description                                       |
-| ------------ | ---------------------------------------------- | ---------- | ------------------------------------------------- |
-| `filterMode` | `'auto-select'` \| `'manual'` \| `'highlight'` | `'manual'` | Controls selection behavior                       |
-| `disabled`   | `boolean`                                      | `false`    | Disables the combobox                             |
-| `firstMatch` | `string`                                       | -          | The value of the first matching item in the popup |
+| Property           | Type                  | Default     | Description                                                     |
+| ------------------ | --------------------- | ----------- | --------------------------------------------------------------- |
+| `disabled`         | `boolean`             | `false`     | Disables the combobox                                           |
+| `softDisabled`     | `boolean`             | `true`      | Focusable when disabled                                         |
+| `inlineSuggestion` | `string \| undefined` | `undefined` | Displays an inline completion suggestion for autocomplete modes |
 
-#### Outputs
+#### Models
 
-| Property   | Type              | Description                                           |
-| ---------- | ----------------- | ----------------------------------------------------- |
-| `expanded` | `Signal<boolean>` | Signal indicating whether the popup is currently open |
+| Property   | Type                   | Default | Description                                                       |
+| ---------- | ---------------------- | ------- | ----------------------------------------------------------------- |
+| `value`    | `ModelSignal<string>`  | `''`    | Two-way bindable value of the input using `[(value)]`             |
+| `expanded` | `ModelSignal<boolean>` | `false` | Two-way bindable expanded state of the popup using `[(expanded)]` |
 
-### ComboboxInput Directive
+---
 
-The `ngComboboxInput` directive connects an input element to the combobox.
+### ComboboxPopup Directive
 
-#### Model
+A structural directive applied to `<ng-template>` to mark the container used as the popup.
 
-| Property | Type     | Description                                                  |
-| -------- | -------- | ------------------------------------------------------------ |
-| `value`  | `string` | Two-way bindable string value of the input using `[(value)]` |
+#### Inputs
 
-### ComboboxPopupContainer Directive
+| Property   | Type       | Description                                 |
+| ---------- | ---------- | ------------------------------------------- |
+| `combobox` | `Combobox` | Required reference to the parent `Combobox` |
 
-The `ngComboboxPopupContainer` directive wraps the popup content and manages its display.
+---
 
-Must be used with `<ng-template>` inside a popover element.
+### ComboboxWidget Directive
+
+Applied to the popup content container to bridge active-descendant focus changes to the input trigger.
+
+#### Inputs
+
+| Property           | Type                  | Description                                                                       |
+| ------------------ | --------------------- | --------------------------------------------------------------------------------- |
+| `activeDescendant` | `string \| undefined` | The ID of the currently active descendant (bound to `listbox.activeDescendant()`) |
+
+---
+
+### Listbox Directives
+
+Autocomplete suggestion lists use the standard standalone listbox directives.
+
+#### Inputs
+
+| Property        | Type                               | Default    | Description                                                                                          |
+| --------------- | ---------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
+| `selectionMode` | `'follow'` \| `'explicit'`         | `'follow'` | In manual/explicit mode, updates are committed explicitly on click/Enter rather than following focus |
+| `focusMode`     | `'roving'` \| `'activedescendant'` | `'roving'` | Set to `'activedescendant'` so browser focus stays on the trigger input                              |
+| `tabIndex`      | `number`                           | `0`        | Set to `-1` to prevent keyboard tab focus from entering the popup listbox container                  |
+
+#### Models
+
+| Property | Type                 | Description                                                 |
+| -------- | -------------------- | ----------------------------------------------------------- |
+| `value`  | `ModelSignal<any[]>` | Two-way bindable array of selected values using `[(value)]` |
+
+---
 
 ### Related components
 
-Autocomplete uses [Listbox](/api/aria/listbox/Listbox) and [Option](/api/aria/listbox/Option) directives to render the suggestion list. See the [Listbox documentation](/guide/aria/listbox) for additional customization options.
+Autocomplete uses standard standalone [Listbox](/api/aria/listbox/Listbox) and [Option](/api/aria/listbox/Option) directives. See the [Listbox documentation](/guide/aria/listbox) for advanced options.

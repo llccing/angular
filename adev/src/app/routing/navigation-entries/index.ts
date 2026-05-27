@@ -117,6 +117,12 @@ export const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
             contentPath: 'guide/signals/resource',
           },
           {
+            label: 'Debounced signals',
+            path: 'guide/signals/debounced',
+            contentPath: 'guide/signals/debounced',
+            status: 'new',
+          },
+          {
             label: 'Side effects for non-reactives APIs',
             path: 'guide/signals/effect',
             contentPath: 'guide/signals/effect',
@@ -316,6 +322,12 @@ export const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
             status: 'updated',
           },
           {
+            label: 'Lazy loading services',
+            path: 'guide/di/lazy-loading-services',
+            contentPath: 'guide/di/lazy-loading-services',
+            status: 'new',
+          },
+          {
             label: 'Defining dependency providers',
             path: 'guide/di/defining-dependency-providers',
             contentPath: 'guide/di/defining-dependency-providers',
@@ -497,6 +509,34 @@ export const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
             status: 'new',
           },
           {
+            label: 'Cross-field logic',
+            path: 'guide/forms/signals/cross-field-logic',
+            contentPath: 'guide/forms/signals/cross-field-logic',
+            category: 'Signal Forms',
+            status: 'new',
+          },
+          {
+            label: 'Form submission',
+            path: 'guide/forms/signals/form-submission',
+            contentPath: 'guide/forms/signals/form-submission',
+            category: 'Signal Forms',
+            status: 'new',
+          },
+          {
+            label: 'Schemas',
+            path: 'guide/forms/signals/schemas',
+            contentPath: 'guide/forms/signals/schemas',
+            category: 'Signal Forms',
+            status: 'new',
+          },
+          {
+            label: 'Field metadata',
+            path: 'guide/forms/signals/field-metadata',
+            contentPath: 'guide/forms/signals/field-metadata',
+            category: 'Signal Forms',
+            status: 'new',
+          },
+          {
             label: 'Async operations',
             path: 'guide/forms/signals/async-operations',
             contentPath: 'guide/forms/signals/async-operations',
@@ -660,6 +700,7 @@ export const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
             path: 'guide/routing/testing',
             contentPath: 'guide/routing/testing',
             status: 'new',
+            isCrossReferenced: true,
           },
           {
             label: 'Debugging tests',
@@ -863,6 +904,7 @@ export const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
             label: 'Route transition animations',
             path: 'guide/routing/route-transition-animations',
             contentPath: 'guide/routing/route-transition-animations',
+            isCrossReferenced: true,
           },
         ],
       },
@@ -906,6 +948,12 @@ export const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
         label: 'Design Patterns',
         path: 'ai/design-patterns',
         contentPath: 'ai/design-patterns',
+      },
+      {
+        label: 'WebMCP',
+        path: 'ai/webmcp',
+        contentPath: 'ai/webmcp',
+        status: 'new',
       },
     ],
   },
@@ -1042,16 +1090,15 @@ export const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
           },
           // TODO: create those guides
           // The signal debugging docs should also be added to the signal section
-          // {
           //   label: 'Signals',
           //   path: 'tools/devtools/signals',
           //   contentPath: 'tools/devtools/signals',
           // },
-          // {
-          //   label: 'Router',
-          //   path: 'tools/devtools/router',
-          //   contentPath: 'tools/devtools/router',
-          // }
+          {
+            label: 'Router Tree',
+            path: 'tools/devtools/router',
+            contentPath: 'tools/devtools/router',
+          },
         ],
       },
       {
@@ -1106,6 +1153,12 @@ export const DOCS_SUB_NAVIGATION_DATA: NavigationItem[] = [
             label: 'Deferred loading with @defer',
             path: 'best-practices/performance/defer',
             contentPath: 'guide/templates/defer',
+            category: 'Loading Performance',
+          },
+          {
+            label: 'Lazy loading services',
+            path: 'best-practices/performance/lazy-loading-services',
+            contentPath: 'guide/di/lazy-loading-services',
             category: 'Loading Performance',
           },
           {
