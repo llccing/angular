@@ -10,7 +10,7 @@ import {ConstantPool} from '../../constant_pool';
 import * as core from '../../core';
 import * as o from '../../output/output_ast';
 import {ParseError, ParseSourceSpan} from '../../parse_util';
-import {ShadowCss} from '../../shadow_css';
+import {namespaceCssVariables, ShadowCss} from '../../shadow_css';
 import {CompilationJobKind, TemplateCompilationMode} from '../../template/pipeline/src/compilation';
 import {emitHostBindingFunction, emitTemplateFn, transform} from '../../template/pipeline/src/emit';
 import {ingestComponent, ingestHostBinding} from '../../template/pipeline/src/ingest';
@@ -216,6 +216,7 @@ export function compileComponentFromMetadata(
     meta.relativeTemplatePath,
     getTemplateSourceLocationsEnabled(),
     meta.legacyOptionalChaining,
+    meta.foreignImports,
   );
 
   // Then the IR is transformed to prepare it for code generation.
@@ -268,10 +269,11 @@ export function compileComponentFromMetadata(
   let hasStyles = !!meta.externalStyles?.length;
   // e.g. `styles: [str1, str2]`
   if (meta.styles && meta.styles.length) {
+    const namespacedStyles = meta.styles.map((s) => namespaceCssVariables(s));
     const styleValues =
       meta.encapsulation == core.ViewEncapsulation.Emulated
-        ? compileStyles(meta.styles, CONTENT_ATTR, HOST_ATTR)
-        : meta.styles;
+        ? compileStyles(namespacedStyles, CONTENT_ATTR, HOST_ATTR)
+        : namespacedStyles;
     const styleNodes = styleValues.reduce((result, style) => {
       if (style.trim().length > 0) {
         result.push(constantPool.getConstLiteral(o.literal(style)));

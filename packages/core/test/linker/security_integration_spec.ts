@@ -209,6 +209,22 @@ describe('security integration tests', function () {
       checkEscapeOfHrefProperty(fixture);
     });
 
+    it('should escape unsafe attributes on custom namespaced elements', () => {
+      const template = `<xhtml:a xmlns:xhtml="http://www.w3.org/1999/xhtml" [attr.href]="ctxProp">Link Title</xhtml:a>`;
+      TestBed.overrideComponent(SecuredComponent, {set: {template}});
+      const fixture = TestBed.createComponent(SecuredComponent);
+
+      checkEscapeOfHrefProperty(fixture);
+    });
+
+    it('should escape unsafe properties on custom namespaced elements', () => {
+      const template = `<xhtml:a xmlns:xhtml="http://www.w3.org/1999/xhtml" [href]="ctxProp">Link Title</xhtml:a>`;
+      TestBed.overrideComponent(SecuredComponent, {set: {template}});
+      const fixture = TestBed.createComponent(SecuredComponent);
+
+      checkEscapeOfHrefProperty(fixture);
+    });
+
     it('should escape unsafe properties if they are used in host bindings', () => {
       @Directive({
         selector: '[dirHref]',
@@ -346,6 +362,34 @@ describe('security integration tests', function () {
 
       const link = fixture.nativeElement.querySelector('a');
       expect(link.getAttribute('href')).toEqual('unsafe:javascript:alert(1)');
+    });
+
+    it('should sanitize translated static href attributes on custom namespaced elements', () => {
+      loadTranslations({[computeMsgId('/safe')]: 'javascript:alert(1)'});
+      const template = `<xhtml:a xmlns:xhtml="http://www.w3.org/1999/xhtml" href="/safe" i18n-href>Link</xhtml:a>`;
+      TestBed.overrideComponent(SecuredComponent, {set: {template}});
+
+      const fixture = TestBed.createComponent(SecuredComponent);
+      fixture.detectChanges();
+
+      const link = fixture.nativeElement.querySelector('a');
+      expect(link.getAttribute('href')).toEqual('unsafe:javascript:alert(1)');
+    });
+
+    it('should throw error on translated event attributes', () => {
+      const template = `<img src="/missing-image.png" onerror="void 0" i18n-onerror>`;
+      TestBed.overrideComponent(SecuredComponent, {set: {template}});
+
+      expect(() => TestBed.createComponent(SecuredComponent)).toThrowError(
+        /Translating attribute 'onerror' is disallowed for security reasons./,
+      );
+    });
+
+    it('should not throw error on translating "on" attribute', () => {
+      const template = `<div on="some-value" i18n-on></div>`;
+      TestBed.overrideComponent(SecuredComponent, {set: {template}});
+
+      expect(() => TestBed.createComponent(SecuredComponent)).not.toThrow();
     });
 
     it('should throw error on security-sensitive attributes with constant values', () => {

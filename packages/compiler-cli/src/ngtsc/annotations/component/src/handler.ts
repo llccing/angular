@@ -33,6 +33,7 @@ import {
   R3ComponentMetadata,
   R3DeferPerComponentDependency,
   R3DirectiveDependencyMetadata,
+  R3ForeignComponentMetadata,
   R3NgModuleDependencyMetadata,
   R3PipeDependencyMetadata,
   R3TargetBinder,
@@ -75,6 +76,7 @@ import {IndexingContext} from '../../../indexer';
 import {AbstractBoundTemplate} from '../../../indexer/src/api';
 
 import {
+  createForeignComponentMatcher,
   DirectiveMeta,
   extractDirectiveTypeCheckMeta,
   HostDirectivesResolver,
@@ -85,7 +87,6 @@ import {
   PipeMeta,
   Resource,
   ResourceRegistry,
-  createForeignComponentMatcher,
 } from '../../../metadata';
 import {PartialEvaluator} from '../../../partial_evaluator';
 import {PerfEvent, PerfRecorder} from '../../../perf';
@@ -145,7 +146,6 @@ import {
   getProviderDiagnostics,
   InjectableClassRegistry,
   isExpressionForwardReference,
-  parseStandaloneOption,
   readBaseClass,
   ReferencesRegistry,
   removeIdentifierReferences,
@@ -157,7 +157,6 @@ import {
   ResourceLoader,
   toFactoryMetadata,
   tryUnwrapForwardRef,
-  unwrapExpression,
   UndecoratedMetadataExtractor,
   validateHostDirectives,
   wrapFunctionExpressionsInParens,
@@ -177,6 +176,7 @@ import {getProjectRelativePath} from '../../../util/src/path';
 import {JitDeclarationRegistry} from '../../common/src/jit_declaration_registry';
 import {analyzeTemplateForAnimations} from './animations';
 import {checkCustomElementSelectorForErrors, makeCyclicImportInfo} from './diagnostics';
+import {analyzeForeignComponentFeatures} from './foreign_component';
 import {
   ComponentAnalysisData,
   ComponentResolutionData,
@@ -201,11 +201,10 @@ import {analyzeTemplateForSelectorless} from './selectorless';
 import {ComponentSymbol} from './symbol';
 import {
   collectLegacyAnimationNames,
+  extractForeignImportsFromAst,
   legacyAnimationTriggerResolver,
   validateAndFlattenComponentImports,
-  validateAndFlattenForeignImports,
 } from './util';
-import {foreignComponentResolver} from './resolver';
 
 const EMPTY_ARRAY: any[] = [];
 
@@ -644,19 +643,12 @@ export class ComponentDecoratorHandler implements DecoratorHandler<
     } else if (rawImports || rawDeferredImports || rawForeignImports) {
       const importDiagnostics: ts.Diagnostic[] = [];
 
-      if (rawForeignImports) {
-        const foreignImportResolvers = combineResolvers([
-          createForwardRefResolver(this.isCore),
-          foreignComponentResolver,
-        ]);
-        const expr = rawForeignImports;
-        const imported = this.evaluator.evaluate(expr, foreignImportResolvers);
-        const {foreignImports: flattened, diagnostics} = validateAndFlattenForeignImports(
-          imported,
-          expr,
-        );
+      // There's no need to extract foreign imports if we're only emitting declarations.
+      if (rawForeignImports && !this.emitDeclarationOnly) {
+        const {foreignImports: imports, diagnostics} =
+          extractForeignImportsFromAst(rawForeignImports);
         importDiagnostics.push(...diagnostics);
-        foreignImports = flattened;
+        foreignImports = imports;
       }
 
       if (this.compilationMode !== CompilationMode.LOCAL && (rawImports || rawDeferredImports)) {
@@ -862,6 +854,14 @@ export class ComponentDecoratorHandler implements DecoratorHandler<
       }
     }
 
+    const foreignMatcher = createForeignComponentMatcher(foreignImports);
+    const foreignComponentDiagnostics = analyzeForeignComponentFeatures(template, foreignMatcher);
+    if (foreignComponentDiagnostics.length > 0) {
+      isPoisoned = true;
+      diagnostics ??= [];
+      diagnostics.push(...foreignComponentDiagnostics);
+    }
+
     // Figure out the set of styles. The ordering here is important: external resources (styleUrls)
     // precede inline styles, and styles defined in the template override styles defined in the
     // component.
@@ -1023,6 +1023,7 @@ export class ComponentDecoratorHandler implements DecoratorHandler<
           relativeContextFilePath,
           rawImports: rawImports !== null ? new o.WrappedNodeExpr(rawImports) : undefined,
           relativeTemplatePath,
+          foreignImports: null,
         },
         typeCheckMeta: extractDirectiveTypeCheckMeta(node, inputs, this.reflector),
         classMetadata: this.includeClassMetadata
@@ -1495,10 +1496,12 @@ export class ComponentDecoratorHandler implements DecoratorHandler<
       ? this.resolveAllDeferredDependencies(resolution)
       : null;
     const defer = this.compileDeferBlocks(resolution);
+    const foreignImports = this.resolveForeignComponentImports(analysis);
     const meta: R3ComponentMetadata<R3TemplateDependency> = {
       ...analysis.meta,
       ...resolution,
       defer,
+      foreignImports,
     };
     const fac = compileNgFactoryDefField(toFactoryMetadata(meta, FactoryTarget.Component));
 
@@ -1625,10 +1628,12 @@ export class ComponentDecoratorHandler implements DecoratorHandler<
     const deferrableTypes = this.canDeferDeps ? analysis.explicitlyDeferredTypes : null;
 
     const defer = this.compileDeferBlocks(resolution);
+    const foreignImports = this.resolveForeignComponentImports(analysis);
     const meta = {
       ...analysis.meta,
       ...resolution,
       defer,
+      foreignImports,
     } as R3ComponentMetadata<R3TemplateDependency>;
 
     if (deferrableTypes !== null) {
@@ -1688,10 +1693,12 @@ export class ComponentDecoratorHandler implements DecoratorHandler<
     // Create a brand-new constant pool since there shouldn't be any constant sharing.
     const pool = new ConstantPool();
     const defer = this.compileDeferBlocks(resolution);
+    const foreignImports = this.resolveForeignComponentImports(analysis);
     const meta: R3ComponentMetadata<R3TemplateDependency> = {
       ...analysis.meta,
       ...resolution,
       defer,
+      foreignImports,
     };
     const fac = compileNgFactoryDefField(toFactoryMetadata(meta, FactoryTarget.Component));
     const def = compileComponentFromMetadata(meta, pool, this.getNewBindingParser());
@@ -2323,6 +2330,28 @@ export class ComponentDecoratorHandler implements DecoratorHandler<
     }
 
     this.cycleAnalyzer.recordSyntheticImport(origin, imported);
+  }
+
+  /**
+   * Resolves imported foreign components for code generation.
+   */
+  private resolveForeignComponentImports(
+    analysis: Readonly<ComponentAnalysisData>,
+  ): R3ForeignComponentMetadata[] | null {
+    if (analysis.foreignImports === null || analysis.foreignImports.length === 0) {
+      return null;
+    }
+    return analysis.foreignImports.map((foreignMeta) => {
+      const {name, rawExpression} = foreignMeta;
+
+      // Avoid copying comments from the source file into the compiled output.
+      ts.setEmitFlags(rawExpression, ts.EmitFlags.NoComments | ts.EmitFlags.NoNestedComments);
+
+      return {
+        name,
+        component: new o.WrappedNodeExpr(rawExpression),
+      } satisfies R3ForeignComponentMetadata;
+    });
   }
 
   /**

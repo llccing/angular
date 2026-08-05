@@ -12,6 +12,7 @@ import {
   ClassPropertyMapping,
   CssSelector,
   DomSchemaChecker,
+  ForeignComponentMeta,
   MatchSource,
   OutOfBandDiagnosticRecorder,
   ParseSourceFile,
@@ -78,6 +79,7 @@ import {
   AmbientImport,
   ClassDeclaration,
   isNamedClassDeclaration,
+  isNamedFunctionDeclaration,
   TypeScriptReflectionHost,
 } from '../../reflection';
 import {
@@ -362,6 +364,7 @@ export function tcb(
   config?: Partial<TypeCheckingConfig>,
   options?: {emitSpans?: boolean},
   templateParserOptions?: ParseTemplateOptions,
+  foreignComponents: string[] = [],
 ): string {
   const codeLines = [
     'declare const ɵNgFieldDirective: unique symbol;',
@@ -398,13 +401,14 @@ export function tcb(
     throw new Error('Template parse errors: \n' + errors.join('\n'));
   }
 
-  const {matcher, pipes} = prepareDeclarations(
+  const {matcher, pipes, foreignMatcher} = prepareDeclarations(
     declarations,
     (decl) => getClass(sf, decl.name),
     new Map(),
     selectorlessEnabled,
+    foreignComponents,
   );
-  const binder = new R3TargetBinder<DirectiveMeta>(matcher);
+  const binder = new R3TargetBinder<DirectiveMeta>(matcher, foreignMatcher);
   const boundTarget = binder.bind({template: nodes});
 
   const id = 'tcb' as TypeCheckId;
@@ -503,6 +507,11 @@ export interface TypeCheckingTarget {
    * components in this file.
    */
   declarations?: TestDeclaration[];
+
+  /**
+   * Names of foreign components that are available in the template scope.
+   */
+  foreignComponents?: string[];
 }
 
 /**
@@ -622,6 +631,7 @@ export function setup(
       }
 
       const declarations = target.declarations ?? [];
+      const foreignComponents = target.foreignComponents ?? [];
 
       for (const className of Object.keys(target.templates)) {
         const classDecl = getClass(sf, className);
@@ -633,7 +643,7 @@ export function setup(
           throw new Error('Template parse errors: \n' + errors.join('\n'));
         }
 
-        const {matcher, pipes} = prepareDeclarations(
+        const {matcher, pipes, foreignMatcher} = prepareDeclarations(
           declarations,
           (decl) => {
             let declFile = sf;
@@ -647,8 +657,9 @@ export function setup(
           },
           fakeMetadataRegistry,
           overrides.parseOptions?.enableSelectorless ?? false,
+          foreignComponents,
         );
-        const binder = new R3TargetBinder<DirectiveMeta>(matcher);
+        const binder = new R3TargetBinder<DirectiveMeta>(matcher, foreignMatcher);
         const classRef = new Reference(classDecl);
         const templateContext: TemplateContext = {
           nodes,
@@ -820,6 +831,7 @@ function prepareDeclarations(
   resolveDeclaration: DeclarationResolver,
   metadataRegistry: Map<string, TypeCheckableDirectiveMeta>,
   selectorlessEnabled: boolean,
+  foreignComponentNames: string[] = [],
 ) {
   const pipes = new Map<string, PipeMeta>();
   const hostDirectiveResolder = new HostDirectivesResolver(
@@ -850,6 +862,12 @@ function prepareDeclarations(
     }
   }
 
+  const foreignRegistry = new Map<string, ForeignComponentMeta[]>();
+  for (const name of foreignComponentNames) {
+    foreignRegistry.set(name, [{name}]);
+  }
+  const foreignMatcher = new SelectorlessMatcher<ForeignComponentMeta>(foreignRegistry);
+
   // We need to make two passes over the directives so that all declarations
   // have been registered by the time we resolve the host directives.
 
@@ -858,7 +876,7 @@ function prepareDeclarations(
     for (const meta of directives) {
       registry.set(meta.name, [meta, ...hostDirectiveResolder.resolve(meta)]);
     }
-    return {matcher: new SelectorlessMatcher<DirectiveMeta>(registry), pipes};
+    return {matcher: new SelectorlessMatcher<DirectiveMeta>(registry), pipes, foreignMatcher};
   } else {
     const matcher = new SelectorMatcher<DirectiveMeta[]>();
     for (const meta of directives) {
@@ -867,7 +885,7 @@ function prepareDeclarations(
       matcher.addSelectables(selector, matches);
     }
 
-    return {matcher, pipes};
+    return {matcher, pipes, foreignMatcher};
   }
 }
 
@@ -878,6 +896,18 @@ export function getClass(sf: ts.SourceFile, name: string): ClassDeclaration<ts.C
     }
   }
   throw new Error(`Class ${name} not found in file: ${sf.fileName}: ${sf.text}`);
+}
+
+export function getFunction(
+  sf: ts.SourceFile,
+  name: string,
+): ClassDeclaration<ts.FunctionDeclaration> {
+  for (const stmt of sf.statements) {
+    if (isNamedFunctionDeclaration(stmt) && stmt.name.text === name) {
+      return stmt;
+    }
+  }
+  throw new Error(`Function ${name} not found in file: ${sf.fileName}`);
 }
 
 function getDirectiveMetaFromDeclaration(

@@ -18,9 +18,8 @@ describe('indexForest', () => {
     expect(
       indexForest([
         {
-          element: 'Parent1',
+          tagName: 'Parent1',
           directives: [],
-          hydration: null,
           component: {
             isElement: false,
             name: 'Cmp1',
@@ -28,8 +27,7 @@ describe('indexForest', () => {
           },
           children: [
             {
-              element: 'Child1_1',
-              hydration: null,
+              tagName: 'Child1_1',
               directives: [
                 {
                   name: 'Dir1',
@@ -45,11 +43,11 @@ describe('indexForest', () => {
               changeDetection: 'ng-on-push',
               controlFlowBlock: null,
               hasNativeElement: true,
+              static: false,
             } as DevToolsNode & {hasNativeElement?: boolean},
             {
-              element: 'Child1_2',
+              tagName: 'Child1_2',
               directives: [],
-              hydration: null,
               component: {
                 isElement: false,
                 name: 'Cmp2',
@@ -59,35 +57,36 @@ describe('indexForest', () => {
               changeDetection: 'ng-on-push',
               controlFlowBlock: null,
               hasNativeElement: true,
+              static: false,
             } as DevToolsNode & {hasNativeElement?: boolean},
           ],
           changeDetection: 'ng-on-push',
           controlFlowBlock: null,
           hasNativeElement: true,
+          static: false,
         },
         {
-          element: 'Parent2',
+          tagName: 'Parent2',
           directives: [],
           component: null,
-          hydration: null,
           children: [
             {
-              element: 'Child2_1',
+              tagName: 'Child2_1',
               directives: [
                 {
                   name: 'Dir3',
                   id: 1,
                 },
               ],
-              hydration: null,
               component: null,
               children: [],
               changeDetection: 'ng-eager',
               controlFlowBlock: null,
               hasNativeElement: true,
+              static: false,
             } as DevToolsNode & {hasNativeElement?: boolean},
             {
-              element: 'Child2_2',
+              tagName: 'Child2_2',
               directives: [
                 {
                   name: 'Dir4',
@@ -99,24 +98,25 @@ describe('indexForest', () => {
                 },
               ],
               component: null,
-              hydration: null,
               children: [],
               changeDetection: 'ng-eager',
               controlFlowBlock: null,
               hasNativeElement: true,
+              static: false,
             } as DevToolsNode & {hasNativeElement?: boolean},
           ],
           changeDetection: 'ng-eager',
           controlFlowBlock: null,
           hasNativeElement: true,
+          static: false,
         },
       ]),
     ).toEqual([
       {
-        element: 'Parent1',
+        tagName: 'Parent1',
         directives: [],
         position: [0],
-        hydration: null,
+        hydration: undefined,
         component: {
           isElement: false,
           name: 'Cmp1',
@@ -124,7 +124,7 @@ describe('indexForest', () => {
         },
         children: [
           {
-            element: 'Child1_1',
+            tagName: 'Child1_1',
             position: [0, 0],
             directives: [
               {
@@ -137,15 +137,16 @@ describe('indexForest', () => {
               },
             ],
             component: null,
-            hydration: null,
+            hydration: undefined,
             children: [],
             changeDetection: 'ng-on-push',
             controlFlowBlock: null,
             hasNativeElement: true,
             injector: undefined,
+            static: false,
           },
           {
-            element: 'Child1_2',
+            tagName: 'Child1_2',
             directives: [],
             position: [0, 1],
             component: {
@@ -153,29 +154,30 @@ describe('indexForest', () => {
               name: 'Cmp2',
               id: 1,
             },
-            hydration: null,
+            hydration: undefined,
             children: [],
             controlFlowBlock: null,
             changeDetection: 'ng-on-push',
-
             hasNativeElement: true,
             injector: undefined,
+            static: false,
           },
         ],
         controlFlowBlock: null,
         changeDetection: 'ng-on-push',
         hasNativeElement: true,
         injector: undefined,
+        static: false,
       },
       {
-        element: 'Parent2',
+        tagName: 'Parent2',
         directives: [],
         component: null,
         position: [1],
-        hydration: null,
+        hydration: undefined,
         children: [
           {
-            element: 'Child2_1',
+            tagName: 'Child2_1',
             position: [1, 0],
             directives: [
               {
@@ -184,15 +186,16 @@ describe('indexForest', () => {
               },
             ],
             component: null,
-            hydration: null,
+            hydration: undefined,
             children: [],
             changeDetection: 'ng-eager',
             controlFlowBlock: null,
             hasNativeElement: true,
             injector: undefined,
+            static: false,
           },
           {
-            element: 'Child2_2',
+            tagName: 'Child2_2',
             position: [1, 1],
             directives: [
               {
@@ -206,17 +209,19 @@ describe('indexForest', () => {
             ],
             component: null,
             children: [],
-            hydration: null,
+            hydration: undefined,
             changeDetection: 'ng-eager',
             controlFlowBlock: null,
             hasNativeElement: true,
             injector: undefined,
+            static: false,
           },
         ],
         changeDetection: 'ng-eager',
         controlFlowBlock: null,
         hasNativeElement: true,
         injector: undefined,
+        static: false,
       },
     ]);
   });

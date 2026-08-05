@@ -14,6 +14,12 @@ import {Identifiers} from './r3_identifiers';
 /** Regex that includes unsafe characters in an object literal property name. */
 const UNSAFE_OBJECT_KEY_NAME_REGEXP = /[-.]/;
 
+/** Pattern used to validate a JavaScript identifier. */
+export const IDENTIFIER_PATTERN = /^[$A-Z_][0-9A-Z_$]*$/i;
+
+/** Pattern used to identify a `let` parameter. */
+export const LET_PATTERN = /^let\s+([\S\s]*)/;
+
 export function typeWithParameters(type: o.Expression, numParams: number): o.ExpressionType {
   if (numParams === 0) {
     return o.expressionType(type);
@@ -39,22 +45,9 @@ export interface R3CompiledExpression {
   statements: o.Statement[];
 }
 
-const LEGACY_ANIMATE_SYMBOL_PREFIX = '@';
-export function prepareSyntheticPropertyName(name: string) {
-  return `${LEGACY_ANIMATE_SYMBOL_PREFIX}${name}`;
-}
-
-export function prepareSyntheticListenerName(name: string, phase: string) {
-  return `${LEGACY_ANIMATE_SYMBOL_PREFIX}${name}.${phase}`;
-}
-
 export function getSafePropertyAccessString(accessor: string, name: string): string {
   const escapedName = escapeIdentifier(name, false);
   return escapedName !== name ? `${accessor}[${escapedName}]` : `${accessor}.${name}`;
-}
-
-export function prepareSyntheticListenerFunctionName(name: string, phase: string) {
-  return `animation_${name}_${phase}`;
 }
 
 export function jitOnlyGuardedExpression(expr: o.Expression): o.Expression {
@@ -65,7 +58,7 @@ export function devOnlyGuardedExpression(expr: o.Expression): o.Expression {
   return guardedExpression('ngDevMode', expr);
 }
 
-export function guardedExpression(guard: string, expr: o.Expression): o.Expression {
+function guardedExpression(guard: string, expr: o.Expression): o.Expression {
   const guardExpr = new o.ExternalExpr({name: guard, moduleName: null});
   const guardNotDefined = new o.BinaryOperatorExpr(
     o.BinaryOperator.Identical,

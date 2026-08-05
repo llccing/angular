@@ -16,11 +16,12 @@ import {
 import {Injector} from '../di/injector';
 import {EnvironmentInjector} from '../di/r3_injector';
 import {RuntimeError, RuntimeErrorCode} from '../errors';
-import {Type} from '../interface/type';
+import {AbstractType, Type} from '../interface/type';
 import {ComponentRef as AbstractComponentRef} from '../linker/component_factory';
 import {createElementRef, ElementRef} from '../linker/element_ref';
 import {NgModuleRef} from '../linker/ng_module_factory';
 import {RendererFactory2} from '../render/api';
+import {MATH_ML_NAMESPACE, SVG_NAMESPACE} from '../sanitization/dom_security_schema';
 import {Sanitizer} from '../sanitization/sanitizer';
 
 import {attachPatchData} from './context_discovery';
@@ -42,6 +43,7 @@ import {
   TElementContainerNode,
   TElementNode,
   TNode,
+  TNodeName,
   TNodeType,
 } from './interfaces/node';
 import {RElement, RNode} from './interfaces/renderer_dom';
@@ -55,7 +57,6 @@ import {
   TVIEW,
   TViewType,
 } from './interfaces/view';
-import {MATH_ML_NAMESPACE, SVG_NAMESPACE} from './namespaces';
 
 import {ProfilerEvent} from '../../primitives/devtools';
 import {TracingService} from '../application/tracing';
@@ -111,7 +112,7 @@ function verifyNotAnOrphanComponent(componentDef: ComponentDef<unknown>) {
     (typeof ngJitMode === 'undefined' || ngJitMode) &&
     componentDef.debugInfo?.forbidOrphanRendering
   ) {
-    if (depsTracker.isOrphanComponent(componentDef.type)) {
+    if (depsTracker.isOrphanComponent(componentDef.type as Type<any>)) {
       throw new RuntimeError(
         RuntimeErrorCode.RUNTIME_DEPS_ORPHAN_COMPONENT,
         `Orphan component found! Trying to render the component ${debugStringifyTypeForError(
@@ -183,6 +184,15 @@ function createHostElement(componentDef: ComponentDef<unknown>, renderer: Render
   return createElementNode(renderer, tagName, namespace);
 }
 
+function assertNotScriptHostElement(tagName: string | null | undefined): void {
+  if (tagName?.toLowerCase() === 'script') {
+    throw new RuntimeError(
+      RuntimeErrorCode.UNSAFE_VALUE_IN_SCRIPT,
+      ngDevMode && `"<script>" tag is not allowed as a component host element.`,
+    );
+  }
+}
+
 /**
  * Infers the tag name that should be used for a component based on its definition.
  * @param componentDef Definition for which to resolve the tag name.
@@ -234,7 +244,7 @@ export class ComponentFactory<T> {
     private componentDef: ComponentDef<any>,
     private ngModule?: NgModuleRef<any>,
   ) {
-    this.componentType = componentDef.type;
+    this.componentType = componentDef.type as Type<any>;
     this.selector = stringifyCSSSelectorList(componentDef.selectors);
     this.ngContentSelectors = componentDef.ngContentSelectors ?? [];
     this.isBoundToModule = !!ngModule;
@@ -303,6 +313,7 @@ export class ComponentFactory<T> {
     const hostElement = rootSelectorOrNode
       ? locateHostElement(hostRenderer, rootSelectorOrNode, cmpDef.encapsulation, rootViewInjector)
       : createHostElement(cmpDef, hostRenderer);
+    assertNotScriptHostElement(hostElement?.tagName);
 
     const sharedStylesHost = rootViewInjector.get(SHARED_STYLES_HOST, null);
     const styleHost = getStyleHost(
@@ -359,7 +370,7 @@ export class ComponentFactory<T> {
         HEADER_OFFSET,
         rootLView,
         TNodeType.Element,
-        '#host',
+        TNodeName.DynamicHost,
         () => rootTView.directiveRegistry,
         true,
         0,

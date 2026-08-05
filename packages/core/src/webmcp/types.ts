@@ -66,7 +66,7 @@ export interface ToolDescriptor<InputSchema extends JsonSchemaForInference> {
   name: string;
 
   /** A description of what the tool does and how the agent should consider using it. */
-  description?: string;
+  description: string;
 
   /**
    * A schema which describes the input arguments expected by the {@link execute} function
@@ -78,7 +78,7 @@ export interface ToolDescriptor<InputSchema extends JsonSchemaForInference> {
   execute: Execute<InputSchema>;
 }
 
-/** The `window.navigator.modelContext` object for imperatively registering WebMCP tools. */
+/** The `window.document.modelContext` object for imperatively registering WebMCP tools. */
 export interface ModelContext {
   /**
    * Register a WebMCP tool for the agent to invoke.
@@ -89,12 +89,5 @@ export interface ModelContext {
   registerTool<const InputSchema extends JsonSchemaForInference>(
     tool: ToolDescriptor<InputSchema>,
     options?: ToolRegistrationOptions,
-  ): void;
-
-  /**
-   * Unregister a tool.
-   *
-   * @deprecated Only exists for out-of-date `@mcp-b/webmcp-polyfill` testing tool.
-   */
-  unregisterTool(tool: {name: string}): void;
+  ): Promise<void>;
 }

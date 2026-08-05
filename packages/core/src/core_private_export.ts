@@ -17,7 +17,7 @@ export {
   type NavigationReloadOptions as ɵNavigationReloadOptions,
   type NavigationResult as ɵNavigationResult,
   type NavigationTransition as ɵNavigationTransition,
-  type NavigationTypeString as ɵNavigationTypeString,
+  type NavigationType as ɵNavigationType,
   type NavigationUpdateCurrentEntryOptions as ɵNavigationUpdateCurrentEntryOptions,
 } from '../primitives/dom-navigation';
 export {maybeUnwrapDefaultExport as ɵmaybeUnwrapDefaultExport} from './util/default_export';
@@ -97,6 +97,7 @@ export {
 } from './hydration/api';
 export {CACHE_ACTIVE as ɵCACHE_ACTIVE} from './hydration/cache';
 export {withEventReplay as ɵwithEventReplay} from './hydration/event_replay';
+export {resetIncrementalHydrationRuntimeForTests as ɵresetIncrementalHydrationRuntimeForTests} from './hydration/incremental_runtime';
 export {
   EVENT_REPLAY_QUEUE as ɵEVENT_REPLAY_QUEUE,
   IS_ENABLED_BLOCKING_INITIAL_NAVIGATION as ɵIS_ENABLED_BLOCKING_INITIAL_NAVIGATION,
@@ -125,6 +126,7 @@ export {
 export {DEFAULT_LOCALE_ID as ɵDEFAULT_LOCALE_ID} from './i18n/localization';
 export {Writable as ɵWritable} from './interface/type';
 export {getClosestComponentName as ɵgetClosestComponentName} from './internal/get_closest_component_name';
+export {getCurrentClosestComponentInstance as ɵgetCurrentClosestComponentInstance} from './internal/get_current_closest_component_instance';
 export {
   clearResolutionOfComponentResourcesQueue as ɵclearResolutionOfComponentResourcesQueue,
   isComponentDefPendingResolution as ɵisComponentDefPendingResolution,

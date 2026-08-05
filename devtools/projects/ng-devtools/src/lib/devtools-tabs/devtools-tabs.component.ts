@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Component, computed, inject, output, signal} from '@angular/core';
+import {Component, computed, effect, inject, output, signal} from '@angular/core';
 import {MatIcon} from '@angular/material/icon';
 import {MatMenu, MatMenuItem, MatMenuTrigger} from '@angular/material/menu';
 import {MatTabLink, MatTabNav, MatTabNavPanel} from '@angular/material/tabs';
@@ -30,6 +30,7 @@ import {RouterTreeComponent} from './router-tree/router-tree.component';
 import {TransferStateComponent} from './transfer-state/transfer-state.component';
 import {TabUpdate} from './tab-update/index';
 import {Settings} from '../application-services/settings';
+import {DEEP_LINK_INSTANCE_ID} from '../application-providers/deep_link';
 import {SUPPORTED_APIS} from '../application-providers/supported_apis';
 import {ButtonComponent} from '../shared/button/button.component';
 import {APP_DATA} from '../application-providers/app_data';
@@ -59,6 +60,9 @@ type Tab = 'Components' | 'Profiler' | 'Router Tree' | 'Injector Tree' | 'Transf
     ButtonComponent,
   ],
   providers: [TabUpdate],
+  host: {
+    '(document:keydown.Escape)': 'stopInspecting()',
+  },
 })
 export class DevToolsTabsComponent {
   public readonly frameManager = inject(FrameManager);
@@ -68,13 +72,13 @@ export class DevToolsTabsComponent {
   protected readonly applicationEnvironment = inject(ApplicationEnvironment);
   protected readonly supportedApis = inject(SUPPORTED_APIS);
   protected readonly appData = inject(APP_DATA);
+  private readonly deepLinkInstanceId = inject(DEEP_LINK_INSTANCE_ID);
 
   readonly frameSelected = output<Frame>();
 
   readonly inspectorRunning = signal(false);
 
   protected readonly signalGraphEnabled = () => this.supportedApis().signals;
-  protected readonly transferStateEnabled = this.settings.transferStateEnabled;
   protected readonly showCommentNodes = this.settings.showCommentNodes;
   protected readonly activeTab = this.settings.activeTab;
 
@@ -95,7 +99,7 @@ export class DevToolsTabsComponent {
     if (supportedApis.routes && this.routes().length > 0) {
       tabs.push('Router Tree');
     }
-    if (supportedApis.transferState && this.transferStateEnabled()) {
+    if (this.appData().hydration) {
       tabs.push('Transfer State');
     }
 
@@ -133,6 +137,13 @@ export class DevToolsTabsComponent {
       },
     );
 
+    // Deep link: switch to Components tab when a deep link request arrives.
+    effect(() => {
+      if (this.deepLinkInstanceId() !== null) {
+        this.changeTab('Components');
+      }
+    });
+
     if (typeof chrome !== 'undefined' && chrome.runtime !== undefined) {
       this.extensionVersion.set(chrome.runtime.getManifest().version);
     }
@@ -155,6 +166,12 @@ export class DevToolsTabsComponent {
   toggleInspector(): void {
     this.toggleInspectorState();
     this.emitInspectorEvent();
+  }
+
+  stopInspecting(): void {
+    if (this.inspectorRunning()) {
+      this.toggleInspector();
+    }
   }
 
   emitInspectorEvent(): void {

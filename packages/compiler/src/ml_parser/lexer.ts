@@ -153,9 +153,14 @@ const SUPPORTED_BLOCKS = [
   '@placeholder',
   '@loading',
   '@error',
+  '@content',
 ] as const;
 
 const INTERPOLATION = {start: '{{', end: '}}'} as const;
+
+const DEFAULT_NEVER_PATTERN = /^default[^\S\r\n]+never/;
+
+const ELSE_IF_PATTERN = /^else[^\S\r\n]+if/;
 
 // See https://www.w3.org/TR/html51/syntax.html#writing-html-documents
 class _Tokenizer {
@@ -236,6 +241,8 @@ class _Tokenizer {
             }
           } else if (this._attemptCharCode(chars.$SLASH)) {
             this._consumeTagClose(start);
+          } else if (this._attemptCharCode(chars.$QUESTION)) {
+            this._consumeProcessingInstruction(start);
           } else {
             this._consumeTagOpen(start);
           }
@@ -291,7 +298,17 @@ class _Tokenizer {
       }
       return true;
     });
-    return this._cursor.getChars(nameCursor).trim();
+
+    let result = this._cursor.getChars(nameCursor).trim();
+
+    // Normalize whitespaces.
+    if (ELSE_IF_PATTERN.test(result)) {
+      result = 'else if';
+    } else if (DEFAULT_NEVER_PATTERN.test(result)) {
+      result = 'default never';
+    }
+
+    return result;
   }
 
   private _consumeBlockStart(start: CharacterCursor) {
@@ -455,30 +472,7 @@ class _Tokenizer {
   private _consumeLetDeclarationValue(): void {
     const start = this._cursor.clone();
     this._beginToken(TokenType.LET_VALUE, start);
-
-    while (this._cursor.peek() !== chars.$EOF) {
-      const char = this._cursor.peek();
-
-      // `@let` declarations terminate with a semicolon.
-      if (char === chars.$SEMICOLON) {
-        break;
-      }
-
-      // If we hit a quote, skip over its content since we don't care what's inside.
-      if (chars.isQuote(char)) {
-        this._cursor.advance();
-        this._attemptCharCodeUntilFn((inner) => {
-          if (inner === chars.$BACKSLASH) {
-            this._cursor.advance();
-            return false;
-          }
-          return inner === char;
-        });
-      }
-
-      this._cursor.advance();
-    }
-
+    this._attemptUntilIgnoreQuotes((char) => char === chars.$SEMICOLON); // `@let` declarations terminate with a semicolon.
     this._endToken([this._cursor.getChars(start)]);
   }
 
@@ -650,6 +644,29 @@ class _Tokenizer {
     }
   }
 
+  private _attemptUntilIgnoreQuotes(predicate: (code: number) => boolean) {
+    while (this._cursor.peek() !== chars.$EOF) {
+      const char = this._cursor.peek();
+
+      if (predicate(char)) {
+        break;
+      }
+
+      if (chars.isQuote(char)) {
+        this._cursor.advance();
+        this._attemptCharCodeUntilFn((inner) => {
+          if (inner === chars.$BACKSLASH) {
+            this._cursor.advance();
+            return false;
+          }
+          return inner === char;
+        });
+      }
+
+      this._cursor.advance();
+    }
+  }
+
   private _readChar(): string {
     // Don't rely upon reading directly from `_input` as the actual char value
     // may have been generated from an escape sequence.
@@ -785,6 +802,21 @@ class _Tokenizer {
     this._endToken([content]);
   }
 
+  private _consumeProcessingInstruction(start: CharacterCursor) {
+    this._beginToken(TokenType.PROCESSING_INSTRUCTION, start);
+    const contentStart = this._cursor.clone();
+    this._attemptUntilIgnoreQuotes((char) => char === chars.$QUESTION || char === chars.$GT);
+    const endChar = this._cursor.peek();
+    const content = this._cursor.getChars(contentStart);
+    this._cursor.advance();
+
+    if (endChar === chars.$QUESTION) {
+      this._requireCharCode(chars.$GT);
+    }
+
+    this._endToken([content]);
+  }
+
   private _consumePrefixAndName(endPredicate: (code: number) => boolean): string[] {
     const nameOrPrefixStart = this._cursor.clone();
     let prefix: string = '';
@@ -804,12 +836,21 @@ class _Tokenizer {
     return [prefix, name];
   }
 
-  private _consumeSingleLineComment() {
+  private _consumeSingleLineComment(start: CharacterCursor) {
+    const contentStart = this._cursor.clone();
     this._attemptCharCodeUntilFn((code) => chars.isNewLine(code) || code === chars.$EOF);
+
+    const spanEnd = this._cursor.clone();
+    const content = spanEnd.getChars(contentStart);
+
+    this._beginToken(TokenType.IN_ELEMENT_COMMENT, start);
+    this._endToken([content, 'single'], spanEnd);
+
     this._attemptCharCodeUntilFn(isNotWhitespace);
   }
 
-  private _consumeMultiLineComment() {
+  private _consumeMultiLineComment(start: CharacterCursor) {
+    const contentStart = this._cursor.clone();
     this._attemptCharCodeUntilFn((code) => {
       if (code === chars.$EOF) {
         return true;
@@ -821,9 +862,18 @@ class _Tokenizer {
       }
       return false;
     });
+
+    const contentEnd = this._cursor.clone();
+    const content = contentEnd.getChars(contentStart);
+
+    let spanEnd = contentEnd;
     if (this._attemptStr('*/')) {
+      spanEnd = this._cursor.clone();
       this._attemptCharCodeUntilFn(isNotWhitespace);
     }
+
+    this._beginToken(TokenType.IN_ELEMENT_COMMENT, start);
+    this._endToken([content, 'multi'], spanEnd);
   }
 
   private _consumeTagOpen(start: CharacterCursor) {
@@ -863,13 +913,14 @@ class _Tokenizer {
       }
 
       while (true) {
+        const commentStart = this._cursor.clone();
         if (this._attemptStr('//')) {
-          this._consumeSingleLineComment();
+          this._consumeSingleLineComment(commentStart);
           continue;
         }
 
         if (this._attemptStr('/*')) {
-          this._consumeMultiLineComment();
+          this._consumeMultiLineComment(commentStart);
           continue;
         }
 
@@ -1386,13 +1437,14 @@ class _Tokenizer {
       // We assume that `<` followed by whitespace is not the start of an HTML element.
       const tmp = this._cursor.clone();
       tmp.advance();
-      // If the next character is alphabetic, ! nor / then it is a tag start
+      // If the next character is alphabetic, !, ? nor / then it is a tag start
       const code = tmp.peek();
       if (
         (chars.$a <= code && code <= chars.$z) ||
         (chars.$A <= code && code <= chars.$Z) ||
         code === chars.$SLASH ||
-        code === chars.$BANG
+        code === chars.$BANG ||
+        code === chars.$QUESTION
       ) {
         return true;
       }

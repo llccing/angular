@@ -28,7 +28,7 @@ jobs:
       - uses: alessbell/pull-request-comment-branch@ef3408c9757d05f89cb525036383033a313758a0 # v2.1.0
         id: comment-branch
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Specify repository as the PR branch might be from a fork.
           repository: ${{steps.comment-branch.outputs.head_owner}}/${{steps.comment-branch.outputs.head_repo}}
@@ -36,9 +36,23 @@ jobs:
           # that the action was triggered by a team member.
           ref: ${{steps.comment-branch.outputs.head_sha}}
 
+      # We cannot use `angular/dev-infra/github-actions/npm/checkout-and-setup-node` here
+      # because it does not support checking out from a fork (as it lacks a `repository` input).
+      # Thus, we checkout and setup Node/pnpm manually.
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
       - run: pnpm install --frozen-lockfile
 
-      - uses: angular/dev-infra/github-actions/bazel/configure-remote@442c2fcbf06a321b5196b4c5fc70e78a49242958
+      - name: Setup Bazel
+        uses: angular/dev-infra/github-actions/bazel/setup@0b701b31038419ad73422a9d9d3dff43a725a0d2 # main
+
+      - uses: angular/dev-infra/github-actions/bazel/configure-remote@0b701b31038419ad73422a9d9d3dff43a725a0d2 # main
         with:
           bazelrc: ./.bazelrc.user
 
@@ -49,8 +63,10 @@ jobs:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: pnpm benchmarks prepare-for-github-action "$COMMENT_BODY"
 
-      - run: pnpm benchmarks run-compare ${{steps.info.outputs.compareSha}} "${{steps.info.outputs.benchmarkTarget}}"
-
+      - env:
+          COMPARE_SHA: ${{steps.info.outputs.compareSha}}
+          BENCHMARK_TARGET: ${{steps.info.outputs.benchmarkTarget}}
+        run: pnpm benchmarks run-compare "$COMPARE_SHA" "$BENCHMARK_TARGET"
         id: benchmark
         name: Running benchmark
 

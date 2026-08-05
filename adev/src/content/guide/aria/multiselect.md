@@ -159,61 +159,68 @@ Forms sometimes need to limit the number of selections or validate user choices.
 
 This example limits selections to two items. When the limit is reached, unselected options are disabled to prevent further selections, and the combobox display updates to reflect the choices.
 
-## APIs
+## Testing
 
-The multiselect pattern uses the following directives from Angular's Aria library. See the full API documentation in the linked guides.
+The multiselect pattern can be tested using a combination of `ComboboxHarness` and `ListboxHarness` from `@angular/aria/combobox/testing` and `@angular/aria/listbox/testing`.
+Here is an example of how to use the harnesses to test a multiselect component:
 
-### Combobox directives
+```typescript
+import {ComponentFixture, TestBed} from '@angular/core/testing';
+import {HarnessLoader} from '@angular/cdk/testing';
+import {TestbedHarnessEnvironment} from '@angular/cdk/testing/testbed';
+import {ComboboxHarness} from '@angular/aria/combobox/testing';
+import {ListboxHarness} from '@angular/aria/listbox/testing';
+import {MyMultiselectComponent} from './my-multiselect'; // Your component
 
-The multiselect pattern uses `ngCombobox` directly on the trigger element (such as a `div` or `button`) to create a select-like multiselect dropdown.
+describe('MyMultiselectComponent', () => {
+  let fixture: ComponentFixture<MyMultiselectComponent>;
+  let loader: HarnessLoader;
 
-#### Inputs
+  beforeEach(async () => {
+    TestBed.configureTestingModule({
+      imports: [MyMultiselectComponent],
+    });
 
-| Property   | Type      | Default | Description                     |
-| ---------- | --------- | ------- | ------------------------------- |
-| `disabled` | `boolean` | `false` | Disables the entire multiselect |
+    fixture = TestBed.createComponent(MyMultiselectComponent);
+    await fixture.whenStable();
+    loader = TestbedHarnessEnvironment.loader(fixture);
+  });
 
-See the [Combobox API documentation](guide/aria/combobox#apis) for complete details on all available inputs and signals.
+  it('should allow selecting multiple options', async () => {
+    const select = await loader.getHarness(ComboboxHarness);
 
-#### Popup directives
+    // Open the dropdown
+    await select.open();
 
-The structural `ngComboboxPopup` directive marks the overlay template and requires a reference to the parent combobox:
+    // Get the listbox harness from the popup
+    const listbox = await select.getPopupWidget(ListboxHarness);
+    expect(await listbox.isMulti()).toBe(true);
 
-| Property   | Type       | Description                                 |
-| ---------- | ---------- | ------------------------------------------- |
-| `combobox` | `Combobox` | Required reference to the parent `Combobox` |
+    const options = await listbox.getOptions();
 
-#### ComboboxWidget directive
+    // Select first and second options
+    await options[0].click();
+    await options[1].click();
 
-The `ngComboboxWidget` directive bridges the listbox with the combobox trigger to support active-descendant focus tracking.
+    // Verify both options are selected
+    expect(await options[0].isSelected()).toBe(true);
+    expect(await options[1].isSelected()).toBe(true);
 
-| Property           | Type                  | Description                                                                                                                                  |
-| ------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `activeDescendant` | `string \| undefined` | The ID of the currently active option (bound to `listbox.activeDescendant()`) to update the `aria-activedescendant` attribute on the trigger |
+    // Close the dropdown
+    await select.close();
 
-### Listbox directives
+    // Verify value is updated (e.g., comma separated list or count)
+    expect(await (await select.host()).text()).toContain('Option 1, Option 2');
+  });
+});
+```
 
-The multiselect pattern uses `ngListbox` with the `multi` attribute for multiple selection and `ngOption` for each selectable item.
+## API reference
 
-#### Inputs
+For detailed API documentation, inspect the following API references:
 
-| Property        | Type                               | Default    | Description                                                                                                                     |
-| --------------- | ---------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `multi`         | `boolean`                          | `false`    | Set to `true` to enable multiple selection                                                                                      |
-| `selectionMode` | `'follow'` \| `'explicit'`         | `'follow'` | Set to `'explicit'` so options are toggled explicitly via click/Space instead of following active focus                         |
-| `focusMode`     | `'roving'` \| `'activedescendant'` | `'roving'` | The focus strategy used by the listbox. Set to `'activedescendant'` so browser focus remains on the combobox trigger.           |
-| `tabIndex`      | `number`                           | `0`        | The tabindex of the listbox. Set to `-1` to prevent keyboard focus from entering the popup container in active-descendant mode. |
-
-#### Model
-
-| Property | Type                 | Description                               |
-| -------- | -------------------- | ----------------------------------------- |
-| `value`  | `ModelSignal<any[]>` | Two-way bindable array of selected values |
-
-When `multi` is true, users can select multiple options using Space to toggle selection. The popup remains open after selection, allowing additional choices.
-
-See the [Listbox API documentation](guide/aria/listbox#apis) for complete details on listbox configuration, selection modes, and option properties.
-
-### Positioning
-
-The multiselect pattern integrates with [CDK Overlay](api/cdk/overlay/CdkConnectedOverlay) for smart positioning. Use `cdkConnectedOverlay` to handle viewport edges and scrolling automatically.
+- [`Combobox`](/api/aria/combobox/Combobox)
+- [`ComboboxPopup`](/api/aria/combobox/ComboboxPopup)
+- [`ComboboxWidget`](/api/aria/combobox/ComboboxWidget)
+- [`Listbox`](/api/aria/listbox/Listbox)
+- [`Option`](/api/aria/listbox/Option)

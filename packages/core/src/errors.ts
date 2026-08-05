@@ -25,6 +25,8 @@ import {ERROR_DETAILS_PAGE_BASE_URL} from './error_details_base_url';
  *  - animations: 3000-3999
  *  - router: 4000-4999
  *  - platform-browser: 5000-5500
+ *  - service-worker: 5600-5699
+ *  - platform-server: 5700-5800
  */
 export const enum RuntimeErrorCode {
   // Change Detection Errors
@@ -64,6 +66,7 @@ export const enum RuntimeErrorCode {
   NO_BINDING_TARGET = 315,
   INVALID_BINDING_TARGET = 316,
   INVALID_SET_INPUT_CALL = 317,
+  INVALID_STYLE_PROP_VALUE = -318,
 
   // Bootstrap Errors
   MULTIPLE_PLATFORMS = 400,

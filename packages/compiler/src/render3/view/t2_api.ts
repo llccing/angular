@@ -13,6 +13,7 @@ import {
   BoundEvent,
   Component,
   Content,
+  ContentBlock,
   DeferredBlock,
   DeferredBlockError,
   DeferredBlockLoading,
@@ -45,6 +46,7 @@ export type ScopedNode =
   | DeferredBlockLoading
   | DeferredBlockPlaceholder
   | Content
+  | ContentBlock
   | HostElement;
 
 /** Possible values that a reference can be resolved to. */
@@ -180,12 +182,6 @@ export interface ForeignComponentMeta {
    * Name of the foreign component (used for matching and debugging).
    */
   name: string;
-
-  /** Reference to the foreign component declaration site. */
-  ref: {
-    /** Key that uniquely identifies the reference. */
-    key: string;
-  };
 }
 
 /**

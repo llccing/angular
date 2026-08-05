@@ -14,10 +14,14 @@ import {splitNsName} from '../../../ml_parser/tags';
 import * as o from '../../../output/output_ast';
 import {ParseSourceSpan} from '../../../parse_util';
 import * as t from '../../../render3/r3_ast';
-import {DeferBlockDepsEmitMode, R3ComponentDeferMetadata} from '../../../render3/view/api';
+import {
+  DeferBlockDepsEmitMode,
+  R3ComponentDeferMetadata,
+  R3ForeignComponentMetadata,
+} from '../../../render3/view/api';
 import {icuFromI18nMessage} from '../../../render3/view/i18n/util';
 import {DomElementSchemaRegistry} from '../../../schema/dom_element_schema_registry';
-import {BindingParser} from '../../../template_parser/binding_parser';
+import {BindingParser, calcPossibleSecurityContexts} from '../../../template_parser/binding_parser';
 import * as ir from '../ir';
 
 import {
@@ -44,7 +48,7 @@ export function isI18nRootNode(meta?: i18n.I18nMeta): meta is i18n.Message {
   return meta instanceof i18n.Message;
 }
 
-export function isSingleI18nIcu(meta?: i18n.I18nMeta): meta is i18n.I18nMeta & {nodes: [i18n.Icu]} {
+function isSingleI18nIcu(meta?: i18n.I18nMeta): meta is i18n.I18nMeta & {nodes: [i18n.Icu]} {
   return isI18nRootNode(meta) && meta.nodes.length === 1 && meta.nodes[0] instanceof i18n.Icu;
 }
 
@@ -65,6 +69,7 @@ export function ingestComponent(
   relativeTemplatePath: string | null,
   enableDebugLocations: boolean,
   legacyOptionalChaining: boolean,
+  foreignImports: R3ForeignComponentMetadata[] | null,
 ): ComponentCompilationJob {
   const job = new ComponentCompilationJob(
     componentName,
@@ -77,6 +82,7 @@ export function ingestComponent(
     relativeTemplatePath,
     enableDebugLocations,
     legacyOptionalChaining,
+    foreignImports,
   );
   ingestNodes(job.root, template);
   return job;
@@ -119,19 +125,21 @@ export function ingestHostBinding(
     if (property.isAnimation) {
       bindingKind = ir.BindingKind.Animation;
     }
-    const securityContexts = bindingParser
-      .calcPossibleSecurityContexts(
-        input.componentSelector,
-        property.name,
-        bindingKind === ir.BindingKind.Attribute,
-      )
-      .filter((context) => context !== SecurityContext.NONE);
+    const securityContexts = calcHostBindingSecurityContexts(
+      bindingParser,
+      input.componentSelector,
+      property.name,
+      bindingKind === ir.BindingKind.Attribute,
+    );
     ingestDomProperty(job, property, bindingKind, securityContexts);
   }
   for (const [name, expr] of Object.entries(input.attributes) ?? []) {
-    const securityContexts = bindingParser
-      .calcPossibleSecurityContexts(input.componentSelector, name, true)
-      .filter((context) => context !== SecurityContext.NONE);
+    const securityContexts = calcHostBindingSecurityContexts(
+      bindingParser,
+      input.componentSelector,
+      name,
+      true,
+    );
     ingestHostAttribute(job, name, expr, securityContexts);
   }
   for (const event of input.events ?? []) {
@@ -140,9 +148,45 @@ export function ingestHostBinding(
   return job;
 }
 
+function calcHostBindingSecurityContexts(
+  bindingParser: BindingParser,
+  selector: string,
+  name: string,
+  isAttribute: boolean,
+): SecurityContext[] {
+  const declaringSelectorContexts = bindingParser.calcPossibleSecurityContexts(
+    selector,
+    name,
+    isAttribute,
+  );
+  const concreteHostContexts = calcPossibleSecurityContexts(
+    domSchema,
+    null,
+    domSchema.getMappedPropName(name),
+    isAttribute,
+  );
+  const concreteHostNonNoneContexts = concreteHostContexts.filter(
+    (context) => context !== SecurityContext.NONE,
+  );
+  const concreteHostNonNoneCount = concreteHostNonNoneContexts.length;
+  const hasConcreteHostNoneContext = concreteHostNonNoneCount !== concreteHostContexts.length;
+
+  // Host bindings can run against a concrete host whose element name differs from the declaring
+  // selector, including dynamic root components whose TNode name is `#host`.
+  if (hasConcreteHostNoneContext && concreteHostNonNoneCount > 0) {
+    return concreteHostContexts;
+  }
+
+  if (concreteHostNonNoneContexts.some((context) => !declaringSelectorContexts.includes(context))) {
+    return concreteHostContexts;
+  }
+
+  return declaringSelectorContexts.filter((context) => context !== SecurityContext.NONE);
+}
+
 // TODO: We should refactor the parser to use the same types and structures for host bindings as
 // with ordinary components. This would allow us to share a lot more ingestion code.
-export function ingestDomProperty(
+function ingestDomProperty(
   job: HostBindingCompilationJob,
   property: e.ParsedProperty,
   bindingKind: ir.BindingKind,
@@ -176,7 +220,7 @@ export function ingestDomProperty(
   );
 }
 
-export function ingestHostAttribute(
+function ingestHostAttribute(
   job: HostBindingCompilationJob,
   name: string,
   value: o.Expression,
@@ -200,7 +244,7 @@ export function ingestHostAttribute(
   job.root.update.push(attrBinding);
 }
 
-export function ingestHostEvent(job: HostBindingCompilationJob, event: e.ParsedEvent) {
+function ingestHostEvent(job: HostBindingCompilationJob, event: e.ParsedEvent) {
   let eventBinding: ir.CreateOp;
   if (event.type === e.ParsedEventType.Animation) {
     eventBinding = ir.createAnimationListenerOp(
@@ -283,8 +327,13 @@ function ingestElement(unit: ViewCompilationUnit, element: t.Element): void {
 
   const id = unit.job.allocateXrefId();
 
-  const [namespaceKey, elementName] = splitNsName(element.name);
+  const foreignComp = unit.job.getForeignComponent(element);
+  if (foreignComp) {
+    ingestForeignComponent(unit, id, element, foreignComp);
+    return;
+  }
 
+  const [namespaceKey, elementName] = splitNsName(element.name);
   const startOp = ir.createElementStartOp(
     elementName,
     id,
@@ -324,6 +373,73 @@ function ingestElement(unit: ViewCompilationUnit, element: t.Element): void {
       endOp,
     );
   }
+}
+
+/**
+ * Ingest a foreign component's element AST from the template into the given `ViewCompilation`.
+ */
+function ingestForeignComponent(
+  unit: ViewCompilationUnit,
+  id: ir.XrefId,
+  element: t.Element,
+  foreignComp: R3ForeignComponentMetadata,
+): void {
+  const props = new Map<string, o.Expression>();
+  for (const attr of element.attributes) {
+    props.set(attr.name, o.literal(attr.value));
+  }
+  for (const input of element.inputs) {
+    props.set(input.name, convertAst(input.value, unit.job, input.sourceSpan));
+  }
+
+  const contentBlocks: t.ContentBlock[] = [];
+  const childNodes: t.Node[] = [];
+
+  for (const child of element.children) {
+    if (child instanceof t.ContentBlock) {
+      contentBlocks.push(child);
+    } else {
+      childNodes.push(child);
+    }
+  }
+
+  for (const block of contentBlocks) {
+    const blockView = unit.job.allocateView(unit.xref);
+
+    // @content block variables map directly to the arguments array passed to the calling render
+    // function. We set the context variable's value to its index in the block's variables list
+    // so that code generation resolves it to its corresponding index in the arguments array.
+    for (let i = 0; i < block.variables.length; i++) {
+      blockView.contextVariables.set(block.variables[i].name, i);
+    }
+
+    ingestNodes(blockView, block.children);
+
+    unit.create.push(
+      ir.createContentOp(id, blockView.xref, block.name, block.startSourceSpan, block.sourceSpan),
+    );
+  }
+
+  if (childNodes.length > 0) {
+    const childView = unit.job.allocateView(unit.xref);
+    ingestNodes(childView, childNodes);
+
+    unit.create.push(
+      ir.createContentOp(
+        id,
+        childView.xref,
+        'children',
+        element.startSourceSpan,
+        element.sourceSpan,
+      ),
+    );
+  }
+
+  // Foreign components are created in the creation block. Updates are triggered reactively
+  // through directly passed signal properties, alleviating the need for any explicit update
+  // operations.
+  const constIndex = unit.job.addConst(foreignComp.component);
+  unit.create.push(ir.createForeignComponentOp(id, constIndex, props, element.startSourceSpan));
 }
 
 /**
@@ -1883,7 +1999,10 @@ function ingestControlFlowInsertionPoint(
     }
 
     // Root nodes can only elements or templates with a tag name (e.g. `<div *foo></div>`).
-    if (child instanceof t.Element || (child instanceof t.Template && child.tagName !== null)) {
+    if (
+      (child instanceof t.Element && unit.job.getForeignComponent(child) === null) ||
+      (child instanceof t.Template && child.tagName !== null)
+    ) {
       root = child;
     } else {
       return null;

@@ -7,7 +7,7 @@
  */
 
 import {CommonModule, ɵPLATFORM_BROWSER_ID as PLATFORM_BROWSER_ID} from '@angular/common';
-import {isBrowser} from '@angular/private/testing';
+import {isBrowser, timeout} from '@angular/private/testing';
 import {ActivatedRoute, provideRouter, Router, RouterOutlet} from '@angular/router';
 import {Console} from '../../src/console';
 import {
@@ -48,7 +48,7 @@ import {ChainedInjector} from '../../src/render3/chained_injector';
 import {getComponentDef} from '../../src/render3/def_getters';
 import {getInjectorResolutionPath} from '../../src/render3/util/injector_discovery_utils';
 import {global} from '../../src/util/global';
-import {ComponentFixture, DeferBlockBehavior, fakeAsync, flush, TestBed, tick} from '../../testing';
+import {ComponentFixture, DeferBlockBehavior, DeferBlockState, TestBed} from '../../testing';
 
 /**
  * Clears all associated directive defs from a given component class.
@@ -105,18 +105,41 @@ async function verifyTimeline(
   fixture: ComponentFixture<unknown>,
   ...slots: Array<[time: number, expected: string | VoidFunction]>
 ) {
+  let actualTime = 0;
   for (let i = 0; i < slots.length; i++) {
-    const timeToWait = i === 0 ? slots[0][0] : slots[i][0] - slots[i - 1][0];
+    const targetVirtualTime = slots[i][0];
     const slotValue = slots[i][1];
-    // This is an action, just invoke a function.
+
     if (typeof slotValue === 'function') {
+      const waitTime = Math.max(0, targetVirtualTime - actualTime);
+      if (waitTime > 0) {
+        await timeout(waitTime);
+        actualTime += waitTime;
+      }
       slotValue();
-    }
-    tick(timeToWait);
-    fixture.detectChanges();
-    if (typeof slotValue === 'string') {
-      const actual = fixture.nativeElement.textContent.trim();
-      expect(actual).withContext(`${slots[i][0]}ms`).toBe(slotValue);
+    } else {
+      const waitTime = Math.max(0, targetVirtualTime - actualTime);
+      if (waitTime > 0) {
+        await timeout(waitTime);
+        actualTime += waitTime;
+      }
+
+      let actual = '';
+      let waited = 0;
+      const maxWait = 40; // max ms to poll for the expected state
+
+      while (waited <= maxWait) {
+        fixture.detectChanges();
+        actual = fixture.nativeElement.textContent.trim();
+        if (actual === slotValue) {
+          break;
+        }
+        await timeout(1);
+        waited += 1;
+        actualTime += 1;
+      }
+
+      expect(actual).withContext(`${targetVirtualTime}ms (actual ${actualTime}ms)`).toBe(slotValue);
     }
   }
 }
@@ -876,7 +899,7 @@ describe('@defer', () => {
   });
 
   describe('minimum and after conditions', () => {
-    it('should support minimum and after conditions', fakeAsync(() => {
+    it('should support minimum and after conditions', async () => {
       const {trigger, fixture} = createFixture(`
             @defer (when trigger; prefetch when prefetchTrigger) {
               <nested-cmp [block]="'Main'" />
@@ -889,7 +912,7 @@ describe('@defer', () => {
             }
           `);
 
-      verifyTimeline(
+      await verifyTimeline(
         fixture,
         [50, 'Placeholder'],
         [100, trigger(170)],
@@ -898,9 +921,9 @@ describe('@defer', () => {
         [300, 'Loading'],
         [450, 'Main'],
       );
-    }));
+    });
 
-    it('should support @placeholder with `minimum`', fakeAsync(() => {
+    it('should support @placeholder with `minimum`', async () => {
       const {trigger, fixture} = createFixture(`
           @defer (when trigger; prefetch when prefetchTrigger) {
             <nested-cmp [block]="'Main'" />
@@ -909,10 +932,10 @@ describe('@defer', () => {
           }
         `);
 
-      verifyTimeline(fixture, [0, trigger(40)], [90, 'Placeholder'], [100, 'Main']);
-    }));
+      await verifyTimeline(fixture, [0, trigger(40)], [90, 'Placeholder'], [100, 'Main']);
+    });
 
-    it('should keep rendering @placeholder if trigger happened later', fakeAsync(() => {
+    it('should keep rendering @placeholder if trigger happened later', async () => {
       const {trigger, fixture} = createFixture(`
           @defer (when trigger; prefetch when prefetchTrigger) {
             <nested-cmp [block]="'Main'" />
@@ -921,18 +944,18 @@ describe('@defer', () => {
           }
         `);
 
-      verifyTimeline(
+      await verifyTimeline(
         fixture,
         [0, 'Placeholder'],
         [50, trigger(20)],
         [90, 'Placeholder'],
         [100, 'Main'],
       );
-    }));
+    });
 
     it(
       'should transition from @placeholder to primary content ' + 'if it was prefetched',
-      fakeAsync(() => {
+      async () => {
         const {trigger, triggerPrefetch, fixture} = createFixture(`
          @defer (when trigger; prefetch when prefetchTrigger) {
            <nested-cmp [block]="'Main'" />
@@ -941,7 +964,7 @@ describe('@defer', () => {
          }
        `);
 
-        verifyTimeline(
+        await verifyTimeline(
           fixture,
           [0, 'Placeholder'],
           [20, triggerPrefetch(20)],
@@ -949,10 +972,10 @@ describe('@defer', () => {
           [200, trigger(0)],
           [225, 'Main'],
         );
-      }),
+      },
     );
 
-    it('should support @loading with `minimum`', fakeAsync(() => {
+    it('should support @loading with `minimum`', async () => {
       const {trigger, fixture} = createFixture(`
           @defer (when trigger; prefetch when prefetchTrigger) {
             <nested-cmp [block]="'Main'" />
@@ -961,7 +984,7 @@ describe('@defer', () => {
           }
         `);
 
-      verifyTimeline(
+      await verifyTimeline(
         fixture,
         [0, trigger(20)],
         // Even though loading happened in 20ms,
@@ -970,9 +993,9 @@ describe('@defer', () => {
         [95, 'Loading'],
         [100, 'Main'],
       );
-    }));
+    });
 
-    it('should support @loading with `after` and `minimum`', fakeAsync(() => {
+    it('should support @loading with `after` and `minimum`', async () => {
       const {trigger, fixture} = createFixture(`
          @defer (when trigger; prefetch when prefetchTrigger) {
            <nested-cmp [block]="'Main'" />
@@ -981,7 +1004,7 @@ describe('@defer', () => {
          }
        `);
 
-      verifyTimeline(
+      await verifyTimeline(
         fixture,
         [0, trigger(150)],
         [50, ''],
@@ -992,9 +1015,9 @@ describe('@defer', () => {
         // Render main content after `after` + `minimum` ms.
         [300, 'Main'],
       );
-    }));
+    });
 
-    it('should skip @loading when resources were prefetched', fakeAsync(() => {
+    it('should skip @loading when resources were prefetched', async () => {
       const {trigger, triggerPrefetch, fixture} = createFixture(`
           @defer (when trigger; prefetch when prefetchTrigger) {
             <nested-cmp [block]="'Main'" />
@@ -1003,7 +1026,7 @@ describe('@defer', () => {
           }
         `);
 
-      verifyTimeline(
+      await verifyTimeline(
         fixture,
         [0, triggerPrefetch(50)],
         [50, ''],
@@ -1013,7 +1036,7 @@ describe('@defer', () => {
         // resources were already preloaded.
         [125, 'Main'],
       );
-    }));
+    });
   });
 
   describe('error handling', () => {
@@ -2874,7 +2897,7 @@ describe('@defer', () => {
   // Note: these cases specifically use `on interaction`, however
   // the resolution logic is the same for all triggers.
   describe('trigger resolution', () => {
-    it('should resolve a trigger is outside the defer block', fakeAsync(() => {
+    it('should resolve a trigger is outside the defer block', async () => {
       @Component({
         template: `
           @defer (on interaction(trigger)) {
@@ -2902,11 +2925,11 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should resolve a trigger on a component outside the defer block', fakeAsync(() => {
+    it('should resolve a trigger on a component outside the defer block', async () => {
       @Component({
         selector: 'some-comp',
         template: '<button></button>',
@@ -2942,11 +2965,11 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should resolve a trigger that is on a parent element', fakeAsync(() => {
+    it('should resolve a trigger that is on a parent element', async () => {
       @Component({
         template: `
           <button #trigger>
@@ -2972,11 +2995,11 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should resolve a trigger that is inside a parent embedded view', fakeAsync(() => {
+    it('should resolve a trigger that is inside a parent embedded view', async () => {
       @Component({
         template: `
           @if (cond) {
@@ -3006,11 +3029,11 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should resolve a trigger that is on a component in a parent embedded view', fakeAsync(() => {
+    it('should resolve a trigger that is on a component in a parent embedded view', async () => {
       @Component({
         selector: 'some-comp',
         template: '<button></button>',
@@ -3048,11 +3071,11 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should resolve a trigger that is inside the placeholder', fakeAsync(() => {
+    it('should resolve a trigger that is inside the placeholder', async () => {
       @Component({
         template: `
           @defer (on interaction(trigger)) {
@@ -3077,11 +3100,11 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should resolve a trigger that is a component inside the placeholder', fakeAsync(() => {
+    it('should resolve a trigger that is a component inside the placeholder', async () => {
       @Component({
         selector: 'some-comp',
         template: '<button></button>',
@@ -3114,13 +3137,13 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
   });
 
   describe('interaction triggers', () => {
-    it('should load the deferred content when the trigger is clicked', fakeAsync(() => {
+    it('should load the deferred content when the trigger is clicked', async () => {
       @Component({
         template: `
           @defer (on interaction(trigger)) {
@@ -3142,11 +3165,11 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should load the deferred content when the trigger receives a keyboard event', fakeAsync(() => {
+    it('should load the deferred content when the trigger receives a keyboard event', async () => {
       // Domino doesn't support creating custom events so we have to skip this test.
       if (!isBrowser) {
         return;
@@ -3174,11 +3197,11 @@ describe('@defer', () => {
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
       button.dispatchEvent(new Event('keydown'));
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should load the deferred content when an implicit trigger is clicked', fakeAsync(() => {
+    it('should load the deferred content when an implicit trigger is clicked', async () => {
       @Component({
         template: `
           @defer (on interaction) {
@@ -3198,12 +3221,12 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should load the deferred content if a child of the trigger is clicked', fakeAsync(() => {
+    it('should load the deferred content if a child of the trigger is clicked', async () => {
       @Component({
         template: `
           @defer (on interaction(trigger)) {
@@ -3229,11 +3252,11 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should support multiple deferred blocks with the same trigger', fakeAsync(() => {
+    it('should support multiple deferred blocks with the same trigger', async () => {
       @Component({
         template: `
           @defer (on interaction(trigger)) {
@@ -3261,11 +3284,11 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content 1  Main content 2');
-    }));
+    });
 
-    it('should unbind the trigger events when the deferred block is loaded', fakeAsync(() => {
+    it('should unbind the trigger events when the deferred block is loaded', async () => {
       @Component({
         template: `
           @defer (on interaction(trigger)) {
@@ -3286,14 +3309,14 @@ describe('@defer', () => {
 
       button.click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
 
       expect(spy).toHaveBeenCalledTimes(2);
       expect(spy).toHaveBeenCalledWith('click', jasmine.any(Function), jasmine.any(Object));
       expect(spy).toHaveBeenCalledWith('keydown', jasmine.any(Function), jasmine.any(Object));
-    }));
+    });
 
-    it('should unbind the trigger events when the trigger is destroyed', fakeAsync(() => {
+    it('should unbind the trigger events when the trigger is destroyed', async () => {
       @Component({
         template: `
           @if (renderBlock) {
@@ -3322,9 +3345,9 @@ describe('@defer', () => {
       expect(spy).toHaveBeenCalledTimes(2);
       expect(spy).toHaveBeenCalledWith('click', jasmine.any(Function), jasmine.any(Object));
       expect(spy).toHaveBeenCalledWith('keydown', jasmine.any(Function), jasmine.any(Object));
-    }));
+    });
 
-    it('should unbind the trigger events when the deferred block is destroyed', fakeAsync(() => {
+    it('should unbind the trigger events when the deferred block is destroyed', async () => {
       @Component({
         template: `
           @if (renderBlock) {
@@ -3354,9 +3377,9 @@ describe('@defer', () => {
       expect(spy).toHaveBeenCalledTimes(2);
       expect(spy).toHaveBeenCalledWith('click', jasmine.any(Function), jasmine.any(Object));
       expect(spy).toHaveBeenCalledWith('keydown', jasmine.any(Function), jasmine.any(Object));
-    }));
+    });
 
-    it('should remove placeholder content on interaction', fakeAsync(() => {
+    it('should remove placeholder content on interaction', async () => {
       @Component({
         template: `
           @defer (on interaction(trigger)) {
@@ -3385,11 +3408,11 @@ describe('@defer', () => {
       zone.run(() => {
         button.click();
       });
-      tick();
+      await timeout(0);
       expect(componentRef.location.nativeElement.innerHTML).not.toContain('<div>placeholder</div>');
-    }));
+    });
 
-    it('should prefetch resources on interaction', fakeAsync(() => {
+    it('should prefetch resources on interaction', async () => {
       @Component({
         selector: 'root-app',
         template: `
@@ -3431,12 +3454,12 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
 
       expect(loadingFnInvokedTimes).toBe(1);
-    }));
+    });
 
-    it('should prefetch resources on interaction with an implicit trigger', fakeAsync(() => {
+    it('should prefetch resources on interaction with an implicit trigger', async () => {
       @Component({
         selector: 'root-app',
         template: `
@@ -3479,14 +3502,14 @@ describe('@defer', () => {
 
       fixture.nativeElement.querySelector('button').click();
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
 
       expect(loadingFnInvokedTimes).toBe(1);
-    }));
+    });
   });
 
   describe('hover triggers', () => {
-    it('should load the deferred content when the trigger is hovered', fakeAsync(() => {
+    it('should load the deferred content when the trigger is hovered', async () => {
       // Domino doesn't support creating custom events so we have to skip this test.
       if (!isBrowser) {
         return;
@@ -3514,11 +3537,11 @@ describe('@defer', () => {
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
       button.dispatchEvent(new Event('mouseenter'));
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should load the deferred content with an implicit trigger element', fakeAsync(() => {
+    it('should load the deferred content with an implicit trigger element', async () => {
       // Domino doesn't support creating custom events so we have to skip this test.
       if (!isBrowser) {
         return;
@@ -3544,12 +3567,12 @@ describe('@defer', () => {
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
       button.dispatchEvent(new Event('mouseenter'));
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should support multiple deferred blocks with the same hover trigger', fakeAsync(() => {
+    it('should support multiple deferred blocks with the same hover trigger', async () => {
       // Domino doesn't support creating custom events so we have to skip this test.
       if (!isBrowser) {
         return;
@@ -3583,11 +3606,11 @@ describe('@defer', () => {
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
       button.dispatchEvent(new Event('mouseenter'));
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content 1  Main content 2');
-    }));
+    });
 
-    it('should unbind the trigger events when the deferred block is loaded', fakeAsync(() => {
+    it('should unbind the trigger events when the deferred block is loaded', async () => {
       // Domino doesn't support creating custom events so we have to skip this test.
       if (!isBrowser) {
         return;
@@ -3613,15 +3636,15 @@ describe('@defer', () => {
 
       button.dispatchEvent(new Event('mouseenter'));
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
 
       expect(spy).toHaveBeenCalledTimes(3);
       expect(spy).toHaveBeenCalledWith('mouseenter', jasmine.any(Function), jasmine.any(Object));
       expect(spy).toHaveBeenCalledWith('mouseover', jasmine.any(Function), jasmine.any(Object));
       expect(spy).toHaveBeenCalledWith('focusin', jasmine.any(Function), jasmine.any(Object));
-    }));
+    });
 
-    it('should unbind the trigger events when the trigger is destroyed', fakeAsync(() => {
+    it('should unbind the trigger events when the trigger is destroyed', async () => {
       // Domino doesn't support creating custom events so we have to skip this test.
       if (!isBrowser) {
         return;
@@ -3656,9 +3679,9 @@ describe('@defer', () => {
       expect(spy).toHaveBeenCalledWith('mouseenter', jasmine.any(Function), jasmine.any(Object));
       expect(spy).toHaveBeenCalledWith('mouseover', jasmine.any(Function), jasmine.any(Object));
       expect(spy).toHaveBeenCalledWith('focusin', jasmine.any(Function), jasmine.any(Object));
-    }));
+    });
 
-    it('should unbind the trigger events when the deferred block is destroyed', fakeAsync(() => {
+    it('should unbind the trigger events when the deferred block is destroyed', async () => {
       // Domino doesn't support creating custom events so we have to skip this test.
       if (!isBrowser) {
         return;
@@ -3694,9 +3717,9 @@ describe('@defer', () => {
       expect(spy).toHaveBeenCalledWith('mouseenter', jasmine.any(Function), jasmine.any(Object));
       expect(spy).toHaveBeenCalledWith('mouseover', jasmine.any(Function), jasmine.any(Object));
       expect(spy).toHaveBeenCalledWith('focusin', jasmine.any(Function), jasmine.any(Object));
-    }));
+    });
 
-    it('should prefetch resources on hover', fakeAsync(() => {
+    it('should prefetch resources on hover', async () => {
       // Domino doesn't support creating custom events so we have to skip this test.
       if (!isBrowser) {
         return;
@@ -3744,12 +3767,12 @@ describe('@defer', () => {
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
       button.dispatchEvent(new Event('mouseenter'));
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
 
       expect(loadingFnInvokedTimes).toBe(1);
-    }));
+    });
 
-    it('should prefetch resources when an implicit trigger is hovered', fakeAsync(() => {
+    it('should prefetch resources when an implicit trigger is hovered', async () => {
       // Domino doesn't support creating custom events so we have to skip this test.
       if (!isBrowser) {
         return;
@@ -3798,10 +3821,10 @@ describe('@defer', () => {
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
       button.dispatchEvent(new Event('mouseenter'));
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
 
       expect(loadingFnInvokedTimes).toBe(1);
-    }));
+    });
   });
 
   describe('`on timer` triggers', () => {
@@ -4020,7 +4043,7 @@ describe('@defer', () => {
       expect(loadingFnInvokedTimes).toBe(1);
     });
 
-    it('should trigger prefetching and rendering based on `on timer` condition', fakeAsync(() => {
+    it('should trigger prefetching and rendering based on `on timer` condition', async () => {
       const {fixture} = createFixture(`
             @defer (on timer(200ms); prefetch on timer(100ms)) {
               <nested-cmp [block]="'Main'" />
@@ -4029,10 +4052,10 @@ describe('@defer', () => {
             }
           `);
 
-      verifyTimeline(fixture, [50, 'Placeholder'], [150, 'Placeholder'], [250, 'Main']);
-    }));
+      await verifyTimeline(fixture, [50, 'Placeholder'], [150, 'Placeholder'], [250, 'Main']);
+    });
 
-    it('should clear timeout callbacks when defer block is triggered', fakeAsync(() => {
+    it('should clear timeout callbacks when defer block is triggered', async () => {
       const setSpy = spyOn(globalThis, 'setTimeout');
       const clearSpy = spyOn(globalThis, 'clearTimeout');
 
@@ -4063,7 +4086,7 @@ describe('@defer', () => {
       // condition was triggered, which resulted in timers cleanup.
       expect(setSpy).toHaveBeenCalledTimes(2);
       expect(clearSpy).toHaveBeenCalledTimes(2);
-    }));
+    });
   });
 
   describe('viewport triggers', () => {
@@ -4164,7 +4187,7 @@ describe('@defer', () => {
       }
     }
 
-    it('should load the deferred content when the trigger is in the viewport', fakeAsync(() => {
+    it('should load the deferred content when the trigger is in the viewport', async () => {
       @Component({
         template: `
           @defer (on viewport(trigger)) {
@@ -4188,11 +4211,11 @@ describe('@defer', () => {
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
       MockIntersectionObserver.invokeCallbacksForElement(button, true);
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should load the deferred content when an implicit trigger is in the viewport', fakeAsync(() => {
+    it('should load the deferred content when an implicit trigger is in the viewport', async () => {
       @Component({
         template: `
           @defer (on viewport) {
@@ -4214,12 +4237,12 @@ describe('@defer', () => {
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
       MockIntersectionObserver.invokeCallbacksForElement(button, true);
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should not load the content if the trigger is not in the view yet', fakeAsync(() => {
+    it('should not load the content if the trigger is not in the view yet', async () => {
       @Component({
         template: `
           @defer (on viewport(trigger)) {
@@ -4243,22 +4266,22 @@ describe('@defer', () => {
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
       MockIntersectionObserver.invokeCallbacksForElement(button, false);
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Placeholder');
 
       MockIntersectionObserver.invokeCallbacksForElement(button, false);
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Placeholder');
 
       MockIntersectionObserver.invokeCallbacksForElement(button, true);
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
 
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
-    }));
+    });
 
-    it('should support multiple deferred blocks with the same trigger', fakeAsync(() => {
+    it('should support multiple deferred blocks with the same trigger', async () => {
       @Component({
         template: `
           @defer (on viewport(trigger)) {
@@ -4287,11 +4310,11 @@ describe('@defer', () => {
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
       MockIntersectionObserver.invokeCallbacksForElement(button, true);
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
       expect(fixture.nativeElement.textContent.trim()).toBe('Main content 1  Main content 2');
-    }));
+    });
 
-    it('should stop observing the trigger when the deferred block is loaded', fakeAsync(() => {
+    it('should stop observing the trigger when the deferred block is loaded', async () => {
       @Component({
         template: `
           @defer (on viewport(trigger)) {
@@ -4314,13 +4337,13 @@ describe('@defer', () => {
 
       MockIntersectionObserver.invokeCallbacksForElement(button, true);
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
 
       expect(activeObservers.length).toBe(1);
       expect(activeObservers[0].observedElements.size).toBe(0);
-    }));
+    });
 
-    it('should stop observing the trigger when the trigger is destroyed', fakeAsync(() => {
+    it('should stop observing the trigger when the trigger is destroyed', async () => {
       @Component({
         template: `
           @if (renderBlock) {
@@ -4350,9 +4373,9 @@ describe('@defer', () => {
 
       expect(activeObservers.length).toBe(1);
       expect(activeObservers[0].observedElements.size).toBe(0);
-    }));
+    });
 
-    it('should stop observing the trigger when the deferred block is destroyed', fakeAsync(() => {
+    it('should stop observing the trigger when the deferred block is destroyed', async () => {
       @Component({
         template: `
           @if (renderBlock) {
@@ -4383,9 +4406,9 @@ describe('@defer', () => {
 
       expect(activeObservers.length).toBe(1);
       expect(activeObservers[0].observedElements.size).toBe(0);
-    }));
+    });
 
-    it('should disconnect the intersection observer once all deferred blocks have been loaded', fakeAsync(() => {
+    it('should disconnect the intersection observer once all deferred blocks have been loaded', async () => {
       @Component({
         template: `
           <button #triggerOne></button>
@@ -4424,9 +4447,9 @@ describe('@defer', () => {
 
       expect(disconnectSpy).toHaveBeenCalled();
       expect(observer.observedElements.size).toBe(0);
-    }));
+    });
 
-    it('should prefetch resources when the trigger comes into the viewport', fakeAsync(() => {
+    it('should prefetch resources when the trigger comes into the viewport', async () => {
       @Component({
         selector: 'root-app',
         template: `
@@ -4469,12 +4492,12 @@ describe('@defer', () => {
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
       MockIntersectionObserver.invokeCallbacksForElement(button, true);
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
 
       expect(loadingFnInvokedTimes).toBe(1);
-    }));
+    });
 
-    it('should prefetch resources when an implicit trigger comes into the viewport', fakeAsync(() => {
+    it('should prefetch resources when an implicit trigger comes into the viewport', async () => {
       @Component({
         selector: 'root-app',
         template: `
@@ -4518,12 +4541,12 @@ describe('@defer', () => {
       const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
       MockIntersectionObserver.invokeCallbacksForElement(button, true);
       fixture.detectChanges();
-      flush();
+      await fixture.whenStable();
 
       expect(loadingFnInvokedTimes).toBe(1);
-    }));
+    });
 
-    it('should load deferred content in a loop', fakeAsync(() => {
+    it('should load deferred content in a loop', async () => {
       // prettier-ignore
       @Component({
         template: `
@@ -4532,8 +4555,8 @@ describe('@defer', () => {
                 @placeholder {<button>p{{item}} </button>}
               }
            `,
-      
-        changeDetection: ChangeDetectionStrategy.Eager,})
+        changeDetection: ChangeDetectionStrategy.Eager,
+      })
       class MyCmp {
         items = [1, 2, 3, 4, 5, 6];
       }
@@ -4550,7 +4573,7 @@ describe('@defer', () => {
       for (let i = 0; i < items.length / 2; i++) {
         MockIntersectionObserver.invokeCallbacksForElement(buttons[i], true);
         fixture.detectChanges();
-        flush();
+        await fixture.whenStable();
       }
       expect(fixture.nativeElement.textContent.trim()).toBe('d1 d2 d3 p4 p5 p6');
 
@@ -4558,12 +4581,12 @@ describe('@defer', () => {
       for (let i = items.length / 2; i < items.length; i++) {
         MockIntersectionObserver.invokeCallbacksForElement(buttons[i], true);
         fixture.detectChanges();
-        flush();
+        await fixture.whenStable();
       }
       expect(fixture.nativeElement.textContent.trim()).toBe('d1 d2 d3 d4 d5 d6');
-    }));
+    });
 
-    it('should take the `on viewport` options into account when creating IntersectionObserver', fakeAsync(() => {
+    it('should take the `on viewport` options into account when creating IntersectionObserver', async () => {
       @Component({
         template: `
           @defer (on viewport({trigger, rootMargin: '123px', threshold: 0.5})) {
@@ -4584,9 +4607,9 @@ describe('@defer', () => {
       expect(activeObservers[0].observedElements.size).toBe(1);
       expect(activeObservers[0].observedElements.has(button)).toBe(true);
       expect(activeObservers[0].options).toEqual({rootMargin: '123px', threshold: 0.5});
-    }));
+    });
 
-    it('should take the `prefetch on viewport` options into account when creating IntersectionObserver', fakeAsync(() => {
+    it('should take the `prefetch on viewport` options into account when creating IntersectionObserver', async () => {
       @Component({
         template: `
           @defer (prefetch on viewport({trigger, rootMargin: '123px', threshold: 0.5})) {
@@ -4607,9 +4630,9 @@ describe('@defer', () => {
       expect(activeObservers[0].observedElements.size).toBe(1);
       expect(activeObservers[0].observedElements.has(button)).toBe(true);
       expect(activeObservers[0].options).toEqual({rootMargin: '123px', threshold: 0.5});
-    }));
+    });
 
-    it('should create different intersection observers depending on their options', fakeAsync(() => {
+    it('should create different intersection observers depending on their options', async () => {
       @Component({
         template: `
           @defer (on viewport(trigger)) {
@@ -4651,7 +4674,37 @@ describe('@defer', () => {
       expect(activeObservers[2].observedElements.size).toBe(1);
       expect(activeObservers[2].observedElements.has(button)).toBe(true);
       expect(activeObservers[2].options).toEqual({rootMargin: '1vh'});
-    }));
+    });
+
+    it('should not attach observer if rendering manually', async () => {
+      @Component({
+        template: `
+          @defer (on viewport(trigger)) {
+            Main content
+          } @placeholder {
+            Placeholder
+          }
+
+          <button #trigger></button>
+        `,
+      })
+      class MyCmp {}
+
+      TestBed.configureTestingModule({
+        deferBlockBehavior: DeferBlockBehavior.Manual,
+      });
+      const fixture = TestBed.createComponent(MyCmp);
+      fixture.detectChanges();
+
+      expect(activeObservers.length).toBe(0);
+      expect(fixture.nativeElement.textContent.trim()).toBe('Placeholder');
+
+      const deferBlock = (await fixture.getDeferBlocks())[0];
+      await deferBlock.render(DeferBlockState.Complete);
+
+      expect(activeObservers.length).toBe(0);
+      expect(fixture.nativeElement.textContent.trim()).toBe('Main content');
+    });
   });
 
   describe('DOM-based events cleanup', () => {

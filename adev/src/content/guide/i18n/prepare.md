@@ -48,6 +48,26 @@ The following example shows the `<ng-container>` element transformed into a non-
 
 <docs-code path="adev/src/content/examples/i18n/src/app/app.component.html" region="i18n-ng-container"/>
 
+### Name the interpolation placeholder
+
+By default, Angular generates a placeholder name for each interpolation in a translated message. To give it a meaningful name that helps translators understand the context, add an `//i18n(ph="name")` comment inside the interpolation.
+
+```html
+<element i18n>{{ expression //i18n(ph="placeholder_name") }}</element>
+```
+
+For example:
+
+```html
+<p i18n>Hello, {{ username //i18n(ph="name") }}!</p>
+```
+
+This is the template equivalent of naming a placeholder in component code with [`$localize`][ApiLocalizeInitLocalize]:
+
+```ts
+$localize`Hello, ${username}:name:!`;
+```
+
 ## Mark element attributes for translations
 
 In a component template, the i18n metadata is the value of the `i18n-{attribute_name}` attribute.
@@ -383,5 +403,5 @@ The following code example shows nested clauses based on the `gender` and `minut
 [GithubAngularAngularBlobEcffc3557fe1bff9718c01277498e877ca44588dPackagesCoreSrcI18nLocaleEnTsL14L18]: https://github.com/angular/angular/blob/ecffc3557fe1bff9718c01277498e877ca44588d/packages/core/src/i18n/locale_en.ts#L14-L18 'Line 14 to 18 - angular/packages/core/src/i18n/locale_en.ts | angular/angular | GitHub'
 [GithubUnicodeOrgIcuUserguideFormatParseMessages]: https://unicode-org.github.io/icu/userguide/format_parse/messages 'ICU Message Format - ICU Documentation | Unicode | GitHub'
 [UnicodeCldrMain]: https://cldr.unicode.org 'Unicode CLDR Project'
-[UnicodeCldrIndexCldrSpecPluralRules]: http://cldr.unicode.org/index/cldr-spec/plural-rules 'Plural Rules | CLDR - Unicode Common Locale Data Repository | Unicode'
-[UnicodeCldrIndexCldrSpecPluralRulesTocChoosingPluralCategoryNames]: http://cldr.unicode.org/index/cldr-spec/plural-rules#TOC-Choosing-Plural-Category-Names 'Choosing Plural Category Names - Plural Rules | CLDR - Unicode Common Locale Data Repository | Unicode'
+[UnicodeCldrIndexCldrSpecPluralRules]: https://cldr.unicode.org/index/cldr-spec/plural-rules 'Plural Rules | CLDR - Unicode Common Locale Data Repository | Unicode'
+[UnicodeCldrIndexCldrSpecPluralRulesTocChoosingPluralCategoryNames]: https://cldr.unicode.org/index/cldr-spec/plural-rules#TOC-Choosing-Plural-Category-Names 'Choosing Plural Category Names - Plural Rules | CLDR - Unicode Common Locale Data Repository | Unicode'

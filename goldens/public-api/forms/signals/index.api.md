@@ -17,7 +17,7 @@ import { InputSignalWithTransform } from '@angular/core';
 import { ModelSignal } from '@angular/core';
 import { OutputRef } from '@angular/core';
 import { Provider } from '@angular/core';
-import { ResourceRef } from '@angular/core';
+import { Resource } from '@angular/core';
 import { Signal } from '@angular/core';
 import { StandardSchemaV1 } from '@standard-schema/spec';
 import { WritableSignal } from '@angular/core';
@@ -46,7 +46,7 @@ export type AsyncValidationResult<E extends ValidationError = ValidationError> =
 // @public
 export interface AsyncValidatorOptions<TValue, TParams, TResult, TPathKind extends PathKind = PathKind.Root> {
     readonly debounce?: DebounceTimer<TParams | undefined>;
-    readonly factory: (params: Signal<TParams | undefined>) => ResourceRef<TResult | undefined>;
+    readonly factory: (params: Signal<TParams | undefined>) => Resource<TResult | undefined>;
     readonly onError: (error: unknown, ctx: FieldContext<TValue, TPathKind>) => TreeValidationResult;
     readonly onSuccess: MapToErrorsFn<TValue, TResult, TPathKind>;
     readonly params: (ctx: FieldContext<TValue, TPathKind>) => TParams;
@@ -138,6 +138,10 @@ export type FieldContext<TValue, TPathKind extends PathKind = PathKind.Root> = T
 export interface FieldState<TValue, TKey extends string | number = string | number> extends ReadonlyFieldState<TValue, TKey> {
     readonly controlValue: WritableSignal<TValue>;
     readonly fieldTree: FieldTree<unknown, TKey>;
+    getError<K extends NgValidationError['kind']>(kind: K): (Extract<NgValidationError, {
+        kind: K;
+    }> & ValidationError.WithFieldTree) | undefined;
+    // (undocumented)
     getError(kind: string): ValidationError.WithFieldTree | undefined;
     markAsDirty(): void;
     markAsTouched(options?: MarkAsTouchedOptions): void;
@@ -270,12 +274,12 @@ export interface FormValueControl<TValue> extends FormUiControl<TValue> {
 }
 
 // @public
-export function hidden<TValue, TPathKind extends PathKind = PathKind.Root>(path: SchemaPath<TValue, SchemaPathRules.Supported, TPathKind>, config: {
-    when: NoInfer<LogicFn<TValue, boolean, TPathKind>>;
+export function hidden<TValue, TPathKind extends PathKind = PathKind.Root>(path: SchemaPath<TValue, SchemaPathRules.Supported, TPathKind>, config?: {
+    when?: NoInfer<LogicFn<TValue, boolean, TPathKind>>;
 }): void;
 
 // @public @deprecated
-export function hidden<TValue, TPathKind extends PathKind = PathKind.Root>(path: SchemaPath<TValue, SchemaPathRules.Supported, TPathKind>, logic: NoInfer<LogicFn<TValue, boolean, TPathKind>>): void;
+export function hidden<TValue, TPathKind extends PathKind = PathKind.Root>(path: SchemaPath<TValue, SchemaPathRules.Supported, TPathKind>, logic?: NoInfer<LogicFn<TValue, boolean, TPathKind>>): void;
 
 // @public
 export interface HttpValidatorOptions<TValue, TResult, TPathKind extends PathKind = PathKind.Root> {
@@ -294,6 +298,9 @@ export type IgnoreUnknownProperties<T> = T extends Record<PropertyKey, unknown> 
 
 // @public
 export const IS_ASYNC_VALIDATION_RESOURCE: unique symbol;
+
+// @public
+export function isFieldTree(value: unknown): value is FieldTree<unknown>;
 
 // @public
 export interface ItemFieldContext<TValue> extends ChildFieldContext<TValue> {
@@ -585,7 +592,6 @@ export interface ReadonlyFieldState<TValue, TKey extends string | number = strin
     readonly disabled: Signal<boolean>;
     // (undocumented)
     readonly disabledReasons: Signal<readonly DisabledReason[]>;
-    // (undocumented)
     readonly errors: Signal<ValidationError.WithFieldTree[]>;
     readonly errorSummary: Signal<ValidationError.WithFieldTree[]>;
     readonly fieldTree: ReadonlyFieldTree<unknown, TKey>;

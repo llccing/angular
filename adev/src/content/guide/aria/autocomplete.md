@@ -149,73 +149,79 @@ Highlight mode allows the user to navigate options with arrow keys without chang
   </docs-tab>
 </docs-tab-group>
 
-## APIs
+### Signal Forms Integration
 
-### Combobox Directive
+Angular Aria integrates seamlessly with the signal-based [Signal Forms](guide/forms/signals/overview) API. You can encapsulate complex inputs into reusable custom control components implementing `FormValueControl`.
 
-The `ngCombobox` directive is applied directly onto the editable text `<input>` or `<textarea>` to manage keyboard triggers and popover states.
+The following example demonstrates a country selector component implementing `FormValueControl<string>`, bound to the parent form using `[formField]` and protected by schema validation rules.
 
-#### Inputs
+<docs-code-multifile preview hideCode path="adev/src/content/examples/aria/autocomplete/src/signal-forms/app/app.ts">
+  <docs-code header="app.ts" path="adev/src/content/examples/aria/autocomplete/src/signal-forms/app/app.ts"/>
+  <docs-code header="app.html" path="adev/src/content/examples/aria/autocomplete/src/signal-forms/app/app.html"/>
+  <docs-code header="country-selector.ts" path="adev/src/content/examples/aria/autocomplete/src/signal-forms/app/country-selector.ts"/>
+  <docs-code header="country-selector.html" path="adev/src/content/examples/aria/autocomplete/src/signal-forms/app/country-selector.html"/>
+  <docs-code header="country-selector.css" path="adev/src/content/examples/aria/autocomplete/src/signal-forms/app/country-selector.css"/>
+  <docs-code header="app.css" path="adev/src/content/examples/aria/autocomplete/src/signal-forms/app/app.css"/>
+</docs-code-multifile>
 
-| Property           | Type                  | Default     | Description                                                     |
-| ------------------ | --------------------- | ----------- | --------------------------------------------------------------- |
-| `disabled`         | `boolean`             | `false`     | Disables the combobox                                           |
-| `softDisabled`     | `boolean`             | `true`      | Focusable when disabled                                         |
-| `inlineSuggestion` | `string \| undefined` | `undefined` | Displays an inline completion suggestion for autocomplete modes |
+## Testing
 
-#### Models
+The autocomplete pattern can be tested using a combination of `ComboboxHarness` and `ListboxHarness` from `@angular/aria/combobox/testing` and `@angular/aria/listbox/testing`.
+Here is an example of how to use the harnesses to test an autocomplete component:
 
-| Property   | Type                   | Default | Description                                                       |
-| ---------- | ---------------------- | ------- | ----------------------------------------------------------------- |
-| `value`    | `ModelSignal<string>`  | `''`    | Two-way bindable value of the input using `[(value)]`             |
-| `expanded` | `ModelSignal<boolean>` | `false` | Two-way bindable expanded state of the popup using `[(expanded)]` |
+```typescript
+import {ComponentFixture, TestBed} from '@angular/core/testing';
+import {HarnessLoader} from '@angular/cdk/testing';
+import {TestbedHarnessEnvironment} from '@angular/cdk/testing/testbed';
+import {ComboboxHarness} from '@angular/aria/combobox/testing';
+import {ListboxHarness} from '@angular/aria/listbox/testing';
+import {MyAutocompleteComponent} from './my-autocomplete'; // Your component
 
----
+describe('MyAutocompleteComponent', () => {
+  let fixture: ComponentFixture<MyAutocompleteComponent>;
+  let loader: HarnessLoader;
 
-### ComboboxPopup Directive
+  beforeEach(async () => {
+    TestBed.configureTestingModule({
+      imports: [MyAutocompleteComponent],
+    });
 
-A structural directive applied to `<ng-template>` to mark the container used as the popup.
+    fixture = TestBed.createComponent(MyAutocompleteComponent);
+    await fixture.whenStable();
+    loader = TestbedHarnessEnvironment.loader(fixture);
+  });
 
-#### Inputs
+  it('should filter options based on input', async () => {
+    const combobox = await loader.getHarness(ComboboxHarness);
 
-| Property   | Type       | Description                                 |
-| ---------- | ---------- | ------------------------------------------- |
-| `combobox` | `Combobox` | Required reference to the parent `Combobox` |
+    // Type in the input to trigger filtering
+    await combobox.setValue('ap');
+    expect(await combobox.isOpen()).toBe(true);
 
----
+    // Get the listbox harness from the popup
+    const listbox = await combobox.getPopupWidget(ListboxHarness);
+    const options = await listbox.getOptions();
 
-### ComboboxWidget Directive
+    // Verify options are filtered (e.g., 'Apple', 'Apricot')
+    expect(options.length).toBe(2);
+    expect(await options[0].getText()).toBe('Apple');
 
-Applied to the popup content container to bridge active-descendant focus changes to the input trigger.
+    // Select the first option
+    await options[0].click();
 
-#### Inputs
+    // Verify the input value is updated and popup is closed
+    expect(await combobox.isOpen()).toBe(false);
+    expect(await combobox.getValue()).toBe('Apple');
+  });
+});
+```
 
-| Property           | Type                  | Description                                                                       |
-| ------------------ | --------------------- | --------------------------------------------------------------------------------- |
-| `activeDescendant` | `string \| undefined` | The ID of the currently active descendant (bound to `listbox.activeDescendant()`) |
+## API reference
 
----
+For detailed API documentation, inspect the following API references:
 
-### Listbox Directives
-
-Autocomplete suggestion lists use the standard standalone listbox directives.
-
-#### Inputs
-
-| Property        | Type                               | Default    | Description                                                                                          |
-| --------------- | ---------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------- |
-| `selectionMode` | `'follow'` \| `'explicit'`         | `'follow'` | In manual/explicit mode, updates are committed explicitly on click/Enter rather than following focus |
-| `focusMode`     | `'roving'` \| `'activedescendant'` | `'roving'` | Set to `'activedescendant'` so browser focus stays on the trigger input                              |
-| `tabIndex`      | `number`                           | `0`        | Set to `-1` to prevent keyboard tab focus from entering the popup listbox container                  |
-
-#### Models
-
-| Property | Type                 | Description                                                 |
-| -------- | -------------------- | ----------------------------------------------------------- |
-| `value`  | `ModelSignal<any[]>` | Two-way bindable array of selected values using `[(value)]` |
-
----
-
-### Related components
-
-Autocomplete uses standard standalone [Listbox](/api/aria/listbox/Listbox) and [Option](/api/aria/listbox/Option) directives. See the [Listbox documentation](/guide/aria/listbox) for advanced options.
+- [`Combobox`](/api/aria/combobox/Combobox)
+- [`ComboboxPopup`](/api/aria/combobox/ComboboxPopup)
+- [`ComboboxWidget`](/api/aria/combobox/ComboboxWidget)
+- [`Listbox`](/api/aria/listbox/Listbox)
+- [`Option`](/api/aria/listbox/Option)

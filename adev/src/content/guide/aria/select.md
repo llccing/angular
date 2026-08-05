@@ -159,57 +159,69 @@ Selects can be disabled to prevent user interaction when certain form conditions
 
 When disabled, the select shows a disabled visual state and blocks all user interaction. Screen readers announce the disabled state to assistive technology users.
 
-## APIs
+## Testing
 
-The select pattern uses the following directives from Angular's Aria library. See the full API documentation in the linked guides.
+The select pattern can be tested using a combination of `ComboboxHarness` and `ListboxHarness` from `@angular/aria/combobox/testing` and `@angular/aria/listbox/testing`.
+Here is an example of how to use the harnesses to test a select component:
 
-### Combobox Directives
+```typescript
+import {ComponentFixture, TestBed} from '@angular/core/testing';
+import {HarnessLoader} from '@angular/cdk/testing';
+import {TestbedHarnessEnvironment} from '@angular/cdk/testing/testbed';
+import {ComboboxHarness} from '@angular/aria/combobox/testing';
+import {ListboxHarness} from '@angular/aria/listbox/testing';
+import {MySelectComponent} from './my-select'; // Your component
 
-The select pattern applies `ngCombobox` directly onto a non-interactive host element (such as a `div` or a `button`) to prevent text input while preserving keyboard navigation.
+describe('MySelectComponent', () => {
+  let fixture: ComponentFixture<MySelectComponent>;
+  let loader: HarnessLoader;
 
-#### Inputs
+  beforeEach(async () => {
+    TestBed.configureTestingModule({
+      imports: [MySelectComponent],
+    });
 
-| Property   | Type                   | Default | Description                |
-| ---------- | ---------------------- | ------- | -------------------------- |
-| `disabled` | `boolean`              | `false` | Disables the entire select |
-| `expanded` | `ModelSignal<boolean>` | `false` | Expanded state of select   |
+    fixture = TestBed.createComponent(MySelectComponent);
+    await fixture.whenStable();
+    loader = TestbedHarnessEnvironment.loader(fixture);
+  });
 
-See the [Combobox API documentation](guide/aria/combobox#apis) for complete details on all available inputs and signals.
+  it('should allow selecting an option', async () => {
+    // Load the combobox harness (which acts as the select trigger)
+    const select = await loader.getHarness(ComboboxHarness);
 
-#### Popup Directives
+    // Verify it is closed initially
+    expect(await select.isOpen()).toBe(false);
 
-The structural `ngComboboxPopup` directive marks the overlay template and requires a reference to the parent combobox:
+    // Open the dropdown
+    await select.open();
+    expect(await select.isOpen()).toBe(true);
 
-| Property   | Type       | Description                                 |
-| ---------- | ---------- | ------------------------------------------- |
-| `combobox` | `Combobox` | Required reference to the parent `Combobox` |
+    // Get the listbox harness from the popup
+    const listbox = await select.getPopupWidget(ListboxHarness);
+    const options = await listbox.getOptions();
+    expect(options.length).toBe(3);
 
-#### ComboboxWidget Directive
+    // Click the second option
+    await options[1].click();
 
-The `ngComboboxWidget` directive bridges the listbox with the combobox trigger to support active-descendant focus tracking.
+    // Verify the dropdown closed and the value updated
+    expect(await select.isOpen()).toBe(false);
+    expect(await (await select.host()).text()).toContain('Option 2');
+  });
+});
+```
 
-| Property           | Type                  | Description                                                                                                                                  |
-| ------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `activeDescendant` | `string \| undefined` | The ID of the currently active option (bound to `listbox.activeDescendant()`) to update the `aria-activedescendant` attribute on the trigger |
+## API reference
 
-### Listbox Directives
+For detailed API documentation, inspect the following API references:
 
-The select pattern uses `ngListbox` for the dropdown list and `ngOption` for each selectable item.
-
-#### Inputs
-
-| Property        | Type                               | Default      | Description                                                                                                                     |
-| --------------- | ---------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `selectionMode` | `'follow'` \| `'explicit'`         | `'explicit'` | Set to `'explicit'` so options are toggled explicitly via click/Enter instead of following active focus                         |
-| `focusMode`     | `'roving'` \| `'activedescendant'` | `'roving'`   | The focus strategy used by the listbox. Set to `'activedescendant'` so browser focus remains on the combobox trigger.           |
-| `tabIndex`      | `number`                           | `0`          | The tabindex of the listbox. Set to `-1` to prevent keyboard focus from entering the popup container in active-descendant mode. |
-
-#### Model
-
-| Property | Type                 | Description                                                                  |
-| -------- | -------------------- | ---------------------------------------------------------------------------- |
-| `value`  | `ModelSignal<any[]>` | Two-way bindable array of selected values (contains single value for select) |
+- [`Combobox`](/api/aria/combobox/Combobox)
+- [`ComboboxPopup`](/api/aria/combobox/ComboboxPopup)
+- [`ComboboxWidget`](/api/aria/combobox/ComboboxWidget)
+- [`Listbox`](/api/aria/listbox/Listbox)
+- [`Option`](/api/aria/listbox/Option)
 
 ### Positioning
 
-The select pattern integrates with [CDK Overlay](api/cdk/overlay/CdkConnectedOverlay) for smart positioning. Use `cdkConnectedOverlay` to handle viewport edges and scrolling automatically.
+The select pattern integrates with [CDK Overlay](https://material.angular.dev/cdk/overlay/overview) for smart positioning. Use `cdkConnectedOverlay` to handle viewport edges and scrolling automatically.

@@ -9,7 +9,7 @@ This table covers [Angular versions under active support](reference/releases#act
 
 | Angular                        | Node.js                             | TypeScript     | RxJS               |
 | ------------------------------ | ----------------------------------- | -------------- | ------------------ |
-| 22.0.x                         | ^22.22.0 \|\| ^24.13.1 \|\| ^26.0.0 | >=6.0.0 <6.1.0 | ^6.5.3 \|\| ^7.4.0 |
+| 22.0.x                         | ^22.22.3 \|\| ^24.15.0 \|\| ^26.0.0 | >=6.0.0 <6.1.0 | ^6.5.3 \|\| ^7.4.0 |
 | 21.0.x \|\| 21.1.x \|\| 21.2.x | ^20.19.0 \|\| ^22.12.0 \|\| ^24.0.0 | >=5.9.0 <6.0.0 | ^6.5.3 \|\| ^7.4.0 |
 | 20.2.x \|\| 20.3.x             | ^20.19.0 \|\| ^22.12.0 \|\| ^24.0.0 | >=5.8.0 <6.0.0 | ^6.5.3 \|\| ^7.4.0 |
 | 20.0.x \|\| 20.1.x             | ^20.19.0 \|\| ^22.12.0 \|\| ^24.0.0 | >=5.8.0 <5.9.0 | ^6.5.3 \|\| ^7.4.0 |
@@ -86,9 +86,9 @@ targets supporting approximately 95% of web users.
 | v21     | 2025-10-20    | [Browser Set][browsers-v21] |
 | v20     | 2025-04-30    | [Browser Set][browsers-v20] |
 
-[browsers-v22]: https://web-platform-dx.github.io/web-features/supported-browsers/?widelyAvailableOnDate=2026-05-07&includeDownstream=false
-[browsers-v21]: https://web-platform-dx.github.io/web-features/supported-browsers/?widelyAvailableOnDate=2025-10-20&includeDownstream=false
-[browsers-v20]: https://web-platform-dx.github.io/web-features/supported-browsers/?widelyAvailableOnDate=2025-04-30&includeDownstream=false
+[browsers-v22]: https://web-platform-dx.github.io/supported-browsers/?widelyAvailableOnDate=2026-05-07&includeDownstream=false
+[browsers-v21]: https://web-platform-dx.github.io/supported-browsers/?widelyAvailableOnDate=2025-10-20&includeDownstream=false
+[browsers-v20]: https://web-platform-dx.github.io/supported-browsers/?widelyAvailableOnDate=2025-04-30&includeDownstream=false
 
 Angular versions prior to v20 support the following specific browser versions:
 
